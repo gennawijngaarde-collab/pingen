@@ -1,0 +1,186 @@
+# PinGen - Pinterest Automation SaaS
+
+## Project Overview
+You are building PinGen, a Pinterest automation SaaS that helps users create, schedule, and optimize Pinterest content at scale.
+
+## Tech Stack
+- **Framework**: Next.js 14 App Router (React 18+)
+- **Language**: TypeScript (strict mode enabled)
+- **Styling**: Tailwind CSS 3.4+
+- **UI Components**: shadcn/ui
+- **Backend**: Supabase (Auth, Database, Storage)
+- **Payments**: Stripe
+- **Deployment**: Vercel
+
+## Architecture Rules
+
+### Component Types
+- **Server Components by default** - Use async components for data fetching
+- **Client Components only when necessary** - Add 'use client' directive only for:
+  - Interactive UI (buttons, forms, modals)
+  - Browser APIs (localStorage, clipboard)
+  - Real-time features
+  - Third-party client-side libraries
+
+### API Routes
+- All API routes use **Edge Runtime**
+- Error handling: Always return `{ data, error }` shape, never throw
+- Use typed request/response with Zod validation
+
+### TypeScript Rules
+- **No `any` types** - Always infer or define explicit types
+- Use `interface` for object shapes, `type` for unions/complex types
+- Export types from `src/types/` directory
+- Use satisfies operator for config objects
+
+## Design System
+
+### Colors
+- **Primary (Pinterest Red)**: `#E3001B`
+- **Primary Hover**: `#C40018`
+- **Background**: `#FFFFFF`
+- **Surface**: `#F7F7F7`
+- **Border**: `#E2E2E2`
+- **Text Primary**: `#111111`
+- **Text Secondary**: `#717171`
+- **Text Muted**: `#9CA3AF`
+- **Success**: `#22C55E`
+- **Warning**: `#F59E0B`
+
+### Typography
+- **Headings**: Inter, font-weight 700
+- **Body**: Inter, font-weight 400
+- **Small/UI**: Inter, font-weight 500
+
+### Spacing
+- Use Tailwind spacing scale (4 = 1rem = 16px)
+- Section padding: py-20 (80px vertical)
+- Container max-width: max-w-7xl (1280px)
+- Card padding: p-6 (24px)
+
+## File Structure
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (marketing)/        # Marketing pages (landing, pricing)
+│   ├── (dashboard)/        # App dashboard (protected)
+│   ├── api/                # API routes
+│   └── layout.tsx          # Root layout
+├── components/
+│   ├── ui/                 # shadcn/ui components
+│   ├── landing/            # Landing page sections
+│   ├── dashboard/          # Dashboard components
+│   └── shared/             # Shared components
+├── hooks/                  # Custom React hooks
+├── lib/                    # Utilities, configs
+│   ├── utils.ts            # cn() and helpers
+│   ├── supabase.ts         # Supabase client
+│   └── stripe.ts           # Stripe config
+├── types/                  # TypeScript types
+└── styles/                 # Global styles
+```
+
+## Naming Conventions
+- **Components**: PascalCase (e.g., `PinGenerator.tsx`)
+- **Hooks**: camelCase with use prefix (e.g., `usePins.ts`)
+- **Utils**: camelCase (e.g., `formatDate.ts`)
+- **Types**: PascalCase with suffix (e.g., `PinType.ts`)
+- **Constants**: UPPER_SNAKE_CASE
+
+## Code Patterns
+
+### Component Template
+```tsx
+// Server component (default)
+interface ComponentProps {
+  title: string;
+  children: React.ReactNode;
+}
+
+export function Component({ title, children }: ComponentProps) {
+  return (
+    <div className="...">
+      <h2>{title}</h2>
+      {children}
+    </div>
+  );
+}
+```
+
+### Client Component Template
+```tsx
+'use client';
+
+import { useState } from 'react';
+
+interface InteractiveProps {
+  initialCount: number;
+}
+
+export function Interactive({ initialCount }: InteractiveProps) {
+  const [count, setCount] = useState(initialCount);
+  
+  return (
+    <button onClick={() => setCount(c => c + 1)}>
+      Count: {count}
+    </button>
+  );
+}
+```
+
+### API Route Template
+```tsx
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+
+const requestSchema = z.object({
+  pinId: z.string().uuid(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { pinId } = requestSchema.parse(body);
+    
+    // Business logic here
+    const data = await processPin(pinId);
+    
+    return NextResponse.json({ data, error: null });
+  } catch (error) {
+    return NextResponse.json(
+      { data: null, error: error.message },
+      { status: 400 }
+    );
+  }
+}
+```
+
+## Performance Rules
+- Use `next/image` for all images
+- Lazy load below-fold sections
+- Use `loading="lazy"` for iframes
+- Minimize client-side JavaScript
+- Use Server Components for data fetching
+
+## Accessibility
+- All images have descriptive alt text
+- Interactive elements have focus states
+- Color contrast ratio >= 4.5:1
+- Support keyboard navigation
+- Use semantic HTML elements
+
+## Environment Variables
+```
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Stripe
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# App
+NEXT_PUBLIC_APP_URL=
+```
