@@ -33,16 +33,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Invalide les réponses getSession périmées (évite d'écraser un login réussi)
   const authEpochRef = useRef(0);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (authUser: SupabaseUser) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
+        .eq('id', authUser.id)
+        .maybeSingle();
 
       if (error) throw error;
-      setProfile(data as User);
+      if (data) {
+        setProfile(data as User);
+        return;
+      }
+
+      const fullName =
+        typeof authUser.user_metadata?.full_name === 'string'
+          ? authUser.user_metadata.full_name
+          : null;
+
+      const { data: created, error: insertError } = await supabase
+        .from('profiles')
+        .insert({ id: authUser.id, full_name: fullName })
+        .select('*')
+        .single();
+
+      if (insertError) throw insertError;
+      setProfile(created as User);
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
@@ -72,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled || epochAtStart !== authEpochRef.current) return;
         setUser(session?.user ?? null);
         if (session?.user) {
-          void fetchProfile(session.user.id);
+          void fetchProfile(session.user);
         }
         setIsLoading(false);
       })
@@ -90,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       setUser(session?.user ?? null);
       if (session?.user) {
-        void fetchProfile(session.user.id);
+        void fetchProfile(session.user);
       } else {
         setProfile(null);
       }
@@ -117,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       applySessionSync(nextUser);
       setIsLoading(false);
       if (nextUser) {
-        await fetchProfile(nextUser.id);
+        await fetchProfile(nextUser);
       }
     },
     [applySessionSync, fetchProfile]
@@ -136,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       applySessionSync(nextUser);
       setIsLoading(false);
-      await fetchProfile(nextUser.id);
+      await fetchProfile(nextUser);
     },
     [applySessionSync, fetchProfile]
   );
@@ -155,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       applySessionSync(session.user);
       setIsLoading(false);
-      await fetchProfile(session.user.id);
+      await fetchProfile(session.user);
     },
     [applySessionSync, fetchProfile]
   );
@@ -169,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (user) {
-      await fetchProfile(user.id);
+      await fetchProfile(user);
     }
   }, [user, fetchProfile]);
 

@@ -7,9 +7,17 @@ import {
   supabase,
   isDemoMode,
   getUserPinterestAccounts,
+  getUserSubscription,
   connectPinterestAccount,
   type PinterestAccount,
 } from '@/lib/supabase';
+import {
+  confirmStripeCheckout,
+  fetchStripeStatus,
+  openStripePortal,
+  startStripeCheckout,
+  type PaidPlan,
+} from '@/lib/stripe';
 import {
   hasPinterestConfig,
   startPinterestOAuth,
@@ -33,6 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { COMPANY } from '@/lib/company';
 import {
   User,
   Lock,
@@ -72,6 +81,8 @@ export function Settings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [stripeReady, setStripeReady] = useState(false);
+  const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
 
   const pinterestReady = Boolean(pinterestConfig?.configured || hasPinterestConfig);
   const redirectUri =
@@ -83,7 +94,19 @@ export function Settings() {
       setPinterestConfig(config);
       if (config.appId) setPinterestAppIdInput(config.appId);
     });
+    void fetchStripeStatus().then((status) => setStripeReady(status.configured));
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    void getUserSubscription(user.id)
+      .then((sub) => {
+        if (sub && typeof sub.stripe_customer_id === 'string') {
+          setStripeCustomerId(sub.stripe_customer_id);
+        }
+      })
+      .catch(() => undefined);
+  }, [user]);
 
   useEffect(() => {
     setFirstName(profile?.full_name?.split(' ')[0] || '');
@@ -429,8 +452,118 @@ export function Settings() {
     toast({ title: 'Compte déconnecté' });
   };
 
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    const canceled = searchParams.get('canceled');
+    if (!user || (!sessionId && !canceled)) return;
+
+    const clearBillingParams = () => {
+      const next = new URLSearchParams(searchParams);
+      next.delete('session_id');
+      next.delete('canceled');
+      next.set('tab', 'billing');
+      setSearchParams(next, { replace: true });
+    };
+
+    if (canceled) {
+      toast({
+        title: 'Paiement annulé',
+        description: 'Aucun changement n’a été appliqué à votre plan.',
+      });
+      clearBillingParams();
+      return;
+    }
+
+    if (!sessionId) return;
+    const lockKey = `stripe_session_${sessionId}`;
+    if (sessionStorage.getItem(lockKey)) return;
+    sessionStorage.setItem(lockKey, 'processing');
+
+    void (async () => {
+      setIsSaving(true);
+      try {
+        const confirmed = await confirmStripeCheckout(sessionId, user.id);
+        const { error } = await supabase
+          .from('profiles')
+          .update({ plan: confirmed.plan })
+          .eq('id', user.id);
+        if (error) throw error;
+
+        if (confirmed.customerId) {
+          setStripeCustomerId(confirmed.customerId);
+          const existing = await getUserSubscription(user.id);
+          if (existing?.id) {
+            await supabase
+              .from('subscriptions')
+              .update({
+                stripe_customer_id: confirmed.customerId,
+                stripe_subscription_id: confirmed.subscriptionId ?? null,
+                plan: confirmed.plan,
+                status: 'active',
+              })
+              .eq('id', existing.id);
+          } else {
+            await supabase.from('subscriptions').insert({
+              user_id: user.id,
+              stripe_customer_id: confirmed.customerId,
+              stripe_subscription_id: confirmed.subscriptionId ?? null,
+              plan: confirmed.plan,
+              status: 'active',
+            });
+          }
+        }
+
+        await refreshProfile();
+        toast({
+          title: `Plan ${confirmed.plan} activé`,
+          description: 'Votre paiement Stripe a bien été confirmé.',
+        });
+      } catch (error) {
+        toast({
+          title: 'Paiement non confirmé',
+          description: error instanceof Error ? error.message : 'Réessaie depuis Facturation.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsSaving(false);
+        clearBillingParams();
+      }
+    })();
+  }, [refreshProfile, searchParams, setSearchParams, toast, user]);
+
   const handleChangePlan = async (plan: 'starter' | 'pro' | 'business') => {
     if (!user) return;
+
+    if (plan !== 'starter' && stripeReady) {
+      setIsSaving(true);
+      try {
+        await startStripeCheckout(plan as PaidPlan, user.id, user.email || '');
+      } catch (error) {
+        setIsSaving(false);
+        toast({
+          title: 'Stripe',
+          description: error instanceof Error ? error.message : 'Impossible de lancer le paiement.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
+    if (plan === 'starter' && stripeReady && stripeCustomerId) {
+      setIsSaving(true);
+      try {
+        await openStripePortal(stripeCustomerId);
+      } catch (error) {
+        setIsSaving(false);
+        toast({
+          title: 'Stripe',
+          description: error instanceof Error ? error.message : 'Impossible d’ouvrir le portail.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
     setIsSaving(true);
     const { error } = await supabase
       .from('profiles')
@@ -450,9 +583,9 @@ export function Settings() {
     await refreshProfile();
     toast({
       title: plan === 'starter' ? 'Abonnement annulé' : `Plan ${plan} activé !`,
-      description: isDemoMode
-        ? 'Mode démo : aucun paiement réel (Stripe non configuré).'
-        : 'Votre abonnement a été mis à jour.',
+      description: stripeReady
+        ? 'Votre abonnement a été mis à jour.'
+        : 'Stripe n’est pas encore configuré : le plan a été mis à jour sans paiement.',
     });
   };
 
@@ -627,10 +760,22 @@ export function Settings() {
                         </a>{' '}
                         (compte Business Pinterest)
                       </li>
-                      <li>Crée une app (ex. « PinGen ») et connecte-la à l’API</li>
                       <li>
-                        Dans Configure → Redirect URIs, ajoute exactement :{' '}
-                        <code className="break-all">{redirectUri}</code> puis Add / Save
+                        À la création de l’app, le champ <strong>Website / URL du site</strong> doit
+                        être une URL publique HTTPS — pas localhost. Utilise{' '}
+                        <code className="break-all">https://pingen-amber.vercel.app</code>
+                      </li>
+                      <li>
+                        Politique de confidentialité :{' '}
+                        <code className="break-all">{COMPANY.privacyUrl}</code>
+                      </li>
+                      <li>
+                        Ensuite Manage → Configure → Redirect URIs. Si localhost est refusé, ajoute{' '}
+                        <code className="break-all">
+                          https://pingen-amber.vercel.app/dashboard/settings
+                        </code>
+                        . En local, ajoute aussi{' '}
+                        <code className="break-all">{redirectUri}</code>
                       </li>
                       <li>Copie App ID + App secret et colle-les ci-dessous</li>
                       <li>Clique « Connecter mon compte Pinterest » (vrai OAuth)</li>
@@ -881,7 +1026,9 @@ export function Settings() {
             <CardHeader>
               <CardTitle>Plan actuel</CardTitle>
               <CardDescription>
-                Gérez votre abonnement et vos paiements
+                {stripeReady
+                  ? 'Les upgrades Pro (19€) et Business (49€) passent par Stripe Checkout.'
+                  : 'Stripe n’est pas encore configuré : les changements de plan restent locaux jusqu’à STRIPE_SECRET_KEY.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

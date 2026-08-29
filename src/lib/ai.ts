@@ -1,14 +1,64 @@
 import OpenAI, { APIError } from 'openai';
 
-const rawApiKey = ((import.meta.env.VITE_OPENAI_API_KEY as string | undefined) || '').trim();
+const TEXT_MODEL = 'openai/gpt-4o-mini';
 
-// Vraie clé uniquement (ignore les placeholders type "sk-your-openai-api-key")
-export const hasOpenAIKey = rawApiKey.startsWith('sk-') && !rawApiKey.includes('your');
+function isConfiguredKey(raw: string | undefined): boolean {
+  const key = (raw || '').trim();
+  if (key.length < 10) return false;
+  const lower = key.toLowerCase();
+  return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...');
+}
 
-// OpenAI configuration
+const viteOpenRouterKey = (
+  (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined) ||
+  (import.meta.env.VITE_OPENAI_API_KEY as string | undefined) ||
+  ''
+).trim();
+const viteIdeogramKey = ((import.meta.env.VITE_IDEOGRAM_API_KEY as string | undefined) || '').trim();
+
+/** Texte / vision via OpenRouter (clé VITE_ ou proxy Vite). */
+export const hasOpenRouterKey = isConfiguredKey(viteOpenRouterKey);
+/** Images via Ideogram. */
+export const hasIdeogramKey = isConfiguredKey(viteIdeogramKey);
+
+export interface AiStatus {
+  hasTextAi: boolean;
+  hasImageAi: boolean;
+}
+
+export async function fetchAiStatus(): Promise<AiStatus> {
+  try {
+    const response = await fetch('/api/ai/status', {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (response.ok) {
+      const data = (await response.json()) as Partial<AiStatus>;
+      return {
+        hasTextAi: Boolean(data.hasTextAi),
+        hasImageAi: Boolean(data.hasImageAi),
+      };
+    }
+  } catch {
+    // Proxy Vite indisponible (build statique) : on se rabat sur les clés VITE_.
+  }
+  return {
+    hasTextAi: hasOpenRouterKey,
+    hasImageAi: hasIdeogramKey,
+  };
+}
+
 const openai = new OpenAI({
-  apiKey: rawApiKey || 'missing-key',
+  baseURL:
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/api/ai/openrouter`
+      : 'http://localhost:5173/api/ai/openrouter',
+  apiKey: viteOpenRouterKey || 'sk-proxy',
   dangerouslyAllowBrowser: true,
+  defaultHeaders: {
+    'HTTP-Referer':
+      (import.meta.env.VITE_APP_URL as string | undefined) || 'http://localhost:5173',
+    'X-OpenRouter-Title': 'PinGen',
+  },
 });
 
 /** Message d'erreur lisible pour l'UI */
@@ -23,18 +73,18 @@ export function formatAiError(error: unknown): string {
         : error.message;
 
     if (error.status === 401) {
-      return 'Clé OpenAI invalide ou expirée. Vérifiez VITE_OPENAI_API_KEY dans .env.';
+      return 'Clé OpenRouter invalide ou absente. Vérifiez OPENROUTER_API_KEY dans .env.';
     }
     if (error.status === 429) {
-      return 'Quota OpenAI dépassé ou trop de requêtes. Réessayez dans un instant.';
+      return 'Quota OpenRouter dépassé ou trop de requêtes. Réessayez dans un instant.';
     }
     if (error.status === 400) {
-      return detail || 'Requête refusée par OpenAI (prompt ou paramètres).';
+      return detail || 'Requête refusée par OpenRouter (prompt ou paramètres).';
     }
     if (error.status === 403) {
-      return 'Accès refusé à DALL·E. Vérifiez la facturation OpenAI et les permissions du projet.';
+      return 'Accès refusé. Vérifiez les crédits OpenRouter et le modèle autorisé.';
     }
-    return detail || `Erreur OpenAI (${error.status ?? 'inconnu'})`;
+    return detail || `Erreur OpenRouter (${error.status ?? 'inconnu'})`;
   }
   if (error instanceof Error) {
     return error.message;
@@ -66,8 +116,9 @@ export interface GeneratedBusinessPin extends GeneratedPinContent {
   imagePrompt: string;
 }
 
-interface PinConcept {
+export interface PinConcept {
   imagePrompt: string;
+  overlayText: string;
   title: string;
   description: string;
   hashtags: string[];
@@ -82,7 +133,7 @@ export async function generatePinContent(
 ): Promise<GeneratedPinContent> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: TEXT_MODEL,
       messages: [
         {
           role: 'system',
@@ -162,7 +213,7 @@ Réponds en JSON avec cette structure:
 export async function generatePinIdeas(topic: string, count: number = 5): Promise<PinIdeas> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: TEXT_MODEL,
       messages: [
         {
           role: 'system',
@@ -212,7 +263,7 @@ Réponds en JSON avec cette structure:
 export async function generateHashtags(keywords: string[]): Promise<string[]> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: TEXT_MODEL,
       messages: [
         {
           role: 'system',
@@ -255,7 +306,7 @@ export async function optimizePinContent(
 ): Promise<GeneratedPinContent> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: TEXT_MODEL,
       messages: [
         {
           role: 'system',
@@ -308,20 +359,26 @@ Réponds en JSON:
 
 export async function generatePinConcept(input: BusinessPinInput): Promise<PinConcept> {
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: TEXT_MODEL,
     messages: [
       {
         role: 'system',
         content: `Tu es un expert Pinterest et design marketing. À partir d'un business, tu conçois un Pin complet.
 
-Règles image (imagePrompt, en anglais pour DALL·E):
-- Format vertical Pinterest, style photo ou illustration pro, net et attractif
-- Pas de texte illisible, pas de logos de marques, pas de visages réalistes de célébrités
-- Variation visuelle forte à chaque génération (composition, couleurs, angle différents)
-- Décrit clairement le sujet, l'ambiance, les couleurs et le style
+Règles image (imagePrompt, en anglais pour Ideogram):
+- Format vertical Pinterest, style photo ou illustration marketing, net et attractif
+- Décrit le sujet, l'ambiance, les couleurs, la composition et le style
+- Pas de logos de marques, pas de visages réalistes de célébrités
+- Variation visuelle forte à chaque génération
+- N'écris PAS "no text" : le titre overlayText sera rendu dans l'image
+
+Règles overlayText:
+- 3 à 7 mots maximum, en français, parfaitement orthographiés
+- Accroche Pinterest (chiffre, promesse, curiosité)
+- C'est le texte QUI APPARAÎT DANS l'image
 
 Règles texte (en français):
-- title: max 100 caractères, accrocheur
+- title: max 100 caractères, accrocheur (métadonnée Pinterest)
 - description: 2-3 phrases, SEO, CTA subtil, max 500 caractères
 - hashtags: 3-5 pertinents au business
 - altText: descriptif SEO
@@ -329,6 +386,7 @@ Règles texte (en français):
 Réponds en JSON:
 {
   "imagePrompt": "...",
+  "overlayText": "...",
   "title": "...",
   "description": "...",
   "hashtags": ["#..."],
@@ -356,11 +414,13 @@ Génère un Pin unique et différent à chaque fois, adapté à ce business.`,
   }
 
   const parsed = JSON.parse(content) as Partial<PinConcept>;
+  const title = parsed.title || `Découvrez ${input.business}`;
   return {
     imagePrompt:
       parsed.imagePrompt ||
       `Vertical Pinterest-style lifestyle photo related to ${input.business}, bright lighting, professional marketing aesthetic`,
-    title: parsed.title || `Découvrez ${input.business}`,
+    overlayText: (parsed.overlayText || title).split(/\s+/).slice(0, 7).join(' '),
+    title,
     description:
       parsed.description ||
       `Une idée inspirante pour ${input.business}. Parfait pour votre audience.`,
@@ -369,68 +429,32 @@ Génère un Pin unique et différent à chaque fois, adapté à ce business.`,
   };
 }
 
-function buildImageDataUrl(b64: string): string {
-  return `data:image/png;base64,${b64}`;
-}
+/** Génère une image Pin verticale via Ideogram (typo lisible). */
+export async function generatePinImage(
+  prompt: string,
+  overlayText?: string
+): Promise<string> {
+  const response = await fetch('/api/ai/image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt,
+      overlayText: overlayText?.trim() || undefined,
+    }),
+  });
 
-function extractImageFromResponse(response: {
-  data?: Array<{ b64_json?: string | null; url?: string | null }> | null;
-}): string | null {
-  const image = response.data?.[0];
-  if (image?.b64_json) {
-    return buildImageDataUrl(image.b64_json);
-  }
-  if (image?.url) {
-    return image.url;
-  }
-  return null;
-}
+  const payload = (await response.json().catch(() => ({}))) as {
+    url?: string;
+    error?: string;
+  };
 
-/** Génère une image Pin (format vertical) via DALL·E 3 / GPT Image */
-export async function generatePinImage(prompt: string): Promise<string> {
-  const fullPrompt = `${prompt}. Vertical 2:3 Pinterest pin composition, high quality, no watermarks, no UI chrome.`.slice(
-    0,
-    3900
-  );
-
-  const attempts: Array<{
-    model: 'dall-e-3' | 'gpt-image-1';
-    size: '1024x1792' | '1024x1024' | '1024x1536';
-    quality?: 'standard' | 'auto';
-  }> = [
-    { model: 'dall-e-3', size: '1024x1792', quality: 'standard' },
-    { model: 'dall-e-3', size: '1024x1024', quality: 'standard' },
-    { model: 'gpt-image-1', size: '1024x1536', quality: 'auto' },
-  ];
-
-  let lastError: unknown;
-
-  for (const attempt of attempts) {
-    try {
-      // Ne pas envoyer response_format : l'API actuelle le rejette ("unknown parameter")
-      const response = await openai.images.generate({
-        model: attempt.model,
-        prompt: fullPrompt,
-        n: 1,
-        size: attempt.size,
-        ...(attempt.quality ? { quality: attempt.quality } : {}),
-      });
-
-      const imageUrl = extractImageFromResponse(response);
-      if (imageUrl) {
-        return imageUrl;
-      }
-
-      lastError = new Error('Aucune image renvoyée par OpenAI.');
-    } catch (error) {
-      lastError = error;
-      console.warn(`Image generation failed (${attempt.model} ${attempt.size}):`, error);
-    }
+  if (!response.ok || !payload.url) {
+    throw new Error(
+      payload.error || `Erreur Ideogram (${response.status || 'inconnu'})`
+    );
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(formatAiError(lastError));
+  return payload.url;
 }
 
 /**
@@ -440,15 +464,24 @@ export async function generatePinImage(prompt: string): Promise<string> {
 export async function generateBusinessPin(
   input: BusinessPinInput
 ): Promise<GeneratedBusinessPin> {
-  if (!hasOpenAIKey) {
+  const status = await fetchAiStatus();
+  if (!status.hasTextAi) {
     throw new Error(
-      'Clé OpenAI absente. Ajoutez VITE_OPENAI_API_KEY dans .env puis redémarrez npm run dev.'
+      'Clé OpenRouter absente. Ajoutez OPENROUTER_API_KEY dans .env puis redémarrez npm run dev.'
     );
   }
 
   try {
     const concept = await generatePinConcept(input);
-    const imageUrl = await generatePinImage(concept.imagePrompt);
+    if (!status.hasImageAi) {
+      throw new Error(
+        'Clé Ideogram absente. Ajoutez IDEOGRAM_API_KEY dans .env puis redémarrez npm run dev.'
+      );
+    }
+    const imageUrl = await generatePinImage(
+      concept.imagePrompt,
+      concept.overlayText || concept.title
+    );
 
     return {
       imageUrl,

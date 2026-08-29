@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Link, useLocation, Navigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -32,23 +33,19 @@ import {
   Bot,
 } from 'lucide-react';
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-}
-
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout() {
   const { user, profile, signOut, isLoading } = useAuth();
   const { t } = useI18n();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const sidebarLinks = [
-    { icon: LayoutDashboard, label: t.sidebar.dashboard, href: '/dashboard' },
-    { icon: Wand2, label: t.sidebar.generator, href: '/dashboard/generator' },
-    { icon: Bot, label: t.sidebar.autopilot, href: '/dashboard/autopilot' },
-    { icon: Calendar, label: t.sidebar.schedule, href: '/dashboard/schedule' },
-    { icon: BarChart3, label: t.sidebar.analytics, href: '/dashboard/analytics' },
-    { icon: Settings, label: t.sidebar.settings, href: '/dashboard/settings' },
+    { icon: LayoutDashboard, label: t.sidebar.dashboard, href: ROUTES.dashboard },
+    { icon: Wand2, label: t.sidebar.generator, href: ROUTES.generator },
+    { icon: Bot, label: t.sidebar.autopilot, href: ROUTES.autopilot },
+    { icon: Calendar, label: t.sidebar.schedule, href: ROUTES.schedule },
+    { icon: BarChart3, label: t.sidebar.analytics, href: ROUTES.analytics },
+    { icon: Settings, label: t.sidebar.settings, href: ROUTES.settings },
   ];
 
   if (isLoading) {
@@ -60,7 +57,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={ROUTES.login} replace />;
   }
 
   const handleSignOut = async () => {
@@ -85,7 +82,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       >
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b">
-          <Link to="/dashboard" className="flex items-center gap-2">
+          <Link to={ROUTES.dashboard} className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-white font-bold">P</span>
             </div>
@@ -138,7 +135,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               className="w-full bg-white text-primary hover:bg-white/90"
               asChild
             >
-              <Link to="/dashboard/settings?tab=billing">
+              <Link to={ROUTES.settingsBilling}>
                 Upgrader
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
@@ -191,13 +188,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <DropdownMenuLabel>{t.sidebar.settings}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/dashboard/settings">
+                  <Link to={ROUTES.settings}>
                     <Settings className="w-4 h-4 mr-2" />
                     {t.sidebar.settings}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/dashboard/settings?tab=billing">
+                  <Link to={ROUTES.settingsBilling}>
                     <Sparkles className="w-4 h-4 mr-2" />
                     Mon abonnement
                   </Link>
@@ -217,7 +214,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <AutopilotWorker />
 
         {/* Page Content */}
-        <main className="p-4 lg:p-8">{children}</main>
+        <main className="p-4 lg:p-8">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

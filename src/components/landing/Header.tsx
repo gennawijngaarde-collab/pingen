@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { HOME_HASH, ROUTES } from '@/lib/routes';
 import { Button } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { useI18n } from '@/i18n/I18nProvider';
@@ -13,10 +14,10 @@ export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { label: t.nav.features, href: '#features' },
-    { label: t.nav.howItWorks, href: '#how-it-works' },
-    { label: t.nav.pricing, href: '#pricing' },
-    { label: t.nav.faq, href: '#faq' },
+    { label: t.nav.features, href: HOME_HASH.features },
+    { label: t.nav.howItWorks, href: HOME_HASH.howItWorks },
+    { label: t.nav.pricing, href: HOME_HASH.pricing },
+    { label: t.nav.faq, href: HOME_HASH.faq },
   ];
 
   useEffect(() => {
@@ -37,34 +38,34 @@ export function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <a href="/" className="flex items-center gap-2">
+          <Link to={ROUTES.home} className="flex items-center gap-2">
             <div className="w-8 h-8 lg:w-10 lg:h-10 bg-primary rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-lg lg:text-xl">P</span>
             </div>
             <span className="font-bold text-xl lg:text-2xl text-foreground">
               PinGen
             </span>
-          </a>
+          </Link>
 
           <nav className="hidden lg:flex items-center gap-8">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.href}
-                href={link.href}
+                to={link.href}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
           <div className="hidden lg:flex items-center gap-2">
             <LanguageSwitcher />
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/login">{t.common.login}</Link>
+              <Link to={ROUTES.login}>{t.common.login}</Link>
             </Button>
             <Button size="sm" className="bg-primary hover:bg-primary/90" asChild>
-              <Link to="/signup">{t.common.signup}</Link>
+              <Link to={ROUTES.signup}>{t.common.signup}</Link>
             </Button>
           </div>
 
@@ -89,21 +90,21 @@ export function Header() {
         <div className="lg:hidden bg-white border-t">
           <div className="px-4 py-4 space-y-3">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.href}
-                href={link.href}
+                to={link.href}
                 className="block py-2 text-base font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
             <div className="pt-3 space-y-2">
               <Button variant="outline" className="w-full" asChild>
-                <Link to="/login">{t.common.login}</Link>
+                <Link to={ROUTES.login}>{t.common.login}</Link>
               </Button>
               <Button className="w-full bg-primary hover:bg-primary/90" asChild>
-                <Link to="/signup">{t.common.signup}</Link>
+                <Link to={ROUTES.signup}>{t.common.signup}</Link>
               </Button>
             </div>
           </div>

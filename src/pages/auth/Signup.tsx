@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,10 +10,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { isDemoMode } from '@/lib/supabase';
+import { useI18n } from '@/i18n/I18nProvider';
+import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Check } from 'lucide-react';
 
 export function Signup() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { signUp, signInWithOAuth, isAuthenticated, isLoading: authLoading } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -25,7 +29,7 @@ export function Signup() {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      navigate(ROUTES.dashboard, { replace: true });
     }
   }, [authLoading, isAuthenticated, navigate]);
 
@@ -121,9 +125,12 @@ export function Signup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher variant="outline" />
+      </div>
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to={ROUTES.home} className="flex items-center gap-2">
             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-2xl">P</span>
             </div>
@@ -133,10 +140,8 @@ export function Signup() {
 
         <Card>
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Créer un compte</CardTitle>
-            <CardDescription className="text-center">
-              Commencez gratuitement et améliorez votre Pinterest
-            </CardDescription>
+            <CardTitle className="text-2xl text-center">{t.auth.signupTitle}</CardTitle>
+            <CardDescription className="text-center">{t.auth.signupSubtitle}</CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -149,7 +154,7 @@ export function Signup() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Nom complet</Label>
+                <Label htmlFor="fullName">{t.auth.fullName}</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -166,7 +171,7 @@ export function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t.auth.email}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -184,7 +189,7 @@ export function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Mot de passe</Label>
+                <Label htmlFor="password">{t.auth.password}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -213,32 +218,32 @@ export function Signup() {
                 </div>
 
                 <div className="space-y-1 mt-2">
-                  <p className="text-xs text-muted-foreground">Le mot de passe doit contenir:</p>
+                  <p className="text-xs text-muted-foreground">{t.auth.passwordRules}</p>
                   <div className="flex flex-wrap gap-2">
                     <span
                       className={`text-xs flex items-center gap-1 ${passwordChecks.length ? 'text-green-600' : 'text-muted-foreground'}`}
                     >
                       <Check className={`w-3 h-3 ${passwordChecks.length ? 'opacity-100' : 'opacity-0'}`} />
-                      8 caractères min
+                      {t.auth.ruleLength}
                     </span>
                     <span
                       className={`text-xs flex items-center gap-1 ${passwordChecks.number ? 'text-green-600' : 'text-muted-foreground'}`}
                     >
                       <Check className={`w-3 h-3 ${passwordChecks.number ? 'opacity-100' : 'opacity-0'}`} />
-                      Un chiffre
+                      {t.auth.ruleNumber}
                     </span>
                     <span
                       className={`text-xs flex items-center gap-1 ${passwordChecks.special ? 'text-green-600' : 'text-muted-foreground'}`}
                     >
                       <Check className={`w-3 h-3 ${passwordChecks.special ? 'opacity-100' : 'opacity-0'}`} />
-                      Un caractère spécial
+                      {t.auth.ruleSpecial}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                <Label htmlFor="confirmPassword">{t.auth.confirmPassword}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -261,9 +266,14 @@ export function Signup() {
               <div className="flex items-start gap-2">
                 <input type="checkbox" className="rounded border-gray-300 mt-1" required />
                 <span className="text-sm text-muted-foreground">
-                  J&apos;accepte les{' '}
-                  <span className="text-primary">conditions d&apos;utilisation</span> et la{' '}
-                  <span className="text-primary">politique de confidentialité</span>
+                  {t.auth.acceptTerms}{' '}
+                  <Link to={ROUTES.terms} className="text-primary hover:underline">
+                    {t.auth.terms}
+                  </Link>{' '}
+                  {t.auth.and}{' '}
+                  <Link to={ROUTES.privacy} className="text-primary hover:underline">
+                    {t.auth.privacy}
+                  </Link>
                 </span>
               </div>
 
@@ -272,7 +282,7 @@ export function Signup() {
                 className="w-full bg-primary hover:bg-primary/90"
                 disabled={isLoading || !allChecksPassed}
               >
-                {isLoading ? 'Création du compte...' : 'Créer mon compte'}
+                {isLoading ? t.auth.creatingAccount : t.auth.submitSignup}
               </Button>
             </form>
 
@@ -281,7 +291,7 @@ export function Signup() {
                 <div className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Ou continuer avec</span>
+                <span className="bg-card px-2 text-muted-foreground">{t.auth.orContinueWith}</span>
               </div>
             </div>
 
@@ -307,9 +317,9 @@ export function Signup() {
 
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">
-              Déjà un compte ?{' '}
-              <Link to="/login" className="text-primary hover:underline">
-                Se connecter
+              {t.auth.hasAccount}{' '}
+              <Link to={ROUTES.login} className="text-primary hover:underline">
+                {t.common.login}
               </Link>
             </p>
           </CardFooter>

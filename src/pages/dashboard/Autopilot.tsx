@@ -21,7 +21,7 @@ import {
   validateAutopilotForEnable,
   type AutopilotSettings,
 } from '@/lib/autopilot';
-import { hasOpenAIKey } from '@/lib/ai';
+import { useAiStatus } from '@/hooks/useAiStatus';
 import {
   Bot,
   Clock,
@@ -57,6 +57,7 @@ const NICHES = [
 export function AutopilotPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { hasTextAi, hasImageAi } = useAiStatus();
   const [settings, setSettings] = useState<AutopilotSettings>(DEFAULT_AUTOPILOT);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingNow, setIsGeneratingNow] = useState(false);
@@ -194,10 +195,13 @@ export function AutopilotPage() {
         </div>
       </div>
 
-      {!hasOpenAIKey && (
+      {(!hasTextAi || !hasImageAi) && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 p-4 text-sm">
-          Clé OpenAI non détectée : l&apos;autopilote utilisera des images / textes de démo.
-          Ajoutez <code className="text-xs">VITE_OPENAI_API_KEY</code> pour une vraie génération.
+          {!hasTextAi
+            ? "Clé OpenRouter non détectée : l'autopilote utilisera des textes de démo."
+            : "Clé Ideogram non détectée : l'autopilote utilisera des images de démo."}{' '}
+          Ajoutez <code className="text-xs">OPENROUTER_API_KEY</code> et{' '}
+          <code className="text-xs">IDEOGRAM_API_KEY</code> dans <code className="text-xs">.env</code>.
         </div>
       )}
 

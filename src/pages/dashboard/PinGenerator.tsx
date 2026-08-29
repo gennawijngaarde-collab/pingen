@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { usePins } from '@/hooks/usePins';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,13 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { useAiStatus } from '@/hooks/useAiStatus';
 import {
   generatePinContent,
   generatePinConcept,
   generatePinImage,
   mockGeneratePinContent,
   mockGenerateBusinessPin,
-  hasOpenAIKey,
   formatAiError,
   type GeneratedPinContent,
 } from '@/lib/ai';
@@ -61,6 +62,7 @@ export function PinGenerator() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createPin } = usePins();
+  const { hasTextAi, hasImageAi } = useAiStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState('auto');
@@ -151,16 +153,16 @@ export function PinGenerator() {
     setGenerationStep('Analyse de l\'image et rédaction…');
 
     try {
-      const content = hasOpenAIKey
+      const content = hasTextAi
         ? await generatePinContent(selectedImage, selectedNiche || undefined, selectedTone || undefined)
         : mockGeneratePinContent();
 
       setGeneratedContent(content);
       toast({
         title: 'Contenu généré !',
-        description: hasOpenAIKey
-          ? 'Contenu créé par GPT-4o mini à partir de votre image.'
-          : 'Mode démo : contenu simulé. Ajoutez VITE_OPENAI_API_KEY dans .env pour utiliser la vraie IA.',
+        description: hasTextAi
+          ? 'Contenu créé par OpenRouter à partir de votre image.'
+          : 'Mode démo : contenu simulé. Ajoutez OPENROUTER_API_KEY dans .env pour utiliser la vraie IA.',
       });
     } catch {
       toast({
@@ -191,10 +193,10 @@ export function PinGenerator() {
     }
 
     setIsGenerating(true);
-    setGenerationStep(hasOpenAIKey ? '1/2 Conception du Pin…' : 'Génération démo…');
+    setGenerationStep(hasTextAi ? '1/2 Conception du Pin…' : 'Génération démo…');
     setStatusMessage(
-      hasOpenAIKey
-        ? 'Génération en cours (texte + image DALL·E, ~20–60 s)…'
+      hasTextAi
+        ? 'Génération en cours (texte OpenRouter + image Ideogram, ~20–60 s)…'
         : 'Génération démo en cours…'
     );
 
@@ -202,7 +204,7 @@ export function PinGenerator() {
       let pinImageUrl: string;
       let content: GeneratedPinContent;
 
-      if (hasOpenAIKey) {
+      if (hasTextAi) {
         const concept = await generatePinConcept({
           business,
           productOrOffer: productOrOffer.trim() || undefined,
@@ -220,12 +222,20 @@ export function PinGenerator() {
         // Affiche le texte tout de suite, même si l'image échoue ensuite
         setGeneratedContent(content);
 
-        setGenerationStep('2/2 Génération de l\'image (DALL·E)…');
-        setStatusMessage('Création de l\'image avec DALL·E 3…');
+        setGenerationStep('2/2 Génération de l\'image (Ideogram)…');
+        setStatusMessage('Création de l\'image avec Ideogram…');
 
         let imageFailedMessage: string | null = null;
         try {
-          pinImageUrl = await generatePinImage(concept.imagePrompt);
+          if (!hasImageAi) {
+            throw new Error(
+              'Clé Ideogram absente. Ajoutez IDEOGRAM_API_KEY dans .env puis redémarrez npm run dev.'
+            );
+          }
+          pinImageUrl = await generatePinImage(
+            concept.imagePrompt,
+            concept.overlayText || concept.title
+          );
         } catch (imageError) {
           console.error(imageError);
           imageFailedMessage = formatAiError(imageError);
@@ -266,7 +276,7 @@ export function PinGenerator() {
         toast({
           title: 'Pin généré !',
           description:
-            'Mode démo : clé OpenAI non détectée. Vérifiez .env et redémarrez le serveur.',
+            'Mode démo : clé OpenRouter non détectée. Vérifiez .env et redémarrez le serveur.',
         });
       }
     } catch (error) {
@@ -333,7 +343,7 @@ export function PinGenerator() {
         title: 'Pin sauvegardé !',
         description: 'Votre Pin a été ajouté aux brouillons.',
       });
-      navigate('/dashboard/schedule');
+      navigate(ROUTES.schedule);
     } else {
       toast({
         title: 'Erreur',
@@ -356,7 +366,7 @@ export function PinGenerator() {
         title: 'Pin planifié !',
         description: 'Votre Pin sera publié dans 1 heure. Modifiez la date depuis la planification.',
       });
-      navigate('/dashboard/schedule');
+      navigate(ROUTES.schedule);
     } else {
       toast({
         title: 'Erreur',
@@ -459,13 +469,17 @@ export function PinGenerator() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    L&apos;IA génère une <strong>nouvelle image</strong> (DALL·E 3, format vertical)
-                    et le texte du Pin. Chaque génération produit une variante différente.
+                    L&apos;IA génère une <strong>nouvelle image</strong> (Ideogram, format vertical
+                    avec titre lisible) et le texte du Pin. Chaque génération produit une variante
+                    différente.
                   </p>
-                  {!hasOpenAIKey && (
+                  {(!hasTextAi || !hasImageAi) && (
                     <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      Clé OpenAI non détectée — mode démo actif. Vérifiez{' '}
-                      <code className="text-xs">VITE_OPENAI_API_KEY</code> dans{' '}
+                      {!hasTextAi
+                        ? 'Clé OpenRouter non détectée — mode démo texte.'
+                        : 'Clé Ideogram non détectée — les images resteront en démo.'}{' '}
+                      Vérifiez <code className="text-xs">OPENROUTER_API_KEY</code> et{' '}
+                      <code className="text-xs">IDEOGRAM_API_KEY</code> dans{' '}
                       <code className="text-xs">.env</code> puis redémarrez{' '}
                       <code className="text-xs">npm run dev</code>.
                     </p>

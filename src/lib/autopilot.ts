@@ -2,7 +2,7 @@ import { supabase, type Pin } from './supabase';
 import {
   generateBusinessPin,
   mockGenerateBusinessPin,
-  hasOpenAIKey,
+  fetchAiStatus,
 } from './ai';
 
 export interface AutopilotSettings {
@@ -243,7 +243,8 @@ export async function processAutopilot(
 }
 
 async function createAutopilotPinContent(settings: AutopilotSettings) {
-  if (hasOpenAIKey) {
+  const { hasTextAi, hasImageAi } = await fetchAiStatus();
+  if (hasTextAi && hasImageAi) {
     try {
       return await generateBusinessPin({
         business: settings.business,

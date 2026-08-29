@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { usePins } from '@/hooks/usePins';
 import type { Pin } from '@/lib/supabase';
@@ -468,13 +469,13 @@ export function Schedule() {
             />
           )}
           <Button variant="outline" asChild>
-            <Link to="/dashboard/autopilot">
+            <Link to={ROUTES.autopilot}>
               <Bot className="w-4 h-4 mr-2" />
               {t.schedule.autopilot}
             </Link>
           </Button>
           <Button className="bg-primary hover:bg-primary/90" asChild>
-            <Link to="/dashboard/generator">
+            <Link to={ROUTES.generator}>
               <Plus className="w-4 h-4 mr-2" />
               {t.schedule.createPin}
             </Link>
@@ -626,7 +627,7 @@ export function Schedule() {
                   <Clock3 className="w-12 h-12 mx-auto mb-4 opacity-30" />
                   <p>{t.schedule.noScheduled}</p>
                   <Button variant="outline" className="mt-4" asChild>
-                    <Link to="/dashboard/generator">{t.schedule.createPin}</Link>
+                    <Link to={ROUTES.generator}>{t.schedule.createPin}</Link>
                   </Button>
                 </div>
               ) : (

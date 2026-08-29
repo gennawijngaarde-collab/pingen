@@ -2,8 +2,8 @@
 -- PinGen - Supabase Database Schema
 -- ==========================================
 
--- Enable Row Level Security
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
+-- Do not ALTER app.jwt_secret here. Supabase already manages the JWT secret.
+-- Automatic RLS is enabled on the project; policies below still apply.
 
 -- ==========================================
 -- PROFILES TABLE
@@ -31,15 +31,23 @@ CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   USING (auth.uid() = id);
 
+CREATE POLICY "Users can insert own profile"
+  ON profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
 -- Trigger to create profile on user signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO public.profiles (id, full_name)
   VALUES (new.id, new.raw_user_meta_data->>'full_name');
   RETURN new;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -157,6 +165,14 @@ ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 -- RLS Policies
 CREATE POLICY "Users can view own subscription"
   ON subscriptions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own subscription"
+  ON subscriptions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own subscription"
+  ON subscriptions FOR UPDATE
   USING (auth.uid() = user_id);
 
 -- ==========================================

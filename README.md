@@ -64,7 +64,7 @@
 - **Frontend**: React 18 + TypeScript + Vite
 - **Styling**: Tailwind CSS + shadcn/ui
 - **Auth & Database**: Supabase
-- **AI**: OpenAI GPT-4 Vision
+- **AI**: OpenRouter (texte) + Ideogram (images)
 - **Payments**: Stripe (prêt à intégrer)
 - **Routing**: React Router DOM
 - **Icons**: Lucide React
@@ -95,8 +95,11 @@ Créer un fichier `.env` à la racine:
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 
-# OpenAI (pour la génération IA)
-VITE_OPENAI_API_KEY=sk-your-api-key
+# OpenRouter (texte / vision)
+OPENROUTER_API_KEY=sk-or-v1-your-key
+
+# Ideogram (images de Pins)
+IDEOGRAM_API_KEY=your-ideogram-key
 
 # Pinterest API
 VITE_PINTEREST_APP_ID=your-app-id
@@ -212,11 +215,12 @@ CREATE TABLE pinterest_accounts (
 );
 ```
 
-### OpenAI
+### OpenRouter + Ideogram
 
-1. Créer un compte sur [OpenAI](https://platform.openai.com)
-2. Générer une clé API
-3. L'ajouter dans `.env`
+1. Créer une clé sur [OpenRouter](https://openrouter.ai/keys) (texte, titres, descriptions)
+2. Créer une clé sur [Ideogram](https://developer.ideogram.ai) (images de Pins avec typo)
+3. Les ajouter dans `.env` (`OPENROUTER_API_KEY` et `IDEOGRAM_API_KEY`)
+4. Redémarrer `npm run dev`
 
 ### Pinterest API
 
@@ -287,5 +291,6 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 - [shadcn/ui](https://ui.shadcn.com) pour les composants UI
 - [Supabase](https://supabase.com) pour l'authentification et la BDD
-- [OpenAI](https://openai.com) pour l'API de génération
+- [OpenRouter](https://openrouter.ai) pour le texte et la vision
+- [Ideogram](https://ideogram.ai) pour les images de Pins
 - [Pinterest](https://developers.pinterest.com) pour l'API

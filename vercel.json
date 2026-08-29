@@ -1,0 +1,13 @@
+{
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/confidentialite", "destination": "/privacy", "permanent": true },
+    { "source": "/politique-de-confidentialite", "destination": "/privacy", "permanent": true },
+    { "source": "/mentions-legales", "destination": "/legal", "permanent": true },
+    { "source": "/cgv", "destination": "/terms", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}

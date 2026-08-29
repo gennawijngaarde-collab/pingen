@@ -1,6 +1,7 @@
 'use client';
 
 import { Link } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Sparkles, Zap, TrendingUp } from 'lucide-react';
 import { useI18n } from '@/i18n/I18nProvider';
@@ -39,7 +40,7 @@ export function Hero() {
               className="bg-primary hover:bg-primary/90 text-white px-8 py-6 text-lg rounded-xl shadow-lg shadow-primary/25"
               asChild
             >
-              <Link to="/signup">
+              <Link to={ROUTES.signup}>
                 {t.hero.cta}
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
@@ -50,7 +51,7 @@ export function Hero() {
               className="px-8 py-6 text-lg rounded-xl"
               asChild
             >
-              <Link to="/login">{t.hero.login}</Link>
+              <Link to={ROUTES.login}>{t.hero.login}</Link>
             </Button>
           </div>
 

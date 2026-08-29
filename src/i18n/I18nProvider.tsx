@@ -69,5 +69,5 @@ export function useI18n(): I18nContextValue {
   return ctx;
 }
 
-export { LOCALE_LABELS };
-export type { AppLocale, Dictionary };
+export { LOCALE_LABELS, BRAND_PIN, BRAND_PINS } from './types';
+export type { AppLocale, Dictionary } from './types';

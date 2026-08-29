@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { usePins } from '@/hooks/usePins';
 import { getUserAnalytics } from '@/lib/supabase';
@@ -84,7 +85,7 @@ function AutopilotBanner({ userId }: { userId: string }) {
           </div>
         </div>
         <Button asChild variant={summary.enabled ? 'outline' : 'default'} className={!summary.enabled ? 'bg-primary hover:bg-primary/90' : ''}>
-          <Link to="/dashboard/autopilot">
+          <Link to={ROUTES.autopilot}>
             {summary.enabled ? 'Gérer' : 'Configurer'}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Link>
@@ -213,19 +214,19 @@ export function Dashboard() {
         </div>
         <div className="flex gap-3">
           <Button variant="outline" asChild>
-            <Link to="/dashboard/autopilot">
+            <Link to={ROUTES.autopilot}>
               <Bot className="w-4 h-4 mr-2" />
               Autopilote
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/dashboard/schedule">
+            <Link to={ROUTES.schedule}>
               <Calendar className="w-4 h-4 mr-2" />
               Voir le calendrier
             </Link>
           </Button>
           <Button className="bg-primary hover:bg-primary/90" asChild>
-            <Link to="/dashboard/generator">
+            <Link to={ROUTES.generator}>
               <Plus className="w-4 h-4 mr-2" />
               Créer un Pin
             </Link>
@@ -345,7 +346,7 @@ export function Dashboard() {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Pins récents</h3>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/dashboard/schedule">
+              <Link to={ROUTES.schedule}>
                 Voir tout
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Link>
@@ -362,7 +363,7 @@ export function Dashboard() {
                 <Wand2 className="w-12 h-12 mx-auto mb-4 opacity-30" />
                 <p className="mb-4">Vous n'avez pas encore de pins.</p>
                 <Button className="bg-primary hover:bg-primary/90" asChild>
-                  <Link to="/dashboard/generator">
+                  <Link to={ROUTES.generator}>
                     <Plus className="w-4 h-4 mr-2" />
                     Créer mon premier Pin
                   </Link>
@@ -459,7 +460,7 @@ export function Dashboard() {
                 </p>
                 {profile?.plan === 'starter' && (
                   <Button className="w-full mt-3 bg-primary hover:bg-primary/90" size="sm" asChild>
-                    <Link to="/dashboard/settings?tab=billing">
+                    <Link to={ROUTES.settingsBilling}>
                       <Sparkles className="w-4 h-4 mr-2" />
                       Passer à Pro
                     </Link>
@@ -476,25 +477,25 @@ export function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-2">
               <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/dashboard/autopilot">
+                <Link to={ROUTES.autopilot}>
                   <Bot className="w-4 h-4 mr-2" />
                   Configurer l&apos;autopilote
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/dashboard/generator">
+                <Link to={ROUTES.generator}>
                   <Wand2 className="w-4 h-4 mr-2" />
                   Générer un Pin avec IA
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/dashboard/schedule">
+                <Link to={ROUTES.schedule}>
                   <Calendar className="w-4 h-4 mr-2" />
                   Planifier des Pins
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
-                <Link to="/dashboard/analytics">
+                <Link to={ROUTES.analytics}>
                   <TrendingUp className="w-4 h-4 mr-2" />
                   Voir les analytics
                 </Link>
