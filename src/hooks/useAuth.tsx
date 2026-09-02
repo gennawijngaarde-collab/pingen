@@ -11,6 +11,7 @@ import { flushSync } from 'react-dom';
 import { supabase, isDemoMode, type User } from '@/lib/supabase';
 import { demoOAuthSignIn } from '@/lib/localdb';
 import { notifySignup } from '@/lib/email';
+import { ROUTES } from '@/lib/routes';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -162,16 +163,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithOAuth = useCallback(
     async (provider: 'google' | 'github') => {
-      if (!isDemoMode) {
-        throw new Error("La connexion OAuth n'est pas configurée sur cet environnement.");
+      if (isDemoMode) {
+        await demoOAuthSignIn(provider);
+      } else {
+        const redirectTo = `${window.location.origin}${ROUTES.dashboard}`;
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: { redirectTo },
+        });
+        if (error) throw error;
+        // En OAuth réel, Supabase redirige : rien d’autre à faire ici.
+        return;
       }
-      await demoOAuthSignIn(provider);
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.user) {
-        throw new Error('Connexion OAuth échouée. Réessaie.');
-      }
+      if (!session?.user) throw new Error('Connexion OAuth échouée. Réessaie.');
       applySessionSync(session.user);
       setIsLoading(false);
       await fetchProfile(session.user);
