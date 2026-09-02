@@ -772,7 +772,7 @@ export function Settings() {
                       <li>
                         Ensuite Manage → Configure → Redirect URIs. Si localhost est refusé, ajoute{' '}
                         <code className="break-all">
-                          https://pingenx.io/dashboard/settings
+                          {COMPANY.siteUrl}/dashboard/settings
                         </code>
                         . En local, ajoute aussi{' '}
                         <code className="break-all">{redirectUri}</code>

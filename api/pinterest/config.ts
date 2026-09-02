@@ -18,7 +18,7 @@ export default function handler(_req: VercelRequest, res: VercelResponse) {
   const appId = (process.env.VITE_PINTEREST_APP_ID || process.env.PINTEREST_APP_ID || '').trim();
   const secret = (process.env.PINTEREST_APP_SECRET || process.env.VITE_PINTEREST_APP_SECRET || '').trim();
   const configured = isConfiguredKey(appId) && isConfiguredKey(secret);
-  const appUrl = (process.env.VITE_APP_URL || 'https://pingenx.io').trim().replace(/\/$/, '');
+  const appUrl = (process.env.VITE_APP_URL || 'https://www.pingenx.io').trim().replace(/\/$/, '');
   const redirectUri = `${appUrl}/dashboard/settings`;
 
   res.status(200).json({

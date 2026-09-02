@@ -14,9 +14,9 @@ export const COMPANY = {
   supportEmail: 'support@pingenx.io',
   ownerEmail: 'genna.wijngaarde@gmail.com',
   /** URL publique actuelle (Vercel). */
-  siteUrl: 'https://pingenx.io',
-  privacyUrl: 'https://pingenx.io/privacy',
-  termsUrl: 'https://pingenx.io/terms',
+  siteUrl: 'https://www.pingenx.io',
+  privacyUrl: 'https://www.pingenx.io/privacy',
+  termsUrl: 'https://www.pingenx.io/terms',
   host: {
     name: 'Vercel Inc.',
     address: '340 S Lemon Ave #4133, Walnut, CA 91789, États-Unis',

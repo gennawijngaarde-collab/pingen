@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : '/';
 
   const url = `https://openrouter.ai/api/v1${pathAfter}`;
-  const appUrl = pickString(process.env.VITE_APP_URL) || 'https://pingenx.io';
+  const appUrl = pickString(process.env.VITE_APP_URL) || 'https://www.pingenx.io';
 
   const upstream = await fetch(url, {
     method: req.method || 'POST',
