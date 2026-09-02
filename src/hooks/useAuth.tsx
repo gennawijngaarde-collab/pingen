@@ -10,6 +10,7 @@ import {
 import { flushSync } from 'react-dom';
 import { supabase, isDemoMode, type User } from '@/lib/supabase';
 import { demoOAuthSignIn } from '@/lib/localdb';
+import { notifySignup } from '@/lib/email';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -136,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (nextUser) {
         await fetchProfile(nextUser);
       }
+      void notifySignup({ email, fullName });
     },
     [applySessionSync, fetchProfile]
   );

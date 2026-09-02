@@ -4,30 +4,37 @@ Ce document explique comment fonctionne la génération de contenu Pinterest par
 
 ## 🤖 Vue d'Ensemble
 
-PinGen utilise **OpenAI GPT-4 Vision** pour analyser les images et générer du contenu optimisé pour Pinterest:
-- Titres accrocheurs
-- Descriptions SEO-friendly
-- Hashtags pertinents
-- Textes alternatifs
+PinGen utilise :
+- **OpenRouter** (texte + vision) pour générer titres, descriptions, hashtags et alt text
+- **Ideogram** pour générer les images de Pins (format vertical 2:3)
+
+Les clés ne sont **jamais** exposées côté navigateur en production : PinGen appelle des endpoints `/api/ai/*`.
 
 ## 🔧 Configuration
 
-### 1. Obtenir une Clé API OpenAI
+### 1. OpenRouter (texte / vision)
 
-1. Allez sur [OpenAI Platform](https://platform.openai.com/)
-2. Créez un compte ou connectez-vous
-3. Générez une clé API dans "API Keys"
-4. Ajoutez-la dans votre `.env`:
+1. Créez une clé sur [OpenRouter](https://openrouter.ai/keys)
+2. Ajoutez-la sur Vercel (ou en local dans `.env`) :
 
 ```env
-VITE_OPENAI_API_KEY=sk-your-api-key
+OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
-### 2. Vérifier les Limites
+### 2. Ideogram (images)
 
-| Modèle | Coût par 1K tokens | Contexte |
-|--------|-------------------|----------|
-| GPT-4 Vision | $0.01 (input) / $0.03 (output) | 128K tokens |
+1. Créez une clé sur [Ideogram](https://developer.ideogram.ai)
+2. Ajoutez-la sur Vercel (ou en local dans `.env`) :
+
+```env
+IDEOGRAM_API_KEY=...
+```
+
+## 🧪 Vérification
+
+- `GET /api/ai/status` doit renvoyer `hasTextAi=true` et `hasImageAi=true`
+- Le générateur d’images appelle `POST /api/ai/image`
+- Le texte / vision appelle `POST /api/ai/openrouter/chat/completions`
 
 ## 📝 Utilisation
 
@@ -117,7 +124,7 @@ console.log(optimized.description);  // Description optimisée
 
 ## 🔄 Mode Démo (Sans API Key)
 
-Si vous n'avez pas de clé API OpenAI, PinGen fonctionne en mode démo avec des contenus générés aléatoirement:
+Si vous n'avez pas de clés OpenRouter / Ideogram, PinGen fonctionne en mode démo avec des contenus générés aléatoirement:
 
 ```typescript
 import { mockGeneratePinContent } from '@/lib/ai';
@@ -176,13 +183,13 @@ Règles pour les hashtags:
 ## 🐛 Dépannage
 
 ### Erreur: "API key invalid"
-- Vérifiez que `VITE_OPENAI_API_KEY` est correctement défini
-- Assurez-vous que la clé commence par `sk-`
+- Vérifiez que `OPENROUTER_API_KEY` et/ou `IDEOGRAM_API_KEY` sont configurées sur Vercel
+- Vérifiez que vous n’avez pas dépassé vos crédits
 
 ### Erreur: "Rate limit exceeded"
-- Vous avez dépassé les limites de l'API
+- Vous avez dépassé les limites du provider (OpenRouter / Ideogram)
 - Attendez quelques secondes avant de réessayer
-- Considérez la mise à niveau vers un plan payant
+- Considérez une offre/quotas plus élevés côté provider
 
 ### Erreur: "Content policy violation"
 - L'image peut contenir du contenu inapproprié
@@ -207,12 +214,12 @@ Règles pour les hashtags:
 
 1. **Mettez en cache les résultats**
 2. **Limitez la longueur des réponses**
-3. **Utilisez GPT-3.5 pour les tâches simples**
+3. **Choisissez un modèle plus rapide/économique sur OpenRouter**
 4. **Implémentez une file d'attente pour les générations**
 
 ## 🔮 Fonctionnalités Futures
 
-- [ ] Génération d'images avec DALL-E
+- [ ] Génération d'images alternative (fallback)
 - [ ] Analyse de performance des Pins
 - [ ] Suggestions basées sur les tendances
 - [ ] Traduction automatique
@@ -220,6 +227,5 @@ Règles pour les hashtags:
 
 ## 📚 Ressources
 
-- [Documentation OpenAI](https://platform.openai.com/docs/)
-- [GPT-4 Vision Guide](https://platform.openai.com/docs/guides/vision)
-- [Pricing OpenAI](https://openai.com/pricing)
+- [OpenRouter](https://openrouter.ai)
+- [Ideogram](https://developer.ideogram.ai)

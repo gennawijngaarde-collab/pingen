@@ -9,13 +9,14 @@ export const COMPANY = {
   country: 'France',
   region: 'Île-de-France',
   phone: '07 68 66 19 48',
-  email: 'contact@pingen.io',
-  privacyEmail: 'privacy@pingen.io',
-  supportEmail: 'support@pingen.io',
-  /** URL publique actuelle (Vercel). À remplacer par https://pingen.io quand le domaine est branché. */
-  siteUrl: 'https://pingen-amber.vercel.app',
-  privacyUrl: 'https://pingen-amber.vercel.app/privacy',
-  termsUrl: 'https://pingen-amber.vercel.app/terms',
+  email: 'contact@pingenx.io',
+  privacyEmail: 'privacy@pingenx.io',
+  supportEmail: 'support@pingenx.io',
+  ownerEmail: 'genna.wijngaarde@gmail.com',
+  /** URL publique actuelle (Vercel). */
+  siteUrl: 'https://pingenx.io',
+  privacyUrl: 'https://pingenx.io/privacy',
+  termsUrl: 'https://pingenx.io/terms',
   host: {
     name: 'Vercel Inc.',
     address: '340 S Lemon Ave #4133, Walnut, CA 91789, États-Unis',

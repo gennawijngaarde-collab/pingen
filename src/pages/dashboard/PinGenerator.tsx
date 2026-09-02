@@ -161,8 +161,8 @@ export function PinGenerator() {
       toast({
         title: 'Contenu généré !',
         description: hasTextAi
-          ? 'Contenu créé par OpenRouter à partir de votre image.'
-          : 'Mode démo : contenu simulé. Ajoutez OPENROUTER_API_KEY dans .env pour utiliser la vraie IA.',
+          ? 'Contenu créé par l’IA à partir de votre image.'
+          : 'Mode démo : contenu simulé.',
       });
     } catch {
       toast({
@@ -196,7 +196,7 @@ export function PinGenerator() {
     setGenerationStep(hasTextAi ? '1/2 Conception du Pin…' : 'Génération démo…');
     setStatusMessage(
       hasTextAi
-        ? 'Génération en cours (texte OpenRouter + image Ideogram, ~20–60 s)…'
+        ? 'Génération en cours (texte + image, ~20–60 s)…'
         : 'Génération démo en cours…'
     );
 
@@ -229,7 +229,7 @@ export function PinGenerator() {
         try {
           if (!hasImageAi) {
             throw new Error(
-              'Clé Ideogram absente. Ajoutez IDEOGRAM_API_KEY dans .env puis redémarrez npm run dev.'
+              "La génération d'image n'est pas disponible sur cet environnement."
             );
           }
           pinImageUrl = await generatePinImage(
@@ -276,7 +276,7 @@ export function PinGenerator() {
         toast({
           title: 'Pin généré !',
           description:
-            'Mode démo : clé OpenRouter non détectée. Vérifiez .env et redémarrez le serveur.',
+            'Mode démo : image + texte simulés.',
         });
       }
     } catch (error) {
@@ -475,13 +475,8 @@ export function PinGenerator() {
                   </p>
                   {(!hasTextAi || !hasImageAi) && (
                     <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      {!hasTextAi
-                        ? 'Clé OpenRouter non détectée — mode démo texte.'
-                        : 'Clé Ideogram non détectée — les images resteront en démo.'}{' '}
-                      Vérifiez <code className="text-xs">OPENROUTER_API_KEY</code> et{' '}
-                      <code className="text-xs">IDEOGRAM_API_KEY</code> dans{' '}
-                      <code className="text-xs">.env</code> puis redémarrez{' '}
-                      <code className="text-xs">npm run dev</code>.
+                      Certaines fonctionnalités IA ne sont pas encore actives sur cet environnement.
+                      Vous pouvez quand même générer en mode démo.
                     </p>
                   )}
                   {selectedImage && activeTab === 'auto' && (

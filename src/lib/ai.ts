@@ -1,6 +1,4 @@
-import OpenAI, { APIError } from 'openai';
-
-const TEXT_MODEL = 'openai/gpt-4o-mini';
+const TEXT_MODEL = 'google/gemini-2.0-flash-001';
 
 function isConfiguredKey(raw: string | undefined): boolean {
   const key = (raw || '').trim();
@@ -9,11 +7,7 @@ function isConfiguredKey(raw: string | undefined): boolean {
   return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...');
 }
 
-const viteOpenRouterKey = (
-  (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined) ||
-  (import.meta.env.VITE_OPENAI_API_KEY as string | undefined) ||
-  ''
-).trim();
+const viteOpenRouterKey = ((import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined) || '').trim();
 const viteIdeogramKey = ((import.meta.env.VITE_IDEOGRAM_API_KEY as string | undefined) || '').trim();
 
 /** Texte / vision via OpenRouter (clé VITE_ ou proxy Vite). */
@@ -47,49 +41,93 @@ export async function fetchAiStatus(): Promise<AiStatus> {
   };
 }
 
-const openai = new OpenAI({
-  baseURL:
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/api/ai/openrouter`
-      : 'http://localhost:5173/api/ai/openrouter',
-  apiKey: viteOpenRouterKey || 'sk-proxy',
-  dangerouslyAllowBrowser: true,
-  defaultHeaders: {
-    'HTTP-Referer':
-      (import.meta.env.VITE_APP_URL as string | undefined) || 'http://localhost:5173',
-    'X-OpenRouter-Title': 'PinGen',
-  },
-});
+type OpenRouterTextPart = { type: 'text'; text: string };
+type OpenRouterImagePart = { type: 'image_url'; image_url: { url: string } };
+type OpenRouterUserContent = string | Array<OpenRouterTextPart | OpenRouterImagePart>;
+
+type OpenRouterMessage =
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: OpenRouterUserContent }
+  | { role: 'assistant'; content: string };
+
+interface OpenRouterChatResponse {
+  choices?: Array<{ message?: { content?: string | null } }>;
+  error?: { message?: string };
+}
+
+class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function openRouterChatJson(
+  messages: OpenRouterMessage[],
+  options: {
+    maxTokens: number;
+    responseFormat?: 'json_object' | 'text';
+    temperature?: number;
+  }
+): Promise<string> {
+  // Prod: Vercel function /api/ai/openrouter/* (proxy OpenRouter)
+  // Dev: Vite middleware (vite.ai-plugin.ts) répond aussi sur /api/ai/openrouter/*
+  const res = await fetch('/api/ai/openrouter/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: TEXT_MODEL,
+      messages,
+      response_format:
+        options.responseFormat === 'json_object' ? { type: 'json_object' } : undefined,
+      temperature: options.temperature,
+      max_tokens: options.maxTokens,
+    }),
+  });
+
+  const raw = (await res.text()).trim();
+  let payload: OpenRouterChatResponse | null = null;
+  try {
+    payload = raw ? (JSON.parse(raw) as OpenRouterChatResponse) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!res.ok) {
+    const msg = payload?.error?.message || raw || `Erreur OpenRouter (${res.status})`;
+    throw new HttpError(res.status, msg);
+  }
+
+  const content = payload?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('Aucune réponse du modèle.');
+  }
+  return content;
+}
 
 /** Message d'erreur lisible pour l'UI */
 export function formatAiError(error: unknown): string {
-  if (error instanceof APIError) {
-    const detail =
-      typeof error.error === 'object' &&
-      error.error &&
-      'message' in error.error &&
-      typeof (error.error as { message?: unknown }).message === 'string'
-        ? (error.error as { message: string }).message
-        : error.message;
+  const status =
+    typeof error === 'object' && error && 'status' in error && typeof (error as { status: unknown }).status === 'number'
+      ? (error as { status: number }).status
+      : null;
+  const message =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
-    if (error.status === 401) {
-      return 'Clé OpenRouter invalide ou absente. Vérifiez OPENROUTER_API_KEY dans .env.';
-    }
-    if (error.status === 429) {
-      return 'Quota OpenRouter dépassé ou trop de requêtes. Réessayez dans un instant.';
-    }
-    if (error.status === 400) {
-      return detail || 'Requête refusée par OpenRouter (prompt ou paramètres).';
-    }
-    if (error.status === 403) {
-      return 'Accès refusé. Vérifiez les crédits OpenRouter et le modèle autorisé.';
-    }
-    return detail || `Erreur OpenRouter (${error.status ?? 'inconnu'})`;
+  if (status === 401) {
+    return 'Clé OpenRouter invalide ou absente. Vérifiez OPENROUTER_API_KEY sur Vercel.';
   }
-  if (error instanceof Error) {
-    return error.message;
+  if (status === 429) {
+    return 'Quota OpenRouter dépassé ou trop de requêtes. Réessayez dans un instant.';
   }
-  return 'Erreur inconnue pendant la génération.';
+  if (status === 400) {
+    return message || 'Requête refusée par OpenRouter (prompt ou paramètres).';
+  }
+  if (status === 403) {
+    return 'Accès refusé. Vérifiez les crédits OpenRouter et le modèle autorisé.';
+  }
+  return message || 'Erreur inconnue pendant la génération.';
 }
 
 export interface GeneratedPinContent {
@@ -132,9 +170,8 @@ export async function generatePinContent(
   tone?: string
 ): Promise<GeneratedPinContent> {
   try {
-    const response = await openai.chat.completions.create({
-      model: TEXT_MODEL,
-      messages: [
+    const content = await openRouterChatJson(
+      [
         {
           role: 'system',
           content: `Tu es un expert en marketing Pinterest. Tu crées des Pins optimisés pour maximiser l'engagement.
@@ -180,14 +217,8 @@ Réponds en JSON avec cette structure:
           ],
         },
       ],
-      response_format: { type: 'json_object' },
-      max_tokens: 500,
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No content generated');
-    }
+      { responseFormat: 'json_object', maxTokens: 500 }
+    );
 
     const parsed = JSON.parse(content);
     
@@ -212,9 +243,8 @@ Réponds en JSON avec cette structure:
 // Generate pin ideas from topic
 export async function generatePinIdeas(topic: string, count: number = 5): Promise<PinIdeas> {
   try {
-    const response = await openai.chat.completions.create({
-      model: TEXT_MODEL,
-      messages: [
+    const content = await openRouterChatJson(
+      [
         {
           role: 'system',
           content: `Tu es un expert en contenu Pinterest. Génère des idées de Pins créatives et engageantes.
@@ -234,14 +264,8 @@ Réponds en JSON avec cette structure:
           content: `Génère ${count} idées de Pins pour le sujet: "${topic}"`,
         },
       ],
-      response_format: { type: 'json_object' },
-      max_tokens: 500,
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No ideas generated');
-    }
+      { responseFormat: 'json_object', maxTokens: 500 }
+    );
 
     const parsed = JSON.parse(content);
     return { ideas: parsed.ideas || [] };
@@ -262,9 +286,8 @@ Réponds en JSON avec cette structure:
 // Generate optimized hashtags
 export async function generateHashtags(keywords: string[]): Promise<string[]> {
   try {
-    const response = await openai.chat.completions.create({
-      model: TEXT_MODEL,
-      messages: [
+    const content = await openRouterChatJson(
+      [
         {
           role: 'system',
           content: `Génère des hashtags Pinterest optimisés basés sur les mots-clés fournis.
@@ -282,14 +305,8 @@ Réponds uniquement avec un tableau JSON de strings.`,
           content: `Mots-clés: ${keywords.join(', ')}`,
         },
       ],
-      response_format: { type: 'json_object' },
-      max_tokens: 200,
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No hashtags generated');
-    }
+      { responseFormat: 'json_object', maxTokens: 200 }
+    );
 
     const parsed = JSON.parse(content);
     return parsed.hashtags || parsed;
@@ -305,9 +322,8 @@ export async function optimizePinContent(
   description: string
 ): Promise<GeneratedPinContent> {
   try {
-    const response = await openai.chat.completions.create({
-      model: TEXT_MODEL,
-      messages: [
+    const content = await openRouterChatJson(
+      [
         {
           role: 'system',
           content: `Optimise ce contenu Pinterest pour maximiser l'engagement.
@@ -330,14 +346,8 @@ Réponds en JSON:
           content: `Titre actuel: "${title}"\nDescription actuelle: "${description}"`,
         },
       ],
-      response_format: { type: 'json_object' },
-      max_tokens: 400,
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('No optimized content generated');
-    }
+      { responseFormat: 'json_object', maxTokens: 400 }
+    );
 
     const parsed = JSON.parse(content);
     return {
@@ -358,9 +368,8 @@ Réponds en JSON:
 }
 
 export async function generatePinConcept(input: BusinessPinInput): Promise<PinConcept> {
-  const response = await openai.chat.completions.create({
-    model: TEXT_MODEL,
-    messages: [
+  const content = await openRouterChatJson(
+    [
       {
         role: 'system',
         content: `Tu es un expert Pinterest et design marketing. À partir d'un business, tu conçois un Pin complet.
@@ -404,14 +413,8 @@ ${input.tone ? `Ton: ${input.tone}` : ''}
 Génère un Pin unique et différent à chaque fois, adapté à ce business.`,
       },
     ],
-    response_format: { type: 'json_object' },
-    max_tokens: 700,
-  });
-
-  const content = response.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error('No pin concept generated');
-  }
+    { responseFormat: 'json_object', maxTokens: 700 }
+  );
 
   const parsed = JSON.parse(content) as Partial<PinConcept>;
   const title = parsed.title || `Découvrez ${input.business}`;

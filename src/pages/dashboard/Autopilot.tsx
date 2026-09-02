@@ -198,10 +198,9 @@ export function AutopilotPage() {
       {(!hasTextAi || !hasImageAi) && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 p-4 text-sm">
           {!hasTextAi
-            ? "Clé OpenRouter non détectée : l'autopilote utilisera des textes de démo."
-            : "Clé Ideogram non détectée : l'autopilote utilisera des images de démo."}{' '}
-          Ajoutez <code className="text-xs">OPENROUTER_API_KEY</code> et{' '}
-          <code className="text-xs">IDEOGRAM_API_KEY</code> dans <code className="text-xs">.env</code>.
+            ? "L'IA texte n'est pas active sur cet environnement : l'autopilote utilisera des textes de démo."
+            : "L'IA image n'est pas active sur cet environnement : l'autopilote utilisera des images de démo."}{' '}
+          Vous pouvez activer l’IA plus tard depuis l’administration.
         </div>
       )}
 

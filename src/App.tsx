@@ -63,10 +63,12 @@ function App() {
   return (
     <I18nProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-          <Toaster position="top-right" />
-        </BrowserRouter>
+        <div className="min-h-screen w-full overflow-x-hidden">
+          <BrowserRouter>
+            <AppRoutes />
+            <Toaster position="top-right" />
+          </BrowserRouter>
+        </div>
       </AuthProvider>
     </I18nProvider>
   );

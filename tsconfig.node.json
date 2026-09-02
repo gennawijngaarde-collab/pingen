@@ -22,5 +22,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts", "vite.pinterest-plugin.ts", "vite.ai-plugin.ts"]
+  "include": [
+    "vite.config.ts",
+    "vite.pinterest-plugin.ts",
+    "vite.ai-plugin.ts",
+    "vite.stripe-plugin.ts",
+    "vite.resend-plugin.ts",
+    "api/**/*.ts"
+  ]
 }

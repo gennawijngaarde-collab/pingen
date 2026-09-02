@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 export function SchedulerWorker() {
   const { toast } = useToast();
   const isProcessing = useRef(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const processPins = useCallback(async () => {
     // Prevent concurrent processing

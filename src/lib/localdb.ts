@@ -64,7 +64,7 @@ interface QueryResult {
 const DB_KEY = 'pingen_local_db_v1';
 const SESSION_KEY = 'pingen_local_session_v1';
 
-export const DEMO_EMAIL = 'demo@pingen.io';
+export const DEMO_EMAIL = 'demo@pingenx.io';
 export const DEMO_PASSWORD = 'Demo123!';
 
 function uuid(): string {
@@ -697,7 +697,7 @@ async function localRpc(fn: string, params?: Record<string, unknown>): Promise<Q
  */
 export async function demoOAuthSignIn(provider: 'google' | 'github'): Promise<void> {
   const db = loadDb();
-  const email = `${provider}@demo.pingen.io`;
+  const email = `${provider}@demo.pingenx.io`;
   let user = db.users.find((u) => u.email === email);
 
   if (!user) {

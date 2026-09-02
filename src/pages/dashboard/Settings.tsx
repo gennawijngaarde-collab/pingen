@@ -763,7 +763,7 @@ export function Settings() {
                       <li>
                         À la création de l’app, le champ <strong>Website / URL du site</strong> doit
                         être une URL publique HTTPS — pas localhost. Utilise{' '}
-                        <code className="break-all">https://pingen-amber.vercel.app</code>
+                        <code className="break-all">{COMPANY.siteUrl}</code>
                       </li>
                       <li>
                         Politique de confidentialité :{' '}
@@ -772,7 +772,7 @@ export function Settings() {
                       <li>
                         Ensuite Manage → Configure → Redirect URIs. Si localhost est refusé, ajoute{' '}
                         <code className="break-all">
-                          https://pingen-amber.vercel.app/dashboard/settings
+                          https://pingenx.io/dashboard/settings
                         </code>
                         . En local, ajoute aussi{' '}
                         <code className="break-all">{redirectUri}</code>

@@ -5,6 +5,7 @@ import { inspectAttr } from 'kimi-plugin-inspect-react'
 import { pinterestOAuthPlugin } from './vite.pinterest-plugin'
 import { aiProxyPlugin } from './vite.ai-plugin'
 import { stripePlugin } from './vite.stripe-plugin'
+import { resendPlugin } from './vite.resend-plugin'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -16,6 +17,7 @@ export default defineConfig(({ mode }) => ({
     pinterestOAuthPlugin(mode),
     aiProxyPlugin(mode),
     stripePlugin(mode),
+    resendPlugin(mode),
   ],
   resolve: {
     alias: {

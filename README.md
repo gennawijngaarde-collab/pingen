@@ -283,7 +283,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## 👨‍💻 Auteur
 
-**PinGen Team** - contact@pingen.io
+**PinGen Team** - contact@pingenx.io
 
 ---
 

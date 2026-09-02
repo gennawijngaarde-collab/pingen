@@ -267,8 +267,11 @@ Sélection multiple Pins
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 
-# OpenAI (Optionnel - pour IA)
-VITE_OPENAI_API_KEY=sk-your-key
+# OpenRouter (optionnel - IA texte/vision)
+OPENROUTER_API_KEY=sk-or-v1-your-key
+
+# Ideogram (optionnel - images de Pins)
+IDEOGRAM_API_KEY=your-ideogram-key
 
 # Pinterest API (Optionnel - pour publication réelle)
 VITE_PINTEREST_APP_ID=your-app-id
@@ -332,4 +335,5 @@ L'application fonctionne **entièrement en mode démo** sans aucune configuratio
 
 - [Pinterest API Docs](https://developers.pinterest.com/docs/api/v5/)
 - [Supabase Docs](https://supabase.com/docs)
-- [OpenAI Vision Guide](https://platform.openai.com/docs/guides/vision)
+- [OpenRouter](https://openrouter.ai) (texte/vision)
+- [Ideogram](https://developer.ideogram.ai) (images)
