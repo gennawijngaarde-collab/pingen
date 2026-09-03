@@ -84,10 +84,14 @@ function AutopilotBanner({ userId }: { userId: string }) {
             </p>
           </div>
         </div>
-        <Button asChild variant={summary.enabled ? 'outline' : 'default'} className={!summary.enabled ? 'bg-primary hover:bg-primary/90' : ''}>
+        <Button
+          asChild
+          variant={summary.enabled ? 'outline' : 'default'}
+          className={`w-full sm:w-auto shrink ${!summary.enabled ? 'bg-primary hover:bg-primary/90' : ''}`}
+        >
           <Link to={ROUTES.autopilot}>
             {summary.enabled ? 'Gérer' : 'Configurer'}
-            <ArrowRight className="w-4 h-4 ml-2" />
+            <ArrowRight className="w-4 h-4 ml-2 shrink-0" />
           </Link>
         </Button>
       </CardContent>
@@ -203,8 +207,8 @@ export function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold">
             Bonjour, {profile?.full_name?.split(' ')[0] || 'Utilisateur'} ! 👋
           </h2>
@@ -212,23 +216,23 @@ export function Dashboard() {
             Voici ce qui se passe avec votre Pinterest aujourd'hui.
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" asChild>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto min-w-0">
+          <Button variant="outline" className="min-w-0 shrink" asChild>
             <Link to={ROUTES.autopilot}>
-              <Bot className="w-4 h-4 mr-2" />
-              Autopilote
+              <Bot className="w-4 h-4 shrink-0" />
+              <span className="truncate">Autopilote</span>
             </Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="outline" className="min-w-0 shrink" asChild>
             <Link to={ROUTES.schedule}>
-              <Calendar className="w-4 h-4 mr-2" />
-              Voir le calendrier
+              <Calendar className="w-4 h-4 shrink-0" />
+              <span className="truncate">Calendrier</span>
             </Link>
           </Button>
-          <Button className="bg-primary hover:bg-primary/90" asChild>
+          <Button className="bg-primary hover:bg-primary/90 col-span-2 sm:col-span-1 min-w-0 shrink" asChild>
             <Link to={ROUTES.generator}>
-              <Plus className="w-4 h-4 mr-2" />
-              Créer un Pin
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="truncate">Créer un Pin</span>
             </Link>
           </Button>
         </div>
