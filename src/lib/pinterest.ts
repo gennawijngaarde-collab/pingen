@@ -1,7 +1,11 @@
 // Pinterest API Configuration
 const PINTEREST_API_BASE = 'https://api.pinterest.com/v5';
+const CANONICAL_PROD_ORIGIN = 'https://www.pingenx.io';
+/** App Pinterest PinGen — public (client_id OAuth). */
+export const PINTEREST_APP_ID = '1607362';
 
-const rawAppId = ((import.meta.env.VITE_PINTEREST_APP_ID as string | undefined) || '').trim();
+const envAppId = ((import.meta.env.VITE_PINTEREST_APP_ID as string | undefined) || '').trim();
+const rawAppId = envAppId && envAppId !== '1606177' ? envAppId : PINTEREST_APP_ID;
 const rawAppSecret = ((import.meta.env.VITE_PINTEREST_APP_SECRET as string | undefined) || '').trim();
 
 /** True si App ID Pinterest réel configuré via .env (build-time) */
@@ -61,8 +65,14 @@ export async function savePinterestCredentials(
   return { ok: true, message: data.message };
 }
 
-export function getPinterestRedirectUri(origin = window.location.origin): string {
-  return `${origin}/dashboard/settings`;
+export function getPinterestRedirectUri(origin?: string): string {
+  const raw = (origin || (typeof window !== 'undefined' ? window.location.origin : CANONICAL_PROD_ORIGIN)).replace(
+    /\/$/,
+    ''
+  );
+  const isLocal = raw.includes('localhost') || raw.includes('127.0.0.1');
+  const canonical = isLocal ? raw : CANONICAL_PROD_ORIGIN;
+  return `${canonical}/dashboard/settings`;
 }
 
 // Types
@@ -167,15 +177,15 @@ export function clearOAuthState(): void {
 /** Démarre le flux OAuth Pinterest (redirection navigateur) */
 export async function startPinterestOAuth(): Promise<void> {
   const config = await fetchPinterestRuntimeConfig();
-  const clientId = config.appId || rawAppId;
+  const clientId = config.appId || rawAppId || PINTEREST_APP_ID;
 
-  if (!config.configured && !clientId) {
+  if (!clientId) {
     throw new Error(
       'App ID Pinterest manquant. Crée une app sur developers.pinterest.com et colle les clés dans Paramètres.'
     );
   }
 
-  const redirectUri = getPinterestRedirectUri();
+  const redirectUri = config.redirectUri || getPinterestRedirectUri();
   const state = createOAuthState();
   window.location.href = getPinterestAuthUrl(redirectUri, state, clientId);
 }
@@ -408,7 +418,8 @@ export async function completePinterestOAuth(code: string): Promise<{
   user: PinterestUser;
   boards: PinterestBoard[];
 }> {
-  const redirectUri = getPinterestRedirectUri();
+  const config = await fetchPinterestRuntimeConfig();
+  const redirectUri = config.redirectUri || getPinterestRedirectUri();
   const tokens = await exchangeCodeForToken(code, redirectUri);
   const user = await getPinterestUser(tokens.access_token);
   let boards: PinterestBoard[] = [];

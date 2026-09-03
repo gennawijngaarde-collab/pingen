@@ -98,7 +98,7 @@ export function Settings() {
   useEffect(() => {
     void fetchPinterestRuntimeConfig().then((config) => {
       setPinterestConfig(config);
-      if (config.appId) setPinterestAppIdInput(config.appId);
+      setPinterestAppIdInput(config.appId || '1607362');
     });
     void fetchStripeStatus().then((status) => setStripeReady(status.configured));
   }, []);
@@ -445,7 +445,7 @@ export function Settings() {
       const config = await fetchPinterestRuntimeConfig();
       setPinterestConfig(config);
 
-      if (config.configured || hasPinterestConfig) {
+      if (config.appId || config.configured || hasPinterestConfig) {
         setPinterestStatus('Redirection vers Pinterest…');
         await startPinterestOAuth();
         return;
@@ -909,7 +909,7 @@ export function Settings() {
                     <Label htmlFor="pinterestAppId">App ID</Label>
                     <Input
                       id="pinterestAppId"
-                      placeholder="ex. 148xxxx"
+                      placeholder="1607362"
                       value={pinterestAppIdInput}
                       onChange={(e) => setPinterestAppIdInput(e.target.value)}
                       autoComplete="off"
@@ -946,8 +946,9 @@ export function Settings() {
                   )}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Le secret est stocké côté serveur local (<code>.env</code>), pas dans le
-                  navigateur. Aucun redémarrage nécessaire après enregistrement.
+                  App ID actuel : <code>1607362</code>. Le secret doit être sur Vercel
+                  (<code>PINTEREST_APP_SECRET</code>) pour finaliser OAuth en production. Redirect
+                  URI exacte : <code className="break-all">{redirectUri}</code>
                 </p>
               </div>
 

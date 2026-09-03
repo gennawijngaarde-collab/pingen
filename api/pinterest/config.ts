@@ -15,11 +15,14 @@ function isConfiguredKey(raw: string | undefined): boolean {
 }
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
-  const appId = (process.env.VITE_PINTEREST_APP_ID || process.env.PINTEREST_APP_ID || '').trim();
+  const envAppId = (process.env.VITE_PINTEREST_APP_ID || process.env.PINTEREST_APP_ID || '').trim();
+  const appId = envAppId && envAppId !== '1606177' ? envAppId : '1607362';
   const secret = (process.env.PINTEREST_APP_SECRET || process.env.VITE_PINTEREST_APP_SECRET || '').trim();
   const configured = isConfiguredKey(appId) && isConfiguredKey(secret);
   const appUrl = (process.env.VITE_APP_URL || 'https://www.pingenx.io').trim().replace(/\/$/, '');
-  const redirectUri = `${appUrl}/dashboard/settings`;
+  const isLocal = appUrl.includes('localhost') || appUrl.includes('127.0.0.1');
+  const redirectBase = isLocal ? appUrl : 'https://www.pingenx.io';
+  const redirectUri = `${redirectBase}/dashboard/settings`;
 
   res.status(200).json({
     configured,

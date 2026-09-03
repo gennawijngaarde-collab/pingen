@@ -15,7 +15,10 @@ let runtimeCreds: PinterestCreds | null = null
 function readEnvCreds(mode: string): PinterestCreds {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-    appId: (env.VITE_PINTEREST_APP_ID || env.PINTEREST_APP_ID || '').trim(),
+    appId: (() => {
+      const envAppId = (env.VITE_PINTEREST_APP_ID || env.PINTEREST_APP_ID || '').trim();
+      return envAppId && envAppId !== '1606177' ? envAppId : '1607362';
+    })(),
     appSecret: (env.PINTEREST_APP_SECRET || env.VITE_PINTEREST_APP_SECRET || '').trim(),
   }
 }
