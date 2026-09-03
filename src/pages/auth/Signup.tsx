@@ -22,16 +22,17 @@ export function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    if (!authLoading && isAuthenticated && !isSuccess) {
       navigate(ROUTES.dashboard, { replace: true });
     }
-  }, [authLoading, isAuthenticated, navigate]);
+  }, [authLoading, isAuthenticated, navigate, isSuccess]);
 
   const validatePassword = (pass: string) => {
     return {
@@ -50,6 +51,12 @@ export function Signup() {
     setIsLoading(true);
     setError(null);
 
+    if (!acceptedTerms) {
+      setError("Veuillez accepter les Conditions d'utilisation et la Politique de confidentialité.");
+      setIsLoading(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
       setIsLoading(false);
@@ -63,12 +70,13 @@ export function Signup() {
     }
 
     try {
-      await signUp(email.trim(), password, fullName.trim());
-      if (!isDemoMode) {
+      const result = await signUp(email.trim(), password, fullName.trim());
+      if (!isDemoMode && result.needsEmailConfirmation) {
         setIsSuccess(true);
         setIsLoading(false);
+        return;
       }
-      // En mode démo, useEffect redirige vers le dashboard
+      // Si Supabase a créé une session (ou en mode démo), la redirection vers le dashboard se fait via le useEffect.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'inscription");
       setIsLoading(false);
@@ -264,7 +272,14 @@ export function Signup() {
               </div>
 
               <div className="flex items-start gap-2">
-                <input type="checkbox" className="rounded border-gray-300 mt-1" required />
+                <input
+                  id="acceptTerms"
+                  type="checkbox"
+                  className="rounded border-gray-300 mt-1"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  disabled={isLoading}
+                />
                 <span className="text-sm text-muted-foreground">
                   {t.auth.acceptTerms}{' '}
                   <Link to={ROUTES.terms} className="text-primary hover:underline">
@@ -280,7 +295,7 @@ export function Signup() {
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90"
-                disabled={isLoading || !allChecksPassed}
+                disabled={isLoading}
               >
                 {isLoading ? t.auth.creatingAccount : t.auth.submitSignup}
               </Button>

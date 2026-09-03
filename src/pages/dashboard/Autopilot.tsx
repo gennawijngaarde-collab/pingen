@@ -22,6 +22,7 @@ import {
   type AutopilotSettings,
 } from '@/lib/autopilot';
 import { useAiStatus } from '@/hooks/useAiStatus';
+import { BoundedNumberInput } from '@/components/ui/bounded-number-input';
 import {
   Bot,
   Clock,
@@ -167,7 +168,7 @@ export function AutopilotPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -205,7 +206,7 @@ export function AutopilotPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 min-w-0">
           <CardHeader>
             <CardTitle className="text-lg">1. Votre business</CardTitle>
             <CardDescription>
@@ -384,43 +385,44 @@ export function AutopilotPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
             <div>
               <Label htmlFor="ppd">Pins par jour</Label>
-              <Input
+              <BoundedNumberInput
                 id="ppd"
-                type="number"
                 min={1}
                 max={5}
                 className="mt-2"
                 value={settings.postsPerDay}
-                onChange={(e) => update('postsPerDay', Number(e.target.value) || 1)}
+                onCommit={(value) => update('postsPerDay', value)}
               />
+              <p className="text-xs text-muted-foreground mt-1">Entre 1 et 5</p>
             </div>
             <div>
               <Label htmlFor="lookahead">Jours à l&apos;avance</Label>
-              <Input
+              <BoundedNumberInput
                 id="lookahead"
-                type="number"
                 min={1}
                 max={14}
                 className="mt-2"
                 value={settings.lookAheadDays}
-                onChange={(e) => update('lookAheadDays', Number(e.target.value) || 7)}
+                onCommit={(value) => update('lookAheadDays', value)}
               />
+              <p className="text-xs text-muted-foreground mt-1">Entre 1 et 14</p>
             </div>
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
               <Label>Heures (heure locale)</Label>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                className="self-start"
                 onClick={() => update('postingHours', [...DEFAULT_POSTING_HOURS])}
               >
                 Réinitialiser (9h / 13h / 19h)
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-4 xs:grid-cols-6 sm:grid-cols-8 gap-2">
               {HOUR_OPTIONS.map((hour) => {
                 const selected = settings.postingHours.includes(hour);
                 return (
@@ -428,7 +430,7 @@ export function AutopilotPage() {
                     key={hour}
                     type="button"
                     onClick={() => toggleHour(hour)}
-                    className={`w-14 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`min-w-0 py-2 rounded-lg text-sm font-medium transition-colors ${
                       selected
                         ? 'bg-primary text-white'
                         : 'bg-muted hover:bg-muted/80 text-muted-foreground'

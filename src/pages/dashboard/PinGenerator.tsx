@@ -382,7 +382,7 @@ export function PinGenerator() {
       : Boolean(selectedImage) && !isGenerating;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Générateur de Pins</h2>
@@ -406,13 +406,13 @@ export function PinGenerator() {
               {generationStep || 'Génération en cours…'}
             </p>
           )}
-          {statusError ? <p>{statusError}</p> : statusMessage ? <p>{statusMessage}</p> : null}
+          {statusError ? <p className="break-words">{statusError}</p> : statusMessage ? <p className="break-words">{statusMessage}</p> : null}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 min-w-0">
+        <div className="space-y-6 min-w-0">
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle className="text-lg">1. Source du Pin</CardTitle>
             </CardHeader>
@@ -674,9 +674,9 @@ export function PinGenerator() {
           </Card>
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+        <div className="space-y-6 min-w-0">
+          <Card className="min-w-0">
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-lg">3. Contenu généré</CardTitle>
               {generatedContent && (
                 <Button

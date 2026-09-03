@@ -1,6 +1,5 @@
 interface VercelRequest {
   method?: string;
-  query?: Record<string, string | string[] | undefined>;
   body?: unknown;
 }
 
@@ -22,32 +21,45 @@ function pickString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+function parseBody(raw: unknown): Record<string, unknown> {
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    return raw as Record<string, unknown>;
+  }
+  return {};
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const apiKey = (process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY || '').trim();
-  if (!isConfiguredKey(apiKey)) {
-    res.status(401).json({ error: { message: 'OPENROUTER_API_KEY absente.' } });
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: { message: 'Method not allowed' } });
     return;
   }
 
-  const rawPath = req.query?.path;
-  const pathAfter = Array.isArray(rawPath)
-    ? `/${rawPath.map(encodeURIComponent).join('/')}`
-    : rawPath
-      ? `/${encodeURIComponent(rawPath)}`
-      : '/';
+  const apiKey = (process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY || '').trim();
+  if (!isConfiguredKey(apiKey)) {
+    res.status(401).json({ error: { message: "Le service IA texte n'est pas encore activé." } });
+    return;
+  }
 
-  const url = `https://openrouter.ai/api/v1${pathAfter}`;
   const appUrl = pickString(process.env.VITE_APP_URL) || 'https://www.pingenx.io';
+  const body = parseBody(req.body);
 
-  const upstream = await fetch(url, {
-    method: req.method || 'POST',
+  const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': appUrl,
       'X-OpenRouter-Title': 'PinGen',
     },
-    body: req.method === 'GET' || req.method === 'HEAD' ? undefined : JSON.stringify(req.body ?? {}),
+    body: JSON.stringify(body),
   });
 
   const text = await upstream.text();
@@ -55,4 +67,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json');
   res.send(text);
 }
-

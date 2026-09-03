@@ -23,7 +23,7 @@ export interface AiStatus {
 export async function fetchAiStatus(): Promise<AiStatus> {
   try {
     const response = await fetch('/api/ai/status', {
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(12000),
     });
     if (response.ok) {
       const data = (await response.json()) as Partial<AiStatus>;
@@ -71,9 +71,9 @@ async function openRouterChatJson(
     temperature?: number;
   }
 ): Promise<string> {
-  // Prod: Vercel function /api/ai/openrouter/* (proxy OpenRouter)
-  // Dev: Vite middleware (vite.ai-plugin.ts) répond aussi sur /api/ai/openrouter/*
-  const res = await fetch('/api/ai/openrouter/chat/completions', {
+  // Prod: Vercel function /api/ai/chat
+  // Dev: Vite middleware (vite.ai-plugin.ts) répond aussi sur /api/ai/chat
+  const res = await fetch('/api/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -115,17 +115,29 @@ export function formatAiError(error: unknown): string {
   const message =
     error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
+  const lower = message.toLowerCase();
+  if (status === 404 || lower.includes('not_found') || lower.includes('the page could not be found')) {
+    return "Le service IA n'est pas joignable. Réessayez dans un instant.";
+  }
+  if (
+    status === 402 ||
+    lower.includes('credit') ||
+    lower.includes('payment required') ||
+    lower.includes('insufficient')
+  ) {
+    return 'Crédit IA insuffisant. Rechargez OpenRouter (texte) ou Ideogram (images) pour générer de vrais Pins.';
+  }
   if (status === 401) {
-    return 'Clé OpenRouter invalide ou absente. Vérifiez OPENROUTER_API_KEY sur Vercel.';
+    return "Le service IA n'est pas encore activé sur cet environnement.";
   }
   if (status === 429) {
-    return 'Quota OpenRouter dépassé ou trop de requêtes. Réessayez dans un instant.';
+    return "Le service IA est temporairement saturé. Réessayez dans un instant.";
   }
   if (status === 400) {
-    return message || 'Requête refusée par OpenRouter (prompt ou paramètres).';
+    return message || 'La demande a été refusée par le service IA. Modifiez votre contenu puis réessayez.';
   }
   if (status === 403) {
-    return 'Accès refusé. Vérifiez les crédits OpenRouter et le modèle autorisé.';
+    return "Accès refusé par le service IA. Réessayez plus tard ou contactez le support.";
   }
   return message || 'Erreur inconnue pendant la génération.';
 }
@@ -375,11 +387,12 @@ export async function generatePinConcept(input: BusinessPinInput): Promise<PinCo
         content: `Tu es un expert Pinterest et design marketing. À partir d'un business, tu conçois un Pin complet.
 
 Règles image (imagePrompt, en anglais pour Ideogram):
-- Format vertical Pinterest, style photo ou illustration marketing, net et attractif
-- Décrit le sujet, l'ambiance, les couleurs, la composition et le style
+- Format vertical Pinterest, photo marketing nette
+- Le visuel DOIT montrer clairement le produit / le métier / la niche (ex. sneakers si c'est une boutique de sneakers). Interdit : photo nature générique sans rapport
+- Décrit le sujet, les objets, l'ambiance, les couleurs et la composition
 - Pas de logos de marques, pas de visages réalistes de célébrités
 - Variation visuelle forte à chaque génération
-- N'écris PAS "no text" : le titre overlayText sera rendu dans l'image
+- Laisse le tiers inférieur assez simple : un titre sera ajouté ensuite
 
 Règles overlayText:
 - 3 à 7 mots maximum, en français, parfaitement orthographiés
@@ -410,7 +423,7 @@ ${input.audience ? `Audience: ${input.audience}` : ''}
 ${input.niche ? `Niche: ${input.niche}` : ''}
 ${input.tone ? `Ton: ${input.tone}` : ''}
 
-Génère un Pin unique et différent à chaque fois, adapté à ce business.`,
+Génère un Pin unique et différent à chaque fois. L'image doit être visuellement reconnaissable comme ce business, pas une image stock générique.`,
       },
     ],
     { responseFormat: 'json_object', maxTokens: 700 }
@@ -432,11 +445,12 @@ Génère un Pin unique et différent à chaque fois, adapté à ce business.`,
   };
 }
 
-/** Génère une image Pin verticale via Ideogram (typo lisible). */
+/** Génère une image Pin verticale via Ideogram, puis superpose le titre. */
 export async function generatePinImage(
   prompt: string,
   overlayText?: string
 ): Promise<string> {
+  const { composePinOverlay } = await import('@/lib/pinImage');
   const response = await fetch('/api/ai/image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -452,12 +466,17 @@ export async function generatePinImage(
   };
 
   if (!response.ok || !payload.url) {
-    throw new Error(
+    throw new HttpError(
+      response.status || 502,
       payload.error || `Erreur Ideogram (${response.status || 'inconnu'})`
     );
   }
 
-  return payload.url;
+  try {
+    return await composePinOverlay(payload.url, overlayText);
+  } catch {
+    return payload.url;
+  }
 }
 
 /**
@@ -470,7 +489,7 @@ export async function generateBusinessPin(
   const status = await fetchAiStatus();
   if (!status.hasTextAi) {
     throw new Error(
-      'Clé OpenRouter absente. Ajoutez OPENROUTER_API_KEY dans .env puis redémarrez npm run dev.'
+      "La génération IA n'est pas disponible sur cet environnement."
     );
   }
 
@@ -478,7 +497,7 @@ export async function generateBusinessPin(
     const concept = await generatePinConcept(input);
     if (!status.hasImageAi) {
       throw new Error(
-        'Clé Ideogram absente. Ajoutez IDEOGRAM_API_KEY dans .env puis redémarrez npm run dev.'
+        "La génération d'image IA n'est pas disponible sur cet environnement."
       );
     }
     const imageUrl = await generatePinImage(

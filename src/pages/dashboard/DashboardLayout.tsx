@@ -65,7 +65,7 @@ export function DashboardLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 overflow-x-hidden">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div
@@ -146,7 +146,7 @@ export function DashboardLayout() {
       </aside>
 
       {/* Main Content */}
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 min-w-0">
         {/* Header */}
         <header className="h-16 bg-white border-b px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-4">
@@ -214,7 +214,7 @@ export function DashboardLayout() {
         <AutopilotWorker />
 
         {/* Page Content */}
-        <main className="p-4 lg:p-8">
+        <main className="p-4 lg:p-8 min-w-0 overflow-x-hidden">
           <Outlet />
         </main>
       </div>

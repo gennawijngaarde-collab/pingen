@@ -128,7 +128,10 @@ async function safeErrorMessage(res: Response): Promise<string> {
 
 function attachAiMiddleware(server: ViteDevServer, mode: string) {
   server.middlewares.use((req, res, next) => {
-    const url = req.url?.split('?')[0] || ''
+    const rawUrl = req.url || ''
+    const url = rawUrl.split('?')[0] || ''
+    const search = rawUrl.includes('?') ? rawUrl.slice(rawUrl.indexOf('?') + 1) : ''
+    const params = new URLSearchParams(search)
 
     if (req.method === 'GET' && url === '/api/ai/status') {
       try {
@@ -142,6 +145,77 @@ function attachAiMiddleware(server: ViteDevServer, mode: string) {
           error: error instanceof Error ? error.message : 'Impossible de lire le statut IA',
         })
       }
+      return
+    }
+
+    if (req.method === 'GET' && url === '/api/ai/image') {
+      void (async () => {
+        try {
+          const remote = params.get('proxy') || ''
+          if (!remote || !/^https:\/\//i.test(remote)) {
+            sendJson(res, 400, { error: 'URL image invalide' })
+            return
+          }
+          const remoteRes = await fetch(remote)
+          if (!remoteRes.ok) {
+            sendJson(res, 502, { error: 'Impossible de charger l’image.' })
+            return
+          }
+          const contentType = remoteRes.headers.get('content-type') || 'image/jpeg'
+          const buffer = Buffer.from(await remoteRes.arrayBuffer())
+          res.statusCode = 200
+          res.setHeader('Content-Type', contentType)
+          res.setHeader('Cache-Control', 'public, max-age=300')
+          res.end(buffer)
+        } catch (error) {
+          sendJson(res, 502, {
+            error: error instanceof Error ? error.message : 'Proxy image impossible',
+          })
+        }
+      })()
+      return
+    }
+
+    if (req.method === 'POST' && url === '/api/ai/chat') {
+      void (async () => {
+        try {
+          const keys = readAiKeys(mode)
+          if (!isConfiguredKey(keys.openRouter)) {
+            sendJson(res, 401, {
+              error: {
+                message:
+                  'Clé OpenRouter absente. Ajoutez OPENROUTER_API_KEY dans .env puis redémarrez npm run dev.',
+              },
+            })
+            return
+          }
+
+          const rawBody = await readRawBody(req)
+          const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${keys.openRouter}`,
+              'Content-Type': req.headers['content-type'] || 'application/json',
+              'HTTP-Referer': 'http://localhost:5173',
+              'X-OpenRouter-Title': 'PinGen',
+            },
+            body: rawBody,
+          })
+
+          const text = await upstream.text()
+          res.statusCode = upstream.status
+          res.setHeader(
+            'Content-Type',
+            upstream.headers.get('content-type') || 'application/json'
+          )
+          res.end(text)
+        } catch (error) {
+          sendJson(res, 502, {
+            error:
+              error instanceof Error ? error.message : 'Échec du proxy OpenRouter',
+          })
+        }
+      })()
       return
     }
 

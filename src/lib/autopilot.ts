@@ -254,7 +254,7 @@ async function createAutopilotPinContent(settings: AutopilotSettings) {
         tone: settings.tone || undefined,
       });
     } catch (error) {
-      console.warn('Autopilot AI generation failed, using mock:', error);
+      throw error instanceof Error ? error : new Error('Génération IA impossible');
     }
   }
 

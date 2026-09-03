@@ -19,7 +19,11 @@ interface AuthContextType {
   profile: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName: string
+  ) => Promise<{ needsEmailConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithOAuth: (provider: 'google' | 'github') => Promise<void>;
   signOut: () => Promise<void>;
@@ -129,16 +133,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: { full_name: fullName },
+          // Quand "Confirm email" est activé, il n'y a pas de session immédiate.
+          // On redirige donc le lien de confirmation vers la page login.
+          emailRedirectTo: `${window.location.origin}${ROUTES.login}`,
         },
       });
       if (error) throw error;
-      const nextUser = data.session?.user ?? data.user ?? null;
-      applySessionSync(nextUser);
-      setIsLoading(false);
-      if (nextUser) {
-        await fetchProfile(nextUser);
+      const sessionUser = data.session?.user ?? null;
+      if (sessionUser) {
+        applySessionSync(sessionUser);
+        setIsLoading(false);
+        await fetchProfile(sessionUser);
+      } else {
+        // Email confirmation: user créé mais pas de session => on NE connecte PAS l'utilisateur.
+        applySessionSync(null);
+        setIsLoading(false);
       }
       void notifySignup({ email, fullName });
+      return { needsEmailConfirmation: !sessionUser };
     },
     [applySessionSync, fetchProfile]
   );

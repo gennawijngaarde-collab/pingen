@@ -1,4 +1,4 @@
-import { supabase, type Pin } from './supabase';
+import { supabase, type Pin, type PinterestAccount } from './supabase';
 import { createPinterestPin, mockPinterestService, hasPinterestConfig } from './pinterest';
 
 export interface ScheduledJob {
@@ -50,8 +50,12 @@ export async function processScheduledPins(): Promise<{
   let successful = 0;
   let failed = 0;
 
+  type PinWithPinterestAccounts = Pin & {
+    pinterest_accounts: PinterestAccount[] | PinterestAccount | null;
+  };
+
   // Process each pin
-  for (const pin of scheduledPins as any[]) {
+  for (const pin of scheduledPins as unknown as PinWithPinterestAccounts[]) {
     try {
       await publishScheduledPin(pin);
       successful++;
@@ -95,8 +99,12 @@ export async function processScheduledPins(): Promise<{
 /**
  * Publish a single scheduled pin to Pinterest
  */
-async function publishScheduledPin(pin: Pin & { pinterest_accounts: any }): Promise<void> {
-  const account = pin.pinterest_accounts;
+async function publishScheduledPin(
+  pin: Pin & { pinterest_accounts: PinterestAccount[] | PinterestAccount | null }
+): Promise<void> {
+  const account = Array.isArray(pin.pinterest_accounts)
+    ? pin.pinterest_accounts[0] ?? null
+    : pin.pinterest_accounts;
   
   if (!account) {
     throw new Error('No Pinterest account connected for this pin');
@@ -315,7 +323,7 @@ export async function autoSchedulePins(
   // These are in user's local time, converted to UTC
   const optimalHours = [8, 12, 15, 18, 21]; // 8am, 12pm, 3pm, 6pm, 9pm
   
-  let currentDate = new Date(startDate);
+  const currentDate = new Date(startDate);
   let hourIndex = 0;
   let postsToday = 0;
 

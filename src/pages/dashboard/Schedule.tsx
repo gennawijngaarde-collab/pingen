@@ -457,7 +457,7 @@ export function Schedule() {
           <h2 className="text-2xl font-bold">{t.schedule.title}</h2>
           <p className="text-muted-foreground">{t.schedule.subtitle}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {activeTab === 'drafts' && selectedPins.length > 0 && user && (
             <BulkScheduler
               pinIds={selectedPins}
@@ -468,16 +468,16 @@ export function Schedule() {
               }}
             />
           )}
-          <Button variant="outline" asChild>
+          <Button variant="outline" className="flex-1 sm:flex-none min-w-0" asChild>
             <Link to={ROUTES.autopilot}>
-              <Bot className="w-4 h-4 mr-2" />
-              {t.schedule.autopilot}
+              <Bot className="w-4 h-4 mr-2 shrink-0" />
+              <span className="truncate">{t.schedule.autopilot}</span>
             </Link>
           </Button>
-          <Button className="bg-primary hover:bg-primary/90" asChild>
+          <Button className="bg-primary hover:bg-primary/90 flex-1 sm:flex-none min-w-0" asChild>
             <Link to={ROUTES.generator}>
-              <Plus className="w-4 h-4 mr-2" />
-              {t.schedule.createPin}
+              <Plus className="w-4 h-4 mr-2 shrink-0" />
+              <span className="truncate">{t.schedule.createPin}</span>
             </Link>
           </Button>
         </div>
@@ -485,17 +485,17 @@ export function Schedule() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          <Card>
+          <Card className="min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle className="text-lg">{t.schedule.calendar}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-w-0 overflow-hidden">
               <CalendarComponent
                 mode="single"
                 locale={dateLocale}
                 selected={date}
                 onSelect={setDate}
-                className="rounded-md border w-full"
+                className="rounded-md border w-full max-w-full"
                 modifiers={calendarModifiers}
                 modifiersClassNames={{
                   scheduled:
@@ -587,8 +587,8 @@ export function Schedule() {
 
         <div className="lg:col-span-2">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="flex items-center justify-between mb-4">
-              <TabsList>
+            <div className="flex items-center justify-between gap-2 mb-4 min-w-0">
+              <TabsList className="w-full sm:w-auto overflow-x-auto justify-start">
                 <TabsTrigger value="scheduled" className="gap-2">
                   <Clock3 className="w-4 h-4" />
                   {t.schedule.scheduled}

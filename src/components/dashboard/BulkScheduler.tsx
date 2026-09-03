@@ -52,6 +52,7 @@ export function BulkScheduler({ pinIds, userId, onScheduled }: BulkSchedulerProp
       onScheduled();
       setIsOpen(false);
     } catch (error) {
+      console.error('BulkScheduler manual scheduling failed:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de planifier les pins',
@@ -75,6 +76,7 @@ export function BulkScheduler({ pinIds, userId, onScheduled }: BulkSchedulerProp
       onScheduled();
       setIsOpen(false);
     } catch (error) {
+      console.error('BulkScheduler auto scheduling failed:', error);
       toast({
         title: 'Erreur',
         description: 'Impossible de planifier les pins',

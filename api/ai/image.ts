@@ -1,11 +1,27 @@
 interface VercelRequest {
   method?: string;
+  url?: string;
+  query?: Record<string, string | string[] | undefined>;
   body?: unknown;
 }
 
 interface VercelResponse {
   status: (code: number) => VercelResponse;
+  setHeader: (name: string, value: string) => void;
+  send: (body: string | Buffer) => void;
   json: (body: Record<string, unknown>) => void;
+}
+
+function pickQuery(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] || '' : value || '';
+}
+
+function getProxyUrl(req: VercelRequest): string {
+  const fromQuery = pickQuery(req.query?.proxy);
+  if (fromQuery) return fromQuery;
+  const raw = req.url || '';
+  const search = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
+  return new URLSearchParams(search).get('proxy') || '';
 }
 
 function isConfiguredKey(raw: string | undefined): boolean {
@@ -20,16 +36,37 @@ function buildIdeogramPrompt(visualPrompt: string, overlayText?: string): string
   const visual = visualPrompt.trim();
   const parts = [
     'Professional vertical Pinterest pin, 2:3 portrait composition, high-end marketing graphic.',
-    text
-      ? `The pin includes large, perfectly spelled, highly readable headline text that says exactly: "${text}". Bold modern typography, high contrast against the background.`
-      : 'Clean composition without extra captions or UI chrome.',
+    'The photograph MUST clearly depict the actual business, product or niche described. No generic nature stock unless the business is about nature.',
     visual,
+    text
+      ? `Leave a clean dark area in the lower third for a headline. Do not invent extra slogans.`
+      : 'Clean composition without extra captions or UI chrome.',
     'Crisp details, no watermarks, no UI chrome, no logos of real brands, no celebrity faces.',
   ];
   return parts.join(' ').slice(0, 3900);
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method === 'GET') {
+    const remote = getProxyUrl(req);
+    if (!remote || !/^https:\/\//i.test(remote)) {
+      res.status(400).json({ error: 'URL image invalide' });
+      return;
+    }
+    const remoteRes = await fetch(remote);
+    if (!remoteRes.ok) {
+      res.status(502).json({ error: 'Impossible de charger l’image.' });
+      return;
+    }
+    const contentType = remoteRes.headers.get('content-type') || 'image/jpeg';
+    const buffer = Buffer.from(await remoteRes.arrayBuffer());
+    res.status(200);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.send(buffer);
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

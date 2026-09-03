@@ -19,5 +19,13 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Trop strict pour shadcn/ui + utilitaires partagés: on préfère garder l'architecture
+      // plutôt que de découper artificiellement les exports.
+      'react-refresh/only-export-components': 'off',
+      // Les effets déclenchent souvent des chargements async qui mettent à jour l'état.
+      // Cette règle est trop agressive dans une app data-driven.
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
 ])
