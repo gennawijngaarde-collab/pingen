@@ -1,4 +1,34 @@
-const TEXT_MODEL = 'google/gemini-2.0-flash-001';
+const TEXT_MODEL = 'google/gemini-2.5-flash';
+
+const TITLE_MAX = 80;
+
+function firstPhrase(text: string): string {
+  return text.split(/[,.;:!?]/)[0]?.replace(/\s+/g, ' ').trim() || text.trim();
+}
+
+function shortBusinessHook(business: string): string {
+  const words = firstPhrase(business).split(/\s+/).filter(Boolean).slice(0, 4);
+  return words.length ? words.join(' ') : 'Votre business';
+}
+
+/** Titre Pinterest court — jamais la description complète du business. */
+export function sanitizePinTitle(raw: string | undefined, business: string): string {
+  const title = (raw || '').replace(/\s+/g, ' ').trim();
+  const fullBusiness = business.replace(/\s+/g, ' ').trim();
+  const looksLikeBusinessDump =
+    !title ||
+    title === fullBusiness ||
+    (fullBusiness.length > 28 && title.includes(fullBusiness)) ||
+    title.length > TITLE_MAX + 20;
+
+  const cleaned = looksLikeBusinessDump ? `Découvrez ${shortBusinessHook(fullBusiness)}` : title;
+  return cleaned.slice(0, TITLE_MAX);
+}
+
+function sanitizeOverlayText(raw: string | undefined, title: string): string {
+  const text = (raw || title).replace(/\s+/g, ' ').trim();
+  return text.split(/\s+/).slice(0, 7).join(' ').slice(0, 60);
+}
 
 function isConfiguredKey(raw: string | undefined): boolean {
   const key = (raw || '').trim();
@@ -116,6 +146,9 @@ export function formatAiError(error: unknown): string {
     error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
   const lower = message.toLowerCase();
+  if (lower.includes('no endpoints found') || lower.includes('not a valid model')) {
+    return "Le modèle IA n'est plus disponible. Réessayez dans un instant.";
+  }
   if (status === 404 || lower.includes('not_found') || lower.includes('the page could not be found')) {
     return "Le service IA n'est pas joignable. Réessayez dans un instant.";
   }
@@ -400,10 +433,10 @@ Règles overlayText:
 - C'est le texte QUI APPARAÎT DANS l'image
 
 Règles texte (en français):
-- title: max 100 caractères, accrocheur (métadonnée Pinterest)
+- title: accroche Pinterest de 4 à 10 mots, max 80 caractères. INTERDIT de recopier la description du business
 - description: 2-3 phrases, SEO, CTA subtil, max 500 caractères
 - hashtags: 3-5 pertinents au business
-- altText: descriptif SEO
+- altText: descriptif SEO, pas la description brute du business
 
 Réponds en JSON:
 {
@@ -430,18 +463,18 @@ Génère un Pin unique et différent à chaque fois. L'image doit être visuelle
   );
 
   const parsed = JSON.parse(content) as Partial<PinConcept>;
-  const title = parsed.title || `Découvrez ${input.business}`;
+  const title = sanitizePinTitle(parsed.title, input.business);
   return {
     imagePrompt:
       parsed.imagePrompt ||
-      `Vertical Pinterest-style lifestyle photo related to ${input.business}, bright lighting, professional marketing aesthetic`,
-    overlayText: (parsed.overlayText || title).split(/\s+/).slice(0, 7).join(' '),
+      `Vertical Pinterest-style lifestyle photo related to ${shortBusinessHook(input.business)}, bright lighting, professional marketing aesthetic`,
+    overlayText: sanitizeOverlayText(parsed.overlayText, title),
     title,
     description:
       parsed.description ||
-      `Une idée inspirante pour ${input.business}. Parfait pour votre audience.`,
+      `Une idée inspirante pour ${shortBusinessHook(input.business)}. Parfait pour votre audience.`,
     hashtags: parsed.hashtags || ['#pinterest', '#business', '#inspiration'],
-    altText: parsed.altText || parsed.title || `Pin pour ${input.business}`,
+    altText: parsed.altText || title,
   };
 }
 
@@ -486,20 +519,8 @@ export async function generatePinImage(
 export async function generateBusinessPin(
   input: BusinessPinInput
 ): Promise<GeneratedBusinessPin> {
-  const status = await fetchAiStatus();
-  if (!status.hasTextAi) {
-    throw new Error(
-      "La génération IA n'est pas disponible sur cet environnement."
-    );
-  }
-
   try {
     const concept = await generatePinConcept(input);
-    if (!status.hasImageAi) {
-      throw new Error(
-        "La génération d'image IA n'est pas disponible sur cet environnement."
-      );
-    }
     const imageUrl = await generatePinImage(
       concept.imagePrompt,
       concept.overlayText || concept.title
@@ -508,7 +529,7 @@ export async function generateBusinessPin(
     return {
       imageUrl,
       imagePrompt: concept.imagePrompt,
-      title: concept.title,
+      title: sanitizePinTitle(concept.title, input.business),
       description: concept.description,
       hashtags: concept.hashtags,
       altText: concept.altText,
@@ -552,11 +573,13 @@ export function mockGeneratePinContent(): GeneratedPinContent {
 /** Mock pin business (image placeholder + texte) pour le mode démo */
 export function mockGenerateBusinessPin(business: string): GeneratedBusinessPin {
   const content = mockGeneratePinContent();
-  const seed = encodeURIComponent(business.slice(0, 40) || 'pin') + Date.now();
+  const hook = shortBusinessHook(business);
+  const seed = encodeURIComponent(hook || 'pin') + Date.now();
   return {
     ...content,
-    title: content.title.includes(business) ? content.title : `${content.title} — ${business}`,
+    title: sanitizePinTitle(content.title, business),
+    description: `${content.description} Idéal pour ${hook}.`,
     imageUrl: `https://picsum.photos/seed/${seed}/768/1344`,
-    imagePrompt: `Demo placeholder for ${business}`,
+    imagePrompt: `Demo placeholder for ${hook}`,
   };
 }

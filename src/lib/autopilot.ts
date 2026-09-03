@@ -1,9 +1,5 @@
 import { supabase, type Pin } from './supabase';
-import {
-  generateBusinessPin,
-  mockGenerateBusinessPin,
-  fetchAiStatus,
-} from './ai';
+import { generateBusinessPin } from './ai';
 
 export interface AutopilotSettings {
   enabled: boolean;
@@ -243,27 +239,17 @@ export async function processAutopilot(
 }
 
 async function createAutopilotPinContent(settings: AutopilotSettings) {
-  const { hasTextAi, hasImageAi } = await fetchAiStatus();
-  if (hasTextAi && hasImageAi) {
-    try {
-      return await generateBusinessPin({
-        business: settings.business,
-        productOrOffer: settings.productOrOffer || undefined,
-        audience: settings.audience || undefined,
-        niche: settings.niche || undefined,
-        tone: settings.tone || undefined,
-      });
-    } catch (error) {
-      throw error instanceof Error ? error : new Error('Génération IA impossible');
-    }
-  }
-
-  const mock = mockGenerateBusinessPin(settings.business);
-  // Enrich description with CTA to site when available
+  const pin = await generateBusinessPin({
+    business: settings.business,
+    productOrOffer: settings.productOrOffer || undefined,
+    audience: settings.audience || undefined,
+    niche: settings.niche || undefined,
+    tone: settings.tone || undefined,
+  });
   if (settings.websiteUrl) {
-    mock.description = `${mock.description} Découvrez plus sur ${settings.websiteUrl}`;
+    pin.description = `${pin.description} Découvrez plus sur ${settings.websiteUrl}`;
   }
-  return mock;
+  return pin;
 }
 
 export function formatHourLabel(hour: number): string {

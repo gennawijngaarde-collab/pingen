@@ -21,7 +21,6 @@ import {
   validateAutopilotForEnable,
   type AutopilotSettings,
 } from '@/lib/autopilot';
-import { useAiStatus } from '@/hooks/useAiStatus';
 import { BoundedNumberInput } from '@/components/ui/bounded-number-input';
 import {
   Bot,
@@ -58,7 +57,6 @@ const NICHES = [
 export function AutopilotPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { hasTextAi, hasImageAi } = useAiStatus();
   const [settings, setSettings] = useState<AutopilotSettings>(DEFAULT_AUTOPILOT);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingNow, setIsGeneratingNow] = useState(false);
@@ -195,15 +193,6 @@ export function AutopilotPage() {
           />
         </div>
       </div>
-
-      {(!hasTextAi || !hasImageAi) && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 text-amber-900 p-4 text-sm">
-          {!hasTextAi
-            ? "L'IA texte n'est pas active sur cet environnement : l'autopilote utilisera des textes de démo."
-            : "L'IA image n'est pas active sur cet environnement : l'autopilote utilisera des images de démo."}{' '}
-          Vous pouvez activer l’IA plus tard depuis l’administration.
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 min-w-0">

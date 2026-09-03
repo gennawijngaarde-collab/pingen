@@ -19,7 +19,6 @@ import {
   generatePinConcept,
   generatePinImage,
   mockGeneratePinContent,
-  mockGenerateBusinessPin,
   formatAiError,
   type GeneratedPinContent,
 } from '@/lib/ai';
@@ -62,7 +61,7 @@ export function PinGenerator() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createPin } = usePins();
-  const { hasTextAi, hasImageAi } = useAiStatus();
+  const { hasTextAi } = useAiStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState('auto');
@@ -193,90 +192,60 @@ export function PinGenerator() {
     }
 
     setIsGenerating(true);
-    setGenerationStep(hasTextAi ? '1/2 Conception du Pin…' : 'Génération démo…');
-    setStatusMessage(
-      hasTextAi
-        ? 'Génération en cours (texte + image, ~20–60 s)…'
-        : 'Génération démo en cours…'
-    );
+    setGenerationStep('1/2 Conception du Pin…');
+    setStatusMessage('Génération en cours (texte + image, ~20–60 s)…');
 
     try {
       let pinImageUrl: string;
       let content: GeneratedPinContent;
 
-      if (hasTextAi) {
-        const concept = await generatePinConcept({
-          business,
-          productOrOffer: productOrOffer.trim() || undefined,
-          audience: audience.trim() || undefined,
-          niche: selectedNiche || undefined,
-          tone: selectedTone || undefined,
+      const concept = await generatePinConcept({
+        business,
+        productOrOffer: productOrOffer.trim() || undefined,
+        audience: audience.trim() || undefined,
+        niche: selectedNiche || undefined,
+        tone: selectedTone || undefined,
+      });
+
+      content = {
+        title: concept.title,
+        description: concept.description,
+        hashtags: concept.hashtags,
+        altText: concept.altText,
+      };
+      setGeneratedContent(content);
+
+      setGenerationStep('2/2 Génération de l\'image (Ideogram)…');
+      setStatusMessage('Création de l\'image avec Ideogram…');
+
+      let imageFailedMessage: string | null = null;
+      try {
+        pinImageUrl = await generatePinImage(
+          concept.imagePrompt,
+          concept.overlayText || concept.title
+        );
+      } catch (imageError) {
+        console.error(imageError);
+        imageFailedMessage = formatAiError(imageError);
+        pinImageUrl = `https://placehold.co/768x1344/E3001B/FFFFFF/png?text=${encodeURIComponent('Pin')}`;
+        setStatusError(`Texte généré, mais l'image a échoué : ${imageFailedMessage}`);
+        toast({
+          title: 'Texte OK — image en échec',
+          description: imageFailedMessage,
+          variant: 'destructive',
         });
+      }
 
-        content = {
-          title: concept.title,
-          description: concept.description,
-          hashtags: concept.hashtags,
-          altText: concept.altText,
-        };
-        // Affiche le texte tout de suite, même si l'image échoue ensuite
-        setGeneratedContent(content);
+      setSelectedImage(pinImageUrl);
+      setGeneratedContent(content);
 
-        setGenerationStep('2/2 Génération de l\'image (Ideogram)…');
-        setStatusMessage('Création de l\'image avec Ideogram…');
-
-        let imageFailedMessage: string | null = null;
-        try {
-          if (!hasImageAi) {
-            throw new Error(
-              "La génération d'image n'est pas disponible sur cet environnement."
-            );
-          }
-          pinImageUrl = await generatePinImage(
-            concept.imagePrompt,
-            concept.overlayText || concept.title
-          );
-        } catch (imageError) {
-          console.error(imageError);
-          imageFailedMessage = formatAiError(imageError);
-          pinImageUrl = `https://placehold.co/768x1344/E3001B/FFFFFF/png?text=${encodeURIComponent('Pin')}`;
-          setStatusError(`Texte généré, mais l'image a échoué : ${imageFailedMessage}`);
-          toast({
-            title: 'Texte OK — image en échec',
-            description: imageFailedMessage,
-            variant: 'destructive',
-          });
-        }
-
-        setSelectedImage(pinImageUrl);
-        setGeneratedContent(content);
-
-        if (!imageFailedMessage) {
-          setStatusMessage('Pin généré avec succès.');
-          setStatusError(null);
-          toast({
-            title: 'Pin généré !',
-            description:
-              'Image + texte créés pour votre business. Cliquez sur Régénérer pour une autre variante.',
-          });
-        }
-      } else {
-        const mock = mockGenerateBusinessPin(business);
-        pinImageUrl = mock.imageUrl;
-        content = {
-          title: mock.title,
-          description: mock.description,
-          hashtags: mock.hashtags,
-          altText: mock.altText,
-        };
-        setSelectedImage(pinImageUrl);
-        setGeneratedContent(content);
+      if (!imageFailedMessage) {
         setStatusMessage('Pin généré avec succès.');
         setStatusError(null);
         toast({
           title: 'Pin généré !',
           description:
-            'Mode démo : image + texte simulés.',
+            'Image + texte créés pour votre business. Cliquez sur Régénérer pour une autre variante.',
         });
       }
     } catch (error) {
@@ -473,12 +442,6 @@ export function PinGenerator() {
                     avec titre lisible) et le texte du Pin. Chaque génération produit une variante
                     différente.
                   </p>
-                  {(!hasTextAi || !hasImageAi) && (
-                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      Certaines fonctionnalités IA ne sont pas encore actives sur cet environnement.
-                      Vous pouvez quand même générer en mode démo.
-                    </p>
-                  )}
                   {selectedImage && activeTab === 'auto' && (
                     <div className="relative rounded-lg overflow-hidden border">
                       <img
