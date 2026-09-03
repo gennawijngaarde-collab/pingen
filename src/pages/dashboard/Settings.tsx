@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -9,8 +9,10 @@ import {
   getUserPinterestAccounts,
   getUserSubscription,
   connectPinterestAccount,
+  updateOwnProfile,
   type PinterestAccount,
 } from '@/lib/supabase';
+import { compressProfileImage } from '@/lib/profileImage';
 import {
   confirmStripeCheckout,
   fetchStripeStatus,
@@ -68,8 +70,12 @@ export function Settings() {
   const activeTab = searchParams.get('tab') || 'profile';
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [bio, setBio] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [accounts, setAccounts] = useState<PinterestAccount[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
   const [isConnectingPinterest, setIsConnectingPinterest] = useState(false);
@@ -111,7 +117,17 @@ export function Settings() {
   useEffect(() => {
     setFirstName(profile?.full_name?.split(' ')[0] || '');
     setLastName(profile?.full_name?.split(' ').slice(1).join(' ') || '');
+    setAvatarUrl(profile?.avatar_url || null);
   }, [profile]);
+
+  useEffect(() => {
+    if (!user) return;
+    try {
+      setBio(localStorage.getItem(`pingen_profile_bio_${user.id}`) || '');
+    } catch {
+      setBio('');
+    }
+  }, [user]);
 
   const loadAccounts = useCallback(async () => {
     if (!user) return;
@@ -257,19 +273,25 @@ export function Settings() {
     }
 
     setIsSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: fullName })
-      .eq('id', user.id);
+    const { error } = await updateOwnProfile(user.id, {
+      full_name: fullName,
+      avatar_url: avatarUrl,
+    });
     setIsSaving(false);
 
     if (error) {
       toast({
         title: 'Erreur',
-        description: 'Impossible de sauvegarder le profil.',
+        description: error,
         variant: 'destructive',
       });
       return;
+    }
+
+    try {
+      localStorage.setItem(`pingen_profile_bio_${user.id}`, bio.trim());
+    } catch {
+      // ignore quota
     }
 
     await refreshProfile();
@@ -277,6 +299,48 @@ export function Settings() {
       title: 'Profil sauvegardé',
       description: 'Vos informations ont été mises à jour.',
     });
+  };
+
+  const persistAvatar = async (nextUrl: string | null): Promise<boolean> => {
+    if (!user) return false;
+    setIsSavingPhoto(true);
+    const { error } = await updateOwnProfile(user.id, { avatar_url: nextUrl });
+    setIsSavingPhoto(false);
+    if (error) {
+      toast({
+        title: 'Photo non enregistrée',
+        description: error,
+        variant: 'destructive',
+      });
+      return false;
+    }
+    setAvatarUrl(nextUrl);
+    await refreshProfile();
+    return true;
+  };
+
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setIsSavingPhoto(true);
+    try {
+      const dataUrl = await compressProfileImage(file);
+      const saved = await persistAvatar(dataUrl);
+      if (saved) toast({ title: 'Photo mise à jour' });
+    } catch (error) {
+      setIsSavingPhoto(false);
+      toast({
+        title: 'Photo impossible',
+        description: error instanceof Error ? error.message : 'Réessayez avec une autre image.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handlePhotoDelete = async () => {
+    const saved = await persistAvatar(null);
+    if (saved) toast({ title: 'Photo supprimée' });
   };
 
   const handleChangePassword = async () => {
@@ -642,26 +706,56 @@ export function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-6">
-                <Avatar className="w-24 h-24">
-                  <AvatarImage src={profile?.avatar_url || undefined} />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 min-w-0">
+                <Avatar className="w-24 h-24 shrink-0">
+                  <AvatarImage src={avatarUrl || undefined} />
                   <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                     {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <div className="space-y-3">
-                  <div className="flex gap-3">
-                    <Button variant="outline">
-                      <Camera className="w-4 h-4 mr-2" />
-                      Changer la photo
+                <div className="space-y-3 min-w-0 w-full">
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="sr-only"
+                    onChange={(event) => {
+                      void handlePhotoChange(event);
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2 min-w-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-w-0"
+                      disabled={isSavingPhoto}
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      {isSavingPhoto ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Camera className="w-4 h-4 mr-2 shrink-0" />
+                      )}
+                      <span className="truncate">Changer la photo</span>
                     </Button>
-                    <Button variant="ghost" className="text-red-600">
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Supprimer
-                    </Button>
+                    {avatarUrl ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="text-red-600 shrink-0 px-3"
+                        disabled={isSavingPhoto}
+                        onClick={() => {
+                          void handlePhotoDelete();
+                        }}
+                        aria-label="Supprimer la photo"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span className="hidden sm:inline ml-2">Supprimer</span>
+                      </Button>
+                    ) : null}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    JPG, PNG ou GIF. Max 2MB.
+                    JPG, PNG, GIF ou WebP. L&apos;image est compressée automatiquement.
                   </p>
                 </div>
               </div>
@@ -712,6 +806,9 @@ export function Settings() {
                   id="bio"
                   placeholder="Parlez-nous de vous..."
                   rows={4}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  maxLength={500}
                 />
               </div>
               <Button onClick={handleSaveProfile} disabled={isSaving}>

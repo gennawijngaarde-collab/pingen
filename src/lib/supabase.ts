@@ -125,6 +125,44 @@ export async function getUserProfile(userId: string) {
   return data as User;
 }
 
+export function pickOAuthAvatar(metadata: Record<string, unknown> | undefined): string | null {
+  if (!metadata) return null;
+  const candidates = [metadata.avatar_url, metadata.picture, metadata.avatar];
+  for (const value of candidates) {
+    if (typeof value === 'string' && /^https?:\/\//i.test(value)) return value;
+  }
+  return null;
+}
+
+export async function updateOwnProfile(
+  userId: string,
+  patch: Partial<Pick<User, 'full_name' | 'avatar_url'>>
+): Promise<{ data: User | null; error: string | null }> {
+  const payload = {
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(payload)
+    .eq('id', userId)
+    .select('*')
+    .maybeSingle();
+
+  if (error) return { data: null, error: error.message };
+  if (data) return { data: data as User, error: null };
+
+  const { data: created, error: insertError } = await supabase
+    .from('profiles')
+    .insert({ id: userId, ...payload })
+    .select('*')
+    .single();
+
+  if (insertError) return { data: null, error: insertError.message };
+  return { data: created as User, error: null };
+}
+
 // Pin operations
 export async function createPin(pin: Omit<Pin, 'id' | 'created_at' | 'user_id'>, userId: string) {
   const { data, error } = await supabase

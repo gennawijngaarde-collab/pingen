@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { flushSync } from 'react-dom';
-import { supabase, isDemoMode, type User } from '@/lib/supabase';
+import { supabase, isDemoMode, pickOAuthAvatar, type User } from '@/lib/supabase';
 import { demoOAuthSignIn } from '@/lib/localdb';
 import { notifySignup } from '@/lib/email';
 import { ROUTES } from '@/lib/routes';
@@ -48,8 +48,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) throw error;
+      const oauthAvatar = pickOAuthAvatar(authUser.user_metadata as Record<string, unknown> | undefined);
       if (data) {
-        setProfile(data as User);
+        const profileRow = data as User;
+        if (!profileRow.avatar_url && oauthAvatar) {
+          profileRow.avatar_url = oauthAvatar;
+          void supabase
+            .from('profiles')
+            .update({ avatar_url: oauthAvatar })
+            .eq('id', authUser.id);
+        }
+        setProfile(profileRow);
         return;
       }
 
@@ -60,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const { data: created, error: insertError } = await supabase
         .from('profiles')
-        .insert({ id: authUser.id, full_name: fullName })
+        .insert({ id: authUser.id, full_name: fullName, avatar_url: oauthAvatar })
         .select('*')
         .single();
 
