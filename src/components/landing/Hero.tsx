@@ -12,16 +12,16 @@ export function Hero() {
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
-        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
+        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/15 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8">
-            <Sparkles className="w-4 h-4" />
-            <span>PinGen</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 text-sm font-medium mb-8">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent font-semibold">GenX</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight text-foreground mb-6">
@@ -62,7 +62,7 @@ export function Hero() {
               </div>
               <div className="text-left">
                 <p className="text-2xl font-bold text-foreground">10x</p>
-                <p className="text-sm text-muted-foreground">PinGen</p>
+                <p className="text-sm text-muted-foreground">GenX Speed</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -80,7 +80,7 @@ export function Hero() {
               </div>
               <div className="text-left">
                 <p className="text-2xl font-bold text-foreground">50K+</p>
-                <p className="text-sm text-muted-foreground">PinGen</p>
+                <p className="text-sm text-muted-foreground">Pins Created</p>
               </div>
             </div>
           </div>
@@ -91,7 +91,7 @@ export function Hero() {
             <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent pointer-events-none" />
             <img
               src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=1400&h=800&fit=crop"
-              alt="PinGen Dashboard Preview"
+              alt="GenX Dashboard Preview"
               className="w-full h-auto"
             />
           </div>

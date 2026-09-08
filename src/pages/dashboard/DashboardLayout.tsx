@@ -82,11 +82,13 @@ export function DashboardLayout() {
       >
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b">
-          <Link to={ROUTES.dashboard} className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">P</span>
-            </div>
-            <span className="font-bold text-xl">PinGen</span>
+          <Link to={ROUTES.dashboard} className="flex items-center gap-3">
+            <img 
+              src="/genx-logo.jpg" 
+              alt="GenX Logo" 
+              className="w-8 h-8 rounded-lg object-cover"
+            />
+            <span className="font-bold text-xl bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent">GenX</span>
           </Link>
           <button
             className="ml-auto lg:hidden"

@@ -89,11 +89,13 @@ export function Login() {
       </div>
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
-          <Link to={ROUTES.home} className="flex items-center gap-2">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-2xl">P</span>
-            </div>
-            <span className="font-bold text-2xl">PinGen</span>
+          <Link to={ROUTES.home} className="flex items-center gap-3">
+            <img 
+              src="/genx-logo.jpg" 
+              alt="GenX Logo" 
+              className="w-12 h-12 rounded-xl object-cover"
+            />
+            <span className="font-bold text-2xl bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent">GenX</span>
           </Link>
         </div>
 

@@ -38,12 +38,14 @@ export function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Link to={ROUTES.home} className="flex items-center gap-2">
-            <div className="w-8 h-8 lg:w-10 lg:h-10 bg-primary rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg lg:text-xl">P</span>
-            </div>
-            <span className="font-bold text-xl lg:text-2xl text-foreground">
-              PinGen
+          <Link to={ROUTES.home} className="flex items-center gap-3">
+            <img 
+              src="/genx-logo.jpg" 
+              alt="GenX Logo" 
+              className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl object-cover"
+            />
+            <span className="font-bold text-xl lg:text-2xl bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent">
+              GenX
             </span>
           </Link>
 
