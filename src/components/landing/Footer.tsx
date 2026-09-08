@@ -54,8 +54,13 @@ export function Footer() {
         <div className="py-16 lg:py-20">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 lg:gap-12">
             <div className="col-span-2 md:col-span-3 lg:col-span-2">
-              <Link to={ROUTES.home} className="flex items-center mb-6">
-                <span className="font-bold text-3xl bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent">GX</span>
+              <Link to={ROUTES.home} className="flex items-center gap-3 mb-6">
+                <img 
+                  src="/genx-logo.jpg" 
+                  alt="GenX Logo" 
+                  className="w-10 h-10 rounded-xl object-cover"
+                />
+                <span className="font-bold text-2xl bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent">GenX</span>
               </Link>
 
               <p className="text-muted-foreground mb-6 max-w-sm">{t.footer.tagline}</p>
