@@ -1,6 +1,6 @@
-# PinGen - Pinterest Automation SaaS
+# GenX - Pinterest Automation SaaS
 
-**PinGen** est une plateforme d'automatisation Pinterest complète qui permet de créer, planifier et analyser du contenu Pinterest à grande échelle.
+**GenX** est une plateforme d'automatisation Pinterest complète qui permet de créer, planifier et analyser du contenu Pinterest à grande échelle.
 
 🚀 **Live Demo**: https://opfzg5vxw4phk.ok.kimi.link
 
@@ -76,8 +76,8 @@
 ### 1. Cloner le projet
 
 ```bash
-git clone https://github.com/yourusername/pingen.git
-cd pingen
+git clone https://github.com/yourusername/genx.git
+cd genx
 ```
 
 ### 2. Installer les dépendances
@@ -283,7 +283,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## 👨‍💻 Auteur
 
-**PinGen Team** - contact@pingenx.io
+**GenX Team** - contact@genx.io
 
 ---
 

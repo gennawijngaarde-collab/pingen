@@ -49,6 +49,10 @@ module.exports = {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      backgroundImage: {
+        'gradient-genx': 'linear-gradient(135deg, #3B9EFF 0%, #7C3AED 100%)',
+        'gradient-genx-hover': 'linear-gradient(135deg, #2E8FEF 0%, #6D2FDD 100%)',
+      },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
         lg: "var(--radius)",

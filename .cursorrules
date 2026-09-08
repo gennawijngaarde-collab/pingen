@@ -1,7 +1,7 @@
-# PinGen - Pinterest Automation SaaS
+# GenX - Pinterest Automation SaaS
 
 ## Project Overview
-You are building PinGen, a Pinterest automation SaaS that helps users create, schedule, and optimize Pinterest content at scale.
+You are building GenX, a Pinterest automation SaaS that helps users create, schedule, and optimize Pinterest content at scale.
 
 ## Tech Stack
 - **Framework**: Next.js 14 App Router (React 18+)
@@ -36,8 +36,10 @@ You are building PinGen, a Pinterest automation SaaS that helps users create, sc
 ## Design System
 
 ### Colors
-- **Primary (Pinterest Red)**: `#E3001B`
-- **Primary Hover**: `#C40018`
+- **Primary (GenX Blue)**: `#3B9EFF`
+- **Primary Hover**: `#2E8FEF`
+- **Accent (GenX Purple)**: `#7C3AED`
+- **Accent Hover**: `#6D2FDD`
 - **Background**: `#FFFFFF`
 - **Surface**: `#F7F7F7`
 - **Border**: `#E2E2E2`
@@ -46,6 +48,7 @@ You are building PinGen, a Pinterest automation SaaS that helps users create, sc
 - **Text Muted**: `#9CA3AF`
 - **Success**: `#22C55E`
 - **Warning**: `#F59E0B`
+- **Gradient**: `linear-gradient(135deg, #3B9EFF 0%, #7C3AED 100%)`
 
 ### Typography
 - **Headings**: Inter, font-weight 700
