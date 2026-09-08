@@ -21,7 +21,7 @@ export function Hero() {
         <div className="text-center max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 text-sm font-medium mb-8">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent font-semibold">GenX</span>
+            <span className="bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent font-semibold">GX</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight text-foreground mb-6">

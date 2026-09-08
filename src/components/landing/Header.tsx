@@ -38,14 +38,9 @@ export function Header() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Link to={ROUTES.home} className="flex items-center gap-3">
-            <img 
-              src="/genx-logo.jpg" 
-              alt="GenX Logo" 
-              className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl object-cover"
-            />
-            <span className="font-bold text-xl lg:text-2xl bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent">
-              GenX
+          <Link to={ROUTES.home} className="flex items-center">
+            <span className="font-bold text-3xl lg:text-4xl bg-gradient-to-r from-[#3B9EFF] to-[#7C3AED] bg-clip-text text-transparent">
+              GX
             </span>
           </Link>
 
