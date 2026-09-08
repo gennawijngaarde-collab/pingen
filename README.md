@@ -283,7 +283,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## 👨‍💻 Auteur
 
-**GenX Team** - contact@genx.io
+**GenX Team** - contact@hrtech-studio.com
 
 ---
 

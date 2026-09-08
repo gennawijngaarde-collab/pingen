@@ -13,7 +13,7 @@ function readResendEnv(mode: string) {
   const env = loadEnv(mode, process.cwd(), '')
   return {
     apiKey: (env.RESEND_API_KEY || '').trim(),
-    from: (env.RESEND_FROM || 'PinGen <contact@pingenx.io>').trim(),
+    from: (env.RESEND_FROM || 'GX <contact@hrtech-studio.com>').trim(),
     adminEmail: (env.ADMIN_EMAIL || 'genna.wijngaarde@gmail.com').trim(),
   }
 }

@@ -64,7 +64,7 @@ interface QueryResult {
 const DB_KEY = 'pingen_local_db_v1';
 const SESSION_KEY = 'pingen_local_session_v1';
 
-export const DEMO_EMAIL = 'demo@pingenx.io';
+export const DEMO_EMAIL = 'demo@hrtech-studio.com';
 export const DEMO_PASSWORD = 'Demo123!';
 
 function uuid(): string {

@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  const from = (process.env.RESEND_FROM || 'PinGen <contact@pingenx.io>').trim();
+  const from = (process.env.RESEND_FROM || 'GX <contact@hrtech-studio.com>').trim();
   const adminEmail = (process.env.ADMIN_EMAIL || 'genna.wijngaarde@gmail.com').trim();
 
   if (!isConfiguredKey(apiKey)) {
@@ -48,8 +48,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const subject = type === 'signup' ? `Nouvelle inscription PinGen — ${email}` : `PinGen — ${type}`;
-  const html = `<p>Nouvelle inscription PinGen.</p>
+  const subject = type === 'signup' ? `Nouvelle inscription GX — ${email}` : `GX — ${type}`;
+  const html = `<p>Nouvelle inscription GX.</p>
 <p><strong>Nom :</strong> ${escapeHtml(fullName || '—')}</p>
 <p><strong>Email :</strong> ${escapeHtml(email)}</p>`;
 
