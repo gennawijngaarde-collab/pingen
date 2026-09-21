@@ -1,11 +1,11 @@
 // Pinterest API Configuration
 const PINTEREST_API_BASE = 'https://api.pinterest.com/v5';
 const CANONICAL_PROD_ORIGIN = 'https://www.pingenx.io';
-/** App Pinterest PinGen — public (client_id OAuth). */
-export const PINTEREST_APP_ID = '1607362';
+/** App Pinterest GenX — public (client_id OAuth). */
+export const PINTEREST_APP_ID = '1609578';
 
 const envAppId = ((import.meta.env.VITE_PINTEREST_APP_ID as string | undefined) || '').trim();
-const rawAppId = envAppId && envAppId !== '1606177' ? envAppId : PINTEREST_APP_ID;
+const rawAppId = envAppId && envAppId !== '1607362' && envAppId !== '1606177' ? envAppId : PINTEREST_APP_ID;
 const rawAppSecret = ((import.meta.env.VITE_PINTEREST_APP_SECRET as string | undefined) || '').trim();
 
 /** True si App ID Pinterest réel configuré via .env (build-time) */

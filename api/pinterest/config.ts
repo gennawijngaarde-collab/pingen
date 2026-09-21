@@ -16,7 +16,7 @@ function isConfiguredKey(raw: string | undefined): boolean {
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
   const envAppId = (process.env.VITE_PINTEREST_APP_ID || process.env.PINTEREST_APP_ID || '').trim();
-  const appId = envAppId && envAppId !== '1606177' ? envAppId : '1607362';
+  const appId = envAppId && envAppId !== '1606177' && envAppId !== '1607362' ? envAppId : '1609578';
   const secret = (process.env.PINTEREST_APP_SECRET || process.env.VITE_PINTEREST_APP_SECRET || '').trim();
   const configured = isConfiguredKey(appId) && isConfiguredKey(secret);
   const appUrl = (process.env.VITE_APP_URL || 'https://www.pingenx.io').trim().replace(/\/$/, '');

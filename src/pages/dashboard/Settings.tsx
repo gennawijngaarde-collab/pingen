@@ -98,7 +98,7 @@ export function Settings() {
   useEffect(() => {
     void fetchPinterestRuntimeConfig().then((config) => {
       setPinterestConfig(config);
-      setPinterestAppIdInput(config.appId || '1607362');
+      setPinterestAppIdInput(config.appId || '1609578');
     });
     void fetchStripeStatus().then((status) => setStripeReady(status.configured));
   }, []);
@@ -909,7 +909,7 @@ export function Settings() {
                     <Label htmlFor="pinterestAppId">App ID</Label>
                     <Input
                       id="pinterestAppId"
-                      placeholder="1607362"
+                      placeholder="1609578"
                       value={pinterestAppIdInput}
                       onChange={(e) => setPinterestAppIdInput(e.target.value)}
                       autoComplete="off"
@@ -946,7 +946,7 @@ export function Settings() {
                   )}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  App ID actuel : <code>1607362</code>. Le secret doit être sur Vercel
+                  App ID actuel : <code>1609578</code>. Le secret doit être sur Vercel
                   (<code>PINTEREST_APP_SECRET</code>) pour finaliser OAuth en production. Redirect
                   URI exacte : <code className="break-all">{redirectUri}</code>
                 </p>

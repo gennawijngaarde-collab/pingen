@@ -17,7 +17,7 @@ function readEnvCreds(mode: string): PinterestCreds {
   return {
     appId: (() => {
       const envAppId = (env.VITE_PINTEREST_APP_ID || env.PINTEREST_APP_ID || '').trim();
-      return envAppId && envAppId !== '1606177' ? envAppId : '1607362';
+      return envAppId && envAppId !== '1606177' && envAppId !== '1607362' ? envAppId : '1609578';
     })(),
     appSecret: (env.PINTEREST_APP_SECRET || env.VITE_PINTEREST_APP_SECRET || '').trim(),
   }

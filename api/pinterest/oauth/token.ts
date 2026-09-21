@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const envAppId = (process.env.VITE_PINTEREST_APP_ID || process.env.PINTEREST_APP_ID || '').trim();
-  const appId = envAppId && envAppId !== '1606177' ? envAppId : '1607362';
+  const appId = envAppId && envAppId !== '1606177' && envAppId !== '1607362' ? envAppId : '1609578';
   const appSecret = (process.env.PINTEREST_APP_SECRET || process.env.VITE_PINTEREST_APP_SECRET || '').trim();
   if (!isConfiguredKey(appId) || !isConfiguredKey(appSecret)) {
     res.status(500).json({
