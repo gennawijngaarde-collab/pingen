@@ -61,7 +61,7 @@ Dans les paramètres de votre app Pinterest, assurez-vous que ces URIs sont auto
 
 **Production :**
 ```
-https://www.hrtech-studio.com/dashboard/settings
+https://www.pingenx.io/dashboard/settings
 ```
 
 **Preview Vercel (optionnel) :**
@@ -96,4 +96,4 @@ Après configuration :
 
 ## 📧 Support
 
-Email de support : support@hrtech-studio.com
+Email de support : support@pingenx.io

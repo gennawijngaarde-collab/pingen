@@ -31,7 +31,7 @@ Erreur "serveur introuvable" lors de la connexion Google.
 
 **Authorized JavaScript origins:**
 ```
-https://www.hrtech-studio.com
+https://www.pingenx.io
 https://[votre-projet].supabase.co
 ```
 
@@ -64,12 +64,12 @@ Après création, notez :
 #### 2.3 Configurer le Redirect URL
 Dans Supabase, vérifiez que cette URL est autorisée :
 ```
-https://www.hrtech-studio.com/**
+https://www.pingenx.io/**
 ```
 
 Allez dans : **Authentication** → **URL Configuration**
-- **Site URL** : `https://www.hrtech-studio.com`
-- **Redirect URLs** : Ajoutez `https://www.hrtech-studio.com/**`
+- **Site URL** : `https://www.pingenx.io`
+- **Redirect URLs** : Ajoutez `https://www.pingenx.io/**`
 
 #### 2.4 Sauvegarder
 Cliquez sur **Save** en bas de la page.
@@ -84,7 +84,7 @@ Cliquez sur **Save** en bas de la page.
 3. Google doit afficher **Enabled** en vert
 
 ### Test 2 : Tester la connexion
-1. Allez sur https://www.hrtech-studio.com
+1. Allez sur https://www.pingenx.io
 2. Cliquez sur **Sign up** ou **Login**
 3. Cliquez sur le bouton **Google**
 4. Vous devriez être redirigé vers la page de connexion Google
@@ -103,12 +103,12 @@ https://[votre-projet].supabase.co/auth/v1/callback
 
 **Application Redirect URL :**
 ```
-https://www.hrtech-studio.com/dashboard
+https://www.pingenx.io/dashboard
 ```
 
 **Site URL dans Supabase :**
 ```
-https://www.hrtech-studio.com
+https://www.pingenx.io
 ```
 
 ---
@@ -145,7 +145,7 @@ https://www.hrtech-studio.com
 - [ ] Client ID copié dans Supabase
 - [ ] Client Secret copié dans Supabase
 - [ ] Google Provider activé dans Supabase
-- [ ] Site URL configurée dans Supabase (`https://www.hrtech-studio.com`)
+- [ ] Site URL configurée dans Supabase (`https://www.pingenx.io`)
 - [ ] Redirect URLs configurées dans Supabase
 - [ ] Configuration sauvegardée
 - [ ] Attendu 5-10 minutes pour propagation
@@ -156,5 +156,5 @@ https://www.hrtech-studio.com
 ## 📧 Support
 
 Si le problème persiste après avoir suivi tous les points :
-- Email : support@hrtech-studio.com
+- Email : support@pingenx.io
 - Vérifiez les logs Supabase pour des erreurs détaillées

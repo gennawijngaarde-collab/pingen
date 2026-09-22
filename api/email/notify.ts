@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  const from = (process.env.RESEND_FROM || 'GX <contact@hrtech-studio.com>').trim();
+  const from = (process.env.RESEND_FROM || 'GX <contact@pingenx.io>').trim();
   const adminEmail = (process.env.ADMIN_EMAIL || 'genna.wijngaarde@gmail.com').trim();
 
   if (!isConfiguredKey(apiKey)) {

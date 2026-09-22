@@ -21,7 +21,7 @@
 | Champ | Valeur |
 |-------|--------|
 | **Application name** | GenX |
-| **Homepage URL** | https://www.hrtech-studio.com |
+| **Homepage URL** | https://www.pingenx.io |
 | **Application description** | GenX - Automate your Pinterest content creation, scheduling, and optimization at scale. Save time and grow your audience with AI-powered Pinterest automation. |
 
 ---
@@ -30,12 +30,12 @@
 
 **Authorization callback URL:**
 ```
-https://www.hrtech-studio.com/auth/callback
+https://www.pingenx.io/auth/callback
 ```
 
 **Alternative (si besoin):**
 ```
-https://www.hrtech-studio.com/api/auth/callback
+https://www.pingenx.io/api/auth/callback
 http://localhost:5173/auth/callback (pour le dev)
 ```
 
@@ -53,7 +53,7 @@ http://localhost:5173/auth/callback (pour le dev)
 
 - [ ] Logo uploadé (genx-logo.jpg)
 - [ ] Nom de l'application : "GenX"
-- [ ] Homepage URL : hrtech-studio.com
+- [ ] Homepage URL : pingenx.io
 - [ ] Description mise à jour
 - [ ] Callback URLs configurées
 - [ ] Application activée
@@ -67,4 +67,4 @@ Une fois terminé, l'application GitHub OAuth affichera :
 - 🎨 Les couleurs de la marque
 - 📝 Les bonnes informations de contact
 
-**Email de support :** support@hrtech-studio.com
+**Email de support :** support@pingenx.io
