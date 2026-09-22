@@ -271,15 +271,27 @@ async function pinterestFetch<T>(
   return data as T;
 }
 
-// Get user info
+// Get user info (via backend proxy to avoid CORS)
 export async function getPinterestUser(accessToken: string): Promise<PinterestUser> {
-  const data = await pinterestFetch<{
+  const response = await fetch('/api/pinterest/user', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Erreur Pinterest API' }));
+    throw new Error(error.error || 'Impossible de récupérer le profil Pinterest');
+  }
+
+  const data = await response.json() as {
     id?: string;
     username?: string;
     profile_image?: string | null;
     follower_count?: number;
     following_count?: number;
-  }>('/user_account', accessToken);
+  };
 
   return {
     id: data.id || '',
@@ -290,9 +302,21 @@ export async function getPinterestUser(accessToken: string): Promise<PinterestUs
   };
 }
 
-// Get user's boards
+// Get user's boards (via backend proxy to avoid CORS)
 export async function getPinterestBoards(accessToken: string): Promise<PinterestBoard[]> {
-  const data = await pinterestFetch<{
+  const response = await fetch('/api/pinterest/boards', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Erreur Pinterest API' }));
+    throw new Error(error.error || 'Impossible de récupérer les boards Pinterest');
+  }
+
+  const data = await response.json() as {
     items?: Array<{
       id: string;
       name: string;
@@ -301,7 +325,7 @@ export async function getPinterestBoards(accessToken: string): Promise<Pinterest
       pin_count?: number;
       privacy?: 'PUBLIC' | 'SECRET';
     }>;
-  }>('/boards?page_size=100', accessToken);
+  };
 
   return (data.items || []).map((board) => ({
     id: board.id,
