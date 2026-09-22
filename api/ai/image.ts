@@ -2,6 +2,7 @@ interface VercelRequest {
   method?: string;
   url?: string;
   query?: Record<string, string | string[] | undefined>;
+  headers?: Record<string, string | string[] | undefined>;
   body?: unknown;
 }
 
@@ -46,7 +47,40 @@ function buildIdeogramPrompt(visualPrompt: string, overlayText?: string): string
   return parts.join(' ').slice(0, 3900);
 }
 
+// Helper to verify Supabase JWT token
+async function verifySupabaseToken(token: string): Promise<{ userId: string | null; error: string | null }> {
+  const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+  const supabaseKey = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+  
+  if (!supabaseUrl || !supabaseKey) {
+    return { userId: null, error: 'Supabase configuration missing' };
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': supabaseKey,
+      },
+    });
+
+    if (!response.ok) {
+      return { userId: null, error: 'Invalid or expired token' };
+    }
+
+    const user = await response.json() as { id?: string };
+    if (!user.id) {
+      return { userId: null, error: 'Invalid user data' };
+    }
+
+    return { userId: user.id, error: null };
+  } catch {
+    return { userId: null, error: 'Token verification failed' };
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // GET requests are for image proxying (public)
   if (req.method === 'GET') {
     const remote = getProxyUrl(req);
     if (!remote || !/^https:\/\//i.test(remote)) {
@@ -55,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const remoteRes = await fetch(remote);
     if (!remoteRes.ok) {
-      res.status(502).json({ error: 'Impossible de charger l’image.' });
+      res.status(502).json({ error: 'Impossible de charger l image.' });
       return;
     }
     const contentType = remoteRes.headers.get('content-type') || 'image/jpeg';
@@ -69,6 +103,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  // ✅ SECURITY: Verify authentication for POST requests (AI image generation)
+  const authHeader = req.headers?.authorization;
+  const authString = Array.isArray(authHeader) ? authHeader[0] : authHeader || '';
+  
+  if (!authString.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const token = authString.replace('Bearer ', '').trim();
+  const { userId, error: authError } = await verifySupabaseToken(token);
+  
+  if (authError || !userId) {
+    res.status(401).json({ error: authError || 'Invalid authentication' });
     return;
   }
 
@@ -158,4 +209,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   res.status(200).json({ url });
 }
-
