@@ -273,7 +273,7 @@ async function pinterestFetch<T>(
 
 // Get user info (via backend proxy to avoid CORS)
 export async function getPinterestUser(accessToken: string): Promise<PinterestUser> {
-  const response = await fetch('/api/pinterest/user', {
+  const response = await fetch('/api/pinterest/proxy?endpoint=user', {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -304,7 +304,7 @@ export async function getPinterestUser(accessToken: string): Promise<PinterestUs
 
 // Get user's boards (via backend proxy to avoid CORS)
 export async function getPinterestBoards(accessToken: string): Promise<PinterestBoard[]> {
-  const response = await fetch('/api/pinterest/boards', {
+  const response = await fetch('/api/pinterest/proxy?endpoint=boards', {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${accessToken}`,
