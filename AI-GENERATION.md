@@ -6,7 +6,7 @@ Ce document explique comment fonctionne la génération de contenu Pinterest par
 
 PinGen utilise :
 - **OpenRouter** (texte + vision) pour générer titres, descriptions, hashtags et alt text
-- **Ideogram** pour générer les images de Pins (format vertical 2:3)
+- **Grok** pour générer les images de Pins (format vertical 2:3)
 
 Les clés ne sont **jamais** exposées côté navigateur en production : PinGen appelle des endpoints `/api/ai/*`.
 
@@ -21,9 +21,9 @@ Les clés ne sont **jamais** exposées côté navigateur en production : PinGen 
 OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
-### 2. Ideogram (images)
+### 2. Grok (images)
 
-1. Créez une clé sur [Ideogram](https://developer.ideogram.ai)
+1. Créez une clé sur [Grok](https://developer.ideogram.ai)
 2. Ajoutez-la sur Vercel (ou en local dans `.env`) :
 
 ```env
@@ -124,7 +124,7 @@ console.log(optimized.description);  // Description optimisée
 
 ## 🔄 Mode Démo (Sans API Key)
 
-Si vous n'avez pas de clés OpenRouter / Ideogram, PinGen fonctionne en mode démo avec des contenus générés aléatoirement:
+Si vous n'avez pas de clés OpenRouter / Grok, PinGen fonctionne en mode démo avec des contenus générés aléatoirement:
 
 ```typescript
 import { mockGeneratePinContent } from '@/lib/ai';
@@ -187,7 +187,7 @@ Règles pour les hashtags:
 - Vérifiez que vous n’avez pas dépassé vos crédits
 
 ### Erreur: "Rate limit exceeded"
-- Vous avez dépassé les limites du provider (OpenRouter / Ideogram)
+- Vous avez dépassé les limites du provider (OpenRouter / Grok)
 - Attendez quelques secondes avant de réessayer
 - Considérez une offre/quotas plus élevés côté provider
 
@@ -228,4 +228,4 @@ Règles pour les hashtags:
 ## 📚 Ressources
 
 - [OpenRouter](https://openrouter.ai)
-- [Ideogram](https://developer.ideogram.ai)
+- [Grok](https://developer.ideogram.ai)

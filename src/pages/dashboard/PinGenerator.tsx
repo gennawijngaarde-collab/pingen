@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
 import { usePins } from '@/hooks/usePins';
@@ -22,6 +22,7 @@ import {
   formatAiError,
   type GeneratedPinContent,
 } from '@/lib/ai';
+import { checkForDuplicates } from '@/lib/duplicate-detection';
 import {
   Wand2,
   Upload,
@@ -34,6 +35,7 @@ import {
   Copy,
   Calendar,
   Briefcase,
+  AlertTriangle,
 } from 'lucide-react';
 
 const niches = [
@@ -60,7 +62,7 @@ const tones = [
 export function PinGenerator() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { createPin } = usePins();
+  const { createPin, pins, fetchPins } = usePins();
   const { hasTextAi } = useAiStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,11 +79,17 @@ export function PinGenerator() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [generatedContent, setGeneratedContent] = useState<GeneratedPinContent | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   // Business auto mode
   const [businessDescription, setBusinessDescription] = useState('');
   const [productOrOffer, setProductOrOffer] = useState('');
   const [audience, setAudience] = useState('');
+
+  // Charger les pins existants au montage du composant
+  useEffect(() => {
+    void fetchPins();
+  }, [fetchPins]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -215,6 +223,23 @@ export function PinGenerator() {
       };
       setGeneratedContent(content);
 
+      // Vérifier les doublons
+      const duplicateCheck = checkForDuplicates(
+        { title: content.title, description: content.description },
+        pins
+      );
+      
+      if (duplicateCheck.isDuplicate || duplicateCheck.isSimilar) {
+        setDuplicateWarning(duplicateCheck.message);
+        toast({
+          title: duplicateCheck.isDuplicate ? 'Doublon détecté !' : 'Pin similaire trouvé',
+          description: duplicateCheck.message ?? undefined,
+          variant: duplicateCheck.isDuplicate ? 'destructive' : 'default',
+        });
+      } else {
+        setDuplicateWarning(null);
+      }
+
       setGenerationStep('2/2 Génération de l\'image (Ideogram)…');
       setStatusMessage('Création de l\'image avec Ideogram…');
 
@@ -303,14 +328,32 @@ export function PinGenerator() {
   const handleSavePin = async () => {
     if (!generatedContent || !selectedImage) return;
 
+    // Vérifier une dernière fois les doublons exacts avant sauvegarde
+    const duplicateCheck = checkForDuplicates(
+      { title: generatedContent.title, description: generatedContent.description },
+      pins
+    );
+
+    if (duplicateCheck.isDuplicate) {
+      toast({
+        title: 'Doublon exact détecté',
+        description: `${duplicateCheck.message ?? 'Pin identique trouvé'}. Modifiez le titre ou régénérez.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSaving(true);
     const pin = await createPin(buildPinPayload('draft', null));
     setIsSaving(false);
 
     if (pin) {
+      setDuplicateWarning(null); // Effacer l'avertissement après sauvegarde
       toast({
         title: 'Pin sauvegardé !',
-        description: 'Votre Pin a été ajouté aux brouillons.',
+        description: duplicateCheck.isSimilar 
+          ? 'Pin sauvegardé malgré la similarité avec un pin existant.'
+          : 'Votre Pin a été ajouté aux brouillons.',
       });
       navigate(ROUTES.schedule);
     } else {
@@ -325,15 +368,33 @@ export function PinGenerator() {
   const handleSchedulePin = async () => {
     if (!generatedContent || !selectedImage) return;
 
+    // Vérifier une dernière fois les doublons exacts avant planification
+    const duplicateCheck = checkForDuplicates(
+      { title: generatedContent.title, description: generatedContent.description },
+      pins
+    );
+
+    if (duplicateCheck.isDuplicate) {
+      toast({
+        title: 'Doublon exact détecté',
+        description: `${duplicateCheck.message ?? 'Pin identique trouvé'}. Modifiez le titre ou régénérez.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSaving(true);
     const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     const pin = await createPin(buildPinPayload('scheduled', scheduledAt));
     setIsSaving(false);
 
     if (pin) {
+      setDuplicateWarning(null); // Effacer l'avertissement après planification
       toast({
         title: 'Pin planifié !',
-        description: 'Votre Pin sera publié dans 1 heure. Modifiez la date depuis la planification.',
+        description: duplicateCheck.isSimilar
+          ? 'Pin planifié malgré la similarité avec un pin existant.'
+          : 'Votre Pin sera publié dans 1 heure. Modifiez la date depuis la planification.',
       });
       navigate(ROUTES.schedule);
     } else {
@@ -361,21 +422,40 @@ export function PinGenerator() {
         </div>
       </div>
 
-      {(statusError || statusMessage || isGenerating) && (
-        <div
-          className={`rounded-lg border p-4 text-sm ${
-            statusError
-              ? 'border-red-200 bg-red-50 text-red-800'
-              : 'border-primary/20 bg-primary/5 text-foreground'
-          }`}
-        >
-          {isGenerating && (
-            <p className="flex items-center gap-2 font-medium mb-1">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              {generationStep || 'Génération en cours…'}
-            </p>
+      {(statusError || statusMessage || isGenerating || duplicateWarning) && (
+        <div className="space-y-3">
+          {(statusError || statusMessage || isGenerating) && (
+            <div
+              className={`rounded-lg border p-4 text-sm ${
+                statusError
+                  ? 'border-red-200 bg-red-50 text-red-800'
+                  : 'border-primary/20 bg-primary/5 text-foreground'
+              }`}
+            >
+              {isGenerating && (
+                <p className="flex items-center gap-2 font-medium mb-1">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {generationStep || 'Génération en cours…'}
+                </p>
+              )}
+              {statusError ? <p className="break-words">{statusError}</p> : statusMessage ? <p className="break-words">{statusMessage}</p> : null}
+            </div>
           )}
-          {statusError ? <p className="break-words">{statusError}</p> : statusMessage ? <p className="break-words">{statusMessage}</p> : null}
+          
+          {duplicateWarning && !isGenerating && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-900 mb-1">Contenu similaire détecté</p>
+                  <p className="text-amber-800 break-words">{duplicateWarning}</p>
+                  <p className="text-amber-700 text-xs mt-2">
+                    Vous pouvez régénérer pour une variante différente ou continuer pour sauvegarder ce contenu.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
