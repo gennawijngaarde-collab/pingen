@@ -9,7 +9,7 @@ function isConfiguredKey(raw: string | undefined): boolean {
   return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...')
 }
 
-function readAiKeys(mode: string): { openRouter: string; ideogram: string } {
+function readAiKeys(mode: string): { openRouter: string; grokImage: string } {
   const env = loadEnv(mode, process.cwd(), '')
   return {
     openRouter: (
@@ -17,11 +17,11 @@ function readAiKeys(mode: string): { openRouter: string; ideogram: string } {
       env.VITE_OPENROUTER_API_KEY ||
       ''
     ).trim(),
-    ideogram: (env.IDEOGRAM_API_KEY || env.VITE_IDEOGRAM_API_KEY || '').trim(),
+    grokImage: (env.GROK_API_KEY || env.XAI_API_KEY || env.VITE_GROK_API_KEY || '').trim(),
   }
 }
 
-function buildIdeogramPrompt(visualPrompt: string, overlayText?: string): string {
+function buildGrokPrompt(visualPrompt: string, overlayText?: string): string {
   const text = overlayText?.trim()
   const visual = visualPrompt.trim()
   const parts = [
@@ -35,23 +35,23 @@ function buildIdeogramPrompt(visualPrompt: string, overlayText?: string): string
   return parts.join(' ').slice(0, 3900)
 }
 
-interface IdeogramImage {
+interface GrokImage {
   url?: string | null
   is_image_safe?: boolean
 }
 
-interface IdeogramResponse {
-  data?: IdeogramImage[]
+interface GrokResponse {
+  data?: GrokImage[]
   message?: string
   error?: string
 }
 
-async function generateIdeogramImage(
+async function generateGrokImage(
   apiKey: string,
   prompt: string,
   overlayText?: string
 ): Promise<string> {
-  const fullPrompt = buildIdeogramPrompt(prompt, overlayText)
+  const fullPrompt = buildGrokPrompt(prompt, overlayText)
 
   const form = new FormData()
   form.append('prompt', fullPrompt)
@@ -61,19 +61,19 @@ async function generateIdeogramImage(
   form.append('magic_prompt', overlayText?.trim() ? 'OFF' : 'AUTO')
   form.append('num_images', '1')
 
-  const v3Res = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
+  const v3Res = await fetch('https://api.grokImage.ai/v1/grokImage-v3/generate', {
     method: 'POST',
     headers: { 'Api-Key': apiKey },
     body: form,
   })
 
   if (v3Res.ok) {
-    return extractIdeogramUrl((await v3Res.json()) as IdeogramResponse)
+    return extractGrokUrl((await v3Res.json()) as GrokResponse)
   }
 
   const v3Error = await safeErrorMessage(v3Res)
 
-  const legacyRes = await fetch('https://api.ideogram.ai/generate', {
+  const legacyRes = await fetch('https://api.grokImage.ai/generate', {
     method: 'POST',
     headers: {
       'Api-Key': apiKey,
@@ -92,37 +92,37 @@ async function generateIdeogramImage(
   })
 
   if (legacyRes.ok) {
-    return extractIdeogramUrl((await legacyRes.json()) as IdeogramResponse)
+    return extractGrokUrl((await legacyRes.json()) as GrokResponse)
   }
 
   const legacyError = await safeErrorMessage(legacyRes)
-  throw new Error(v3Error || legacyError || 'Ideogram n’a renvoyé aucune image.')
+  throw new Error(v3Error || legacyError || 'Grok n’a renvoyé aucune image.')
 }
 
-function extractIdeogramUrl(payload: IdeogramResponse): string {
+function extractGrokUrl(payload: GrokResponse): string {
   const image = payload.data?.[0]
   if (image && image.is_image_safe === false) {
-    throw new Error('Image bloquée par le filtre de sécurité Ideogram. Reformulez le prompt.')
+    throw new Error('Image bloquée par le filtre de sécurité Grok. Reformulez le prompt.')
   }
   if (image?.url) {
     return image.url
   }
   throw new Error(
-    payload.message || payload.error || 'Aucune image renvoyée par Ideogram.'
+    payload.message || payload.error || 'Aucune image renvoyée par Grok.'
   )
 }
 
 async function safeErrorMessage(res: Response): Promise<string> {
   try {
-    const payload = (await res.json()) as IdeogramResponse & { detail?: string }
+    const payload = (await res.json()) as GrokResponse & { detail?: string }
     return (
       payload.message ||
       payload.error ||
       payload.detail ||
-      `Erreur Ideogram (${res.status})`
+      `Erreur Grok (${res.status})`
     )
   } catch {
-    return `Erreur Ideogram (${res.status})`
+    return `Erreur Grok (${res.status})`
   }
 }
 
@@ -138,7 +138,7 @@ function attachAiMiddleware(server: ViteDevServer, mode: string) {
         const keys = readAiKeys(mode)
         sendJson(res, 200, {
           hasTextAi: isConfiguredKey(keys.openRouter),
-          hasImageAi: isConfiguredKey(keys.ideogram),
+          hasImageAi: isConfiguredKey(keys.grokImage),
         })
       } catch (error) {
         sendJson(res, 500, {
@@ -223,10 +223,10 @@ function attachAiMiddleware(server: ViteDevServer, mode: string) {
       void (async () => {
         try {
           const keys = readAiKeys(mode)
-          if (!isConfiguredKey(keys.ideogram)) {
+          if (!isConfiguredKey(keys.grokImage)) {
             sendJson(res, 401, {
               error:
-                'Clé Ideogram absente. Ajoutez IDEOGRAM_API_KEY dans .env puis redémarrez npm run dev.',
+                'Clé Grok absente. Ajoutez GROK_API_KEY dans .env puis redémarrez npm run dev.',
             })
             return
           }
@@ -241,8 +241,8 @@ function attachAiMiddleware(server: ViteDevServer, mode: string) {
             return
           }
 
-          const imageUrl = await generateIdeogramImage(
-            keys.ideogram,
+          const imageUrl = await generateGrokImage(
+            keys.grokImage,
             prompt,
             overlayText || undefined
           )
@@ -252,7 +252,7 @@ function attachAiMiddleware(server: ViteDevServer, mode: string) {
             error:
               error instanceof Error
                 ? error.message
-                : 'Échec de la génération Ideogram',
+                : 'Échec de la génération Grok',
           })
         }
       })()

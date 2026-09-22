@@ -32,7 +32,7 @@ function isConfiguredKey(raw: string | undefined): boolean {
   return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...');
 }
 
-function buildIdeogramPrompt(visualPrompt: string, overlayText?: string): string {
+function buildGrokPrompt(visualPrompt: string, overlayText?: string): string {
   const text = overlayText?.trim();
   const visual = visualPrompt.trim();
   const parts = [
@@ -123,9 +123,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const apiKey = (process.env.IDEOGRAM_API_KEY || process.env.VITE_IDEOGRAM_API_KEY || '').trim();
+  // Check for Grok API key (xAI)
+  const apiKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.VITE_GROK_API_KEY || '').trim();
   if (!isConfiguredKey(apiKey)) {
-    res.status(401).json({ error: 'IDEOGRAM_API_KEY absente.' });
+    res.status(401).json({ error: 'GROK_API_KEY ou XAI_API_KEY absente.' });
     return;
   }
 
@@ -139,73 +140,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const fullPrompt = buildIdeogramPrompt(prompt, overlayText || undefined);
+  const fullPrompt = buildGrokPrompt(prompt, overlayText || undefined);
 
-  const form = new FormData();
-  form.append('prompt', fullPrompt);
-  form.append('aspect_ratio', '2x3');
-  form.append('style_type', 'DESIGN');
-  form.append('rendering_speed', 'DEFAULT');
-  form.append('magic_prompt', overlayText ? 'OFF' : 'AUTO');
-  form.append('num_images', '1');
-
-  const v3Res = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
-    method: 'POST',
-    headers: { 'Api-Key': apiKey },
-    body: form,
-  });
-
-  if (v3Res.ok) {
-    const payload = (await v3Res.json()) as {
-      data?: Array<{ url?: string | null; is_image_safe?: boolean }>;
-      message?: string;
-      error?: string;
-      detail?: string;
-    };
-    const image = payload.data?.[0];
-    if (image?.is_image_safe === false) {
-      res.status(502).json({ error: 'Image bloquée par le filtre de sécurité Ideogram.' });
-      return;
-    }
-    if (image?.url) {
-      res.status(200).json({ url: image.url });
-      return;
-    }
-  }
-
-  const legacyRes = await fetch('https://api.ideogram.ai/generate', {
-    method: 'POST',
-    headers: { 'Api-Key': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      image_request: {
-        prompt: fullPrompt,
-        aspect_ratio: 'ASPECT_2_3',
-        model: 'V_2',
-        style_type: 'DESIGN',
-        magic_prompt_option: overlayText ? 'OFF' : 'AUTO',
-        num_images: 1,
+  try {
+    // Call Grok Image API (xAI)
+    const grokRes = await fetch('https://api.x.ai/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
-    }),
-  });
-
-  const legacyPayload = (await legacyRes.json()) as {
-    data?: Array<{ url?: string | null; is_image_safe?: boolean }>;
-    message?: string;
-    error?: string;
-    detail?: string;
-  };
-
-  if (!legacyRes.ok) {
-    res.status(502).json({
-      error: legacyPayload.message || legacyPayload.error || legacyPayload.detail || `Erreur Ideogram (${legacyRes.status})`,
+      body: JSON.stringify({
+        prompt: fullPrompt,
+        model: 'grok-2-vision-1212',
+        n: 1,
+        size: '1024x1536', // Approximately 2:3 ratio for Pinterest
+        quality: 'hd',
+        response_format: 'url',
+      }),
     });
-    return;
-  }
 
-  const url = legacyPayload.data?.[0]?.url;
-  if (!url) {
-    res.status(502).json({ error: 'Aucune image renvoyée par Ideogram.' });
-    return;
+    if (!grokRes.ok) {
+      const errorData = await grokRes.json().catch(() => ({})) as Record<string, unknown>;
+      const errorMsg = 
+        (typeof errorData.error === 'object' && errorData.error !== null && 'message' in errorData.error && typeof errorData.error.message === 'string')
+          ? errorData.error.message
+          : (typeof errorData.message === 'string' ? errorData.message : `Erreur Grok API (${grokRes.status})`);
+      
+      res.status(grokRes.status || 502).json({
+        error: errorMsg,
+        details: errorData,
+      });
+      return;
+    }
+
+    const grokData = await grokRes.json() as {
+      data?: Array<{ url?: string; b64_json?: string }>;
+      error?: { message?: string };
+    };
+
+    const imageUrl = grokData.data?.[0]?.url;
+    if (!imageUrl) {
+      res.status(502).json({ error: 'Aucune image renvoyée par Grok.' });
+      return;
+    }
+
+    res.status(200).json({ url: imageUrl });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Erreur lors de la génération d image avec Grok',
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
-  res.status(200).json({ url });
 }

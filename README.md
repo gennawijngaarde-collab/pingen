@@ -98,8 +98,8 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 # OpenRouter (texte / vision)
 OPENROUTER_API_KEY=sk-or-v1-your-key
 
-# Ideogram (images de Pins)
-IDEOGRAM_API_KEY=your-ideogram-key
+# Grok Image (xAI - images de Pins)
+GROK_API_KEY=your-grok-key
 
 # Pinterest API
 VITE_PINTEREST_APP_ID=your-app-id
@@ -218,8 +218,8 @@ CREATE TABLE pinterest_accounts (
 ### OpenRouter + Ideogram
 
 1. Créer une clé sur [OpenRouter](https://openrouter.ai/keys) (texte, titres, descriptions)
-2. Créer une clé sur [Ideogram](https://developer.ideogram.ai) (images de Pins avec typo)
-3. Les ajouter dans `.env` (`OPENROUTER_API_KEY` et `IDEOGRAM_API_KEY`)
+2. Créer une clé sur [xAI](https://x.ai/api) (images de Pins via Grok)
+3. Les ajouter dans `.env` (`OPENROUTER_API_KEY` et `GROK_API_KEY`)
 4. Redémarrer `npm run dev`
 
 ### Pinterest API

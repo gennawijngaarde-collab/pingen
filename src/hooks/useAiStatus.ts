@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   fetchAiStatus,
-  hasIdeogramKey,
+  hasGrokKey,
   hasOpenRouterKey,
   type AiStatus,
 } from '@/lib/ai';
@@ -9,7 +9,7 @@ import {
 export function useAiStatus(): AiStatus {
   const [status, setStatus] = useState<AiStatus>({
     hasTextAi: hasOpenRouterKey,
-    hasImageAi: hasIdeogramKey,
+    hasImageAi: hasGrokKey,
   });
 
   useEffect(() => {

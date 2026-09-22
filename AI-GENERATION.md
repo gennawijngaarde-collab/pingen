@@ -27,7 +27,7 @@ OPENROUTER_API_KEY=sk-or-v1-...
 2. Ajoutez-la sur Vercel (ou en local dans `.env`) :
 
 ```env
-IDEOGRAM_API_KEY=...
+GROK_API_KEY=...
 ```
 
 ## 🧪 Vérification
@@ -183,7 +183,7 @@ Règles pour les hashtags:
 ## 🐛 Dépannage
 
 ### Erreur: "API key invalid"
-- Vérifiez que `OPENROUTER_API_KEY` et/ou `IDEOGRAM_API_KEY` sont configurées sur Vercel
+- Vérifiez que `OPENROUTER_API_KEY` et/ou `GROK_API_KEY` sont configurées sur Vercel
 - Vérifiez que vous n’avez pas dépassé vos crédits
 
 ### Erreur: "Rate limit exceeded"

@@ -16,11 +16,11 @@ function isConfiguredKey(raw: string | undefined): boolean {
 
 export default function handler(_req: VercelRequest, res: VercelResponse) {
   const openRouter = (process.env.OPENROUTER_API_KEY || process.env.VITE_OPENROUTER_API_KEY || '').trim();
-  const ideogram = (process.env.IDEOGRAM_API_KEY || process.env.VITE_IDEOGRAM_API_KEY || '').trim();
+  const grokImage = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.VITE_GROK_API_KEY || '').trim();
 
   res.status(200).json({
     hasTextAi: isConfiguredKey(openRouter),
-    hasImageAi: isConfiguredKey(ideogram),
+    hasImageAi: isConfiguredKey(grokImage),
   });
 }
 

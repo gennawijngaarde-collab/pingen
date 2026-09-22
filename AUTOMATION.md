@@ -270,8 +270,8 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 # OpenRouter (optionnel - IA texte/vision)
 OPENROUTER_API_KEY=sk-or-v1-your-key
 
-# Ideogram (optionnel - images de Pins)
-IDEOGRAM_API_KEY=your-ideogram-key
+# Grok Image (xAI - optionnel - images de Pins)
+GROK_API_KEY=your-grok-key
 
 # Pinterest API (Optionnel - pour publication réelle)
 VITE_PINTEREST_APP_ID=your-app-id

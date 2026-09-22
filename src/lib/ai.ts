@@ -38,12 +38,12 @@ function isConfiguredKey(raw: string | undefined): boolean {
 }
 
 const viteOpenRouterKey = ((import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined) || '').trim();
-const viteIdeogramKey = ((import.meta.env.VITE_IDEOGRAM_API_KEY as string | undefined) || '').trim();
+const viteGrokKey = ((import.meta.env.VITE_GROK_API_KEY as string | undefined) || '').trim();
 
 /** Texte / vision via OpenRouter (clé VITE_ ou proxy Vite). */
 export const hasOpenRouterKey = isConfiguredKey(viteOpenRouterKey);
-/** Images via Ideogram. */
-export const hasIdeogramKey = isConfiguredKey(viteIdeogramKey);
+/** Images via Grok (xAI). */
+export const hasGrokKey = isConfiguredKey(viteGrokKey);
 
 export interface AiStatus {
   hasTextAi: boolean;
@@ -67,7 +67,7 @@ export async function fetchAiStatus(): Promise<AiStatus> {
   }
   return {
     hasTextAi: hasOpenRouterKey,
-    hasImageAi: hasIdeogramKey,
+    hasImageAi: hasGrokKey,
   };
 }
 
