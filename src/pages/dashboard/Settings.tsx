@@ -28,9 +28,6 @@ import {
   clearOAuthState,
   mockPinterestService,
   fetchPinterestRuntimeConfig,
-  savePinterestCredentials,
-  getPinterestRedirectUri,
-  type PinterestRuntimeConfig,
 } from '@/lib/pinterest';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +40,6 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { COMPANY } from '@/lib/company';
 import {
   User,
   Lock,
@@ -80,26 +76,14 @@ export function Settings() {
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
   const [isConnectingPinterest, setIsConnectingPinterest] = useState(false);
   const [pinterestStatus, setPinterestStatus] = useState<string | null>(null);
-  const [pinterestConfig, setPinterestConfig] = useState<PinterestRuntimeConfig | null>(null);
-  const [pinterestAppIdInput, setPinterestAppIdInput] = useState('');
-  const [pinterestAppSecretInput, setPinterestAppSecretInput] = useState('');
-  const [isSavingPinterestKeys, setIsSavingPinterestKeys] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [stripeReady, setStripeReady] = useState(false);
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
 
-  const pinterestReady = Boolean(pinterestConfig?.configured || hasPinterestConfig);
-  const redirectUri =
-    pinterestConfig?.redirectUri ||
-    (typeof window !== 'undefined' ? getPinterestRedirectUri() : 'http://localhost:5173/dashboard/settings');
-
   useEffect(() => {
-    void fetchPinterestRuntimeConfig().then((config) => {
-      setPinterestConfig(config);
-      setPinterestAppIdInput(config.appId || '1609578');
-    });
+    void fetchPinterestRuntimeConfig();
     void fetchStripeStatus().then((status) => setStripeReady(status.configured));
   }, []);
 
@@ -395,45 +379,6 @@ export function Settings() {
     }
   };
 
-  const handleSavePinterestKeys = async () => {
-    setIsSavingPinterestKeys(true);
-    try {
-      const result = await savePinterestCredentials(
-        pinterestAppIdInput.trim(),
-        pinterestAppSecretInput.trim()
-      );
-      if (!result.ok) {
-        throw new Error(result.error || 'Échec de la sauvegarde');
-      }
-      const config = await fetchPinterestRuntimeConfig();
-      setPinterestConfig(config);
-      setPinterestAppSecretInput('');
-      toast({
-        title: 'Clés Pinterest enregistrées',
-        description: result.message || 'Tu peux maintenant connecter ton vrai compte Pinterest.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Impossible d’enregistrer les clés',
-        description: error instanceof Error ? error.message : 'Réessaie.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSavingPinterestKeys(false);
-    }
-  };
-
-  const handleCopyRedirectUri = async () => {
-    try {
-      await navigator.clipboard.writeText(redirectUri);
-      toast({ title: 'Redirect URI copiée', description: redirectUri });
-    } catch {
-      toast({
-        title: 'Copie manuelle',
-        description: redirectUri,
-      });
-    }
-  };
 
   const handleConnectPinterest = async () => {
     if (!user) return;
@@ -443,7 +388,6 @@ export function Settings() {
 
     try {
       const config = await fetchPinterestRuntimeConfig();
-      setPinterestConfig(config);
 
       if (config.appId || config.configured || hasPinterestConfig) {
         setPinterestStatus('Redirection vers Pinterest…');
@@ -828,129 +772,6 @@ export function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div
-                className={`rounded-lg border p-3 text-sm ${
-                  pinterestReady
-                    ? 'border-green-200 bg-green-50 text-green-800'
-                    : 'border-amber-200 bg-amber-50 text-amber-900'
-                }`}
-              >
-                {pinterestReady ? (
-                  <p>
-                    API Pinterest <strong>prête</strong>. Redirect URI (exacte) dans ton app
-                    développeur :{' '}
-                    <code className="text-xs break-all">{redirectUri}</code>
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="font-medium">Configurer l’API développeur Pinterest</p>
-                    <ol className="list-decimal pl-4 space-y-1 text-xs sm:text-sm">
-                      <li>
-                        Ouvre{' '}
-                        <a
-                          href="https://developers.pinterest.com/apps/"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline font-medium"
-                        >
-                          developers.pinterest.com/apps
-                        </a>{' '}
-                        (compte Business Pinterest)
-                      </li>
-                      <li>
-                        À la création de l’app, le champ <strong>Website / URL du site</strong> doit
-                        être une URL publique HTTPS — pas localhost. Utilise{' '}
-                        <code className="break-all">{COMPANY.siteUrl}</code>
-                      </li>
-                      <li>
-                        Politique de confidentialité :{' '}
-                        <code className="break-all">{COMPANY.privacyUrl}</code>
-                      </li>
-                      <li>
-                        Ensuite Manage → Configure → Redirect URIs. Si localhost est refusé, ajoute{' '}
-                        <code className="break-all">
-                          {COMPANY.siteUrl}/dashboard/settings
-                        </code>
-                        . En local, ajoute aussi{' '}
-                        <code className="break-all">{redirectUri}</code>
-                      </li>
-                      <li>Copie App ID + App secret et colle-les ci-dessous</li>
-                      <li>Clique « Connecter mon compte Pinterest » (vrai OAuth)</li>
-                    </ol>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-lg border p-4 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <p className="text-sm font-medium">Clés de ton app Pinterest</p>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleCopyRedirectUri()}
-                    >
-                      Copier redirect URI
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" asChild>
-                      <a
-                        href="https://developers.pinterest.com/apps/"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Ouvrir My Apps
-                      </a>
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="pinterestAppId">App ID</Label>
-                    <Input
-                      id="pinterestAppId"
-                      placeholder="1609578"
-                      value={pinterestAppIdInput}
-                      onChange={(e) => setPinterestAppIdInput(e.target.value)}
-                      autoComplete="off"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pinterestAppSecret">App secret</Label>
-                    <Input
-                      id="pinterestAppSecret"
-                      type="password"
-                      placeholder={pinterestConfig?.hasSecret ? '•••••••• (déjà enregistré)' : 'App secret key'}
-                      value={pinterestAppSecretInput}
-                      onChange={(e) => setPinterestAppSecretInput(e.target.value)}
-                      autoComplete="off"
-                    />
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => void handleSavePinterestKeys()}
-                  disabled={
-                    isSavingPinterestKeys ||
-                    !pinterestAppIdInput.trim() ||
-                    !pinterestAppSecretInput.trim()
-                  }
-                >
-                  {isSavingPinterestKeys ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Enregistrement…
-                    </>
-                  ) : (
-                    'Enregistrer les clés API'
-                  )}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  App ID actuel : <code>1609578</code>. Le secret doit être sur Vercel
-                  (<code>PINTEREST_APP_SECRET</code>) pour finaliser OAuth en production. Redirect
-                  URI exacte : <code className="break-all">{redirectUri}</code>
-                </p>
-              </div>
 
               {(isConnectingPinterest || pinterestStatus) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border p-3">
