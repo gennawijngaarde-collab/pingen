@@ -14,13 +14,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const authHeader = req.headers?.authorization || '';
-  if (!authHeader.startsWith('Bearer ')) {
+  const authHeader = req.headers?.authorization;
+  const authString = Array.isArray(authHeader) ? authHeader[0] : authHeader || '';
+  
+  if (!authString.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Authorization header manquant' });
     return;
   }
 
-  const accessToken = authHeader.replace('Bearer ', '').trim();
+  const accessToken = authString.replace('Bearer ', '').trim();
   if (!accessToken) {
     res.status(401).json({ error: 'Access token manquant' });
     return;
@@ -34,11 +36,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
 
-    const data = await response.json();
+    const data = (await response.json()) as Record<string, unknown>;
 
     if (!response.ok) {
       res.status(response.status).json({
-        error: data.message || data.error || 'Erreur Pinterest API',
+        error: (data.message as string) || (data.error as string) || 'Erreur Pinterest API',
         details: data,
       });
       return;
