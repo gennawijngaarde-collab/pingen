@@ -240,8 +240,8 @@ export function PinGenerator() {
         setDuplicateWarning(null);
       }
 
-      setGenerationStep('2/2 Génération de l\'image (Ideogram)…');
-      setStatusMessage('Création de l\'image avec Ideogram…');
+      setGenerationStep('2/2 Génération de l\'image (Grok)…');
+      setStatusMessage('Création de l\'image avec Grok…');
 
       let imageFailedMessage: string | null = null;
       try {
@@ -518,7 +518,7 @@ export function PinGenerator() {
                     />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    L&apos;IA génère une <strong>nouvelle image</strong> (Ideogram, format vertical
+                    L&apos;IA génère une <strong>nouvelle image</strong> (Grok, format vertical
                     avec titre lisible) et le texte du Pin. Chaque génération produit une variante
                     différente.
                   </p>
