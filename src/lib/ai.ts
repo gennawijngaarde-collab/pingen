@@ -1,4 +1,5 @@
 const TEXT_MODEL = 'google/gemini-2.5-flash';
+import { supabase } from './supabase';
 
 const TITLE_MAX = 80;
 
@@ -101,11 +102,22 @@ async function openRouterChatJson(
     temperature?: number;
   }
 ): Promise<string> {
+  // Get Supabase session token
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   // Prod: Vercel function /api/ai/chat
   // Dev: Vite middleware (vite.ai-plugin.ts) répond aussi sur /api/ai/chat
   const res = await fetch('/api/ai/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
     body: JSON.stringify({
       model: TEXT_MODEL,
       messages,
@@ -483,10 +495,21 @@ export async function generatePinImage(
   prompt: string,
   overlayText?: string
 ): Promise<string> {
+  // Get Supabase session token
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  if (!token) {
+    throw new Error('Authentication required');
+  }
+
   const { composePinOverlay } = await import('@/lib/pinImage');
   const response = await fetch('/api/ai/image', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
     body: JSON.stringify({
       prompt,
       overlayText: overlayText?.trim() || undefined,

@@ -39,8 +39,8 @@ function parseBody(raw: unknown): Record<string, unknown> {
 
 // Helper to verify Supabase JWT token
 async function verifySupabaseToken(token: string): Promise<{ userId: string | null; error: string | null }> {
-  const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-  const supabaseKey = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+  const supabaseKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
   
   if (!supabaseUrl || !supabaseKey) {
     return { userId: null, error: 'Supabase configuration missing' };
