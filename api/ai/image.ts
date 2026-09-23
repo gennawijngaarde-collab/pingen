@@ -151,12 +151,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: 'grok-imagine-image-quality',
         prompt: fullPrompt,
-        model: 'grok-2-vision-1212',
-        n: 1,
-        size: '1024x1536', // Approximately 2:3 ratio for Pinterest
-        quality: 'hd',
-        response_format: 'url',
       }),
     });
 
@@ -175,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const grokData = await grokRes.json() as {
-      data?: Array<{ url?: string; b64_json?: string }>;
+      data?: Array<{ url?: string; mime_type?: string }>;
       error?: { message?: string };
     };
 
