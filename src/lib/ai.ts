@@ -158,7 +158,7 @@ export function formatAiError(error: unknown): string {
     lower.includes('payment required') ||
     lower.includes('insufficient')
   ) {
-    return 'Crédit IA insuffisant. Rechargez OpenRouter (texte) ou Ideogram (images) pour générer de vrais Pins.';
+    return 'Crédit IA insuffisant. Rechargez OpenRouter (texte) ou Grok (images) pour générer de vrais Pins.';
   }
   if (status === 401) {
     return "Le service IA n'est pas encore activé sur cet environnement.";
@@ -419,7 +419,7 @@ export async function generatePinConcept(input: BusinessPinInput): Promise<PinCo
         role: 'system',
         content: `Tu es un expert Pinterest et design marketing. À partir d'un business, tu conçois un Pin complet.
 
-Règles image (imagePrompt, en anglais pour Ideogram):
+Règles image (imagePrompt, en anglais pour Grok):
 - Format vertical Pinterest, photo marketing nette
 - Le visuel DOIT montrer clairement le produit / le métier / la niche (ex. sneakers si c'est une boutique de sneakers). Interdit : photo nature générique sans rapport
 - Décrit le sujet, les objets, l'ambiance, les couleurs et la composition
@@ -478,7 +478,7 @@ Génère un Pin unique et différent à chaque fois. L'image doit être visuelle
   };
 }
 
-/** Génère une image Pin verticale via Ideogram, puis superpose le titre. */
+/** Génère une image Pin verticale via Grok, puis superpose le titre. */
 export async function generatePinImage(
   prompt: string,
   overlayText?: string
@@ -501,7 +501,7 @@ export async function generatePinImage(
   if (!response.ok || !payload.url) {
     throw new HttpError(
       response.status || 502,
-      payload.error || `Erreur Ideogram (${response.status || 'inconnu'})`
+      payload.error || `Erreur Grok (${response.status || 'inconnu'})`
     );
   }
 
