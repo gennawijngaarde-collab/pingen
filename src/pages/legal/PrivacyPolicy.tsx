@@ -183,7 +183,7 @@ export function PrivacyPolicy() {
                 <strong className="text-foreground">Supabase</strong> (authentification et base de
                 données), <strong className="text-foreground">Vercel</strong> (hébergement),{' '}
                 <strong className="text-foreground">Stripe</strong> (paiements), et des prestataires
-                d’IA (OpenRouter, Ideogram) agissant en tant que sous-traitants, liés par des
+                d’IA (OpenRouter, Grok) agissant en tant que sous-traitants, liés par des
                 obligations de confidentialité ;
               </li>
               <li>
