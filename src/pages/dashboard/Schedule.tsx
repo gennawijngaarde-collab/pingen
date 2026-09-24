@@ -71,7 +71,7 @@ function dominantStatus(statuses: Pin['status'][]): Pin['status'] | null {
 
 export function Schedule() {
   const { user } = useAuth();
-  const { pins, fetchPins, deletePin, updatePin } = usePins();
+  const { pins, fetchPins, deletePin, updatePin, publishPin } = usePins();
   const { toast } = useToast();
   const { t, dateLocale } = useI18n();
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -177,6 +177,26 @@ export function Schedule() {
         description: "Impossible d'annuler la planification",
         variant: 'destructive',
       });
+    }
+  };
+
+  const handlePublishNow = async (pinId: string) => {
+    try {
+      setIsLoading(true);
+      await publishPin(pinId);
+      await loadPins();
+      toast({ 
+        title: 'Pin publié !',
+        description: 'Le pin a été publié sur Pinterest'
+      });
+    } catch (error) {
+      toast({
+        title: 'Erreur de publication',
+        description: error instanceof Error ? error.message : 'Impossible de publier le pin',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -428,6 +448,12 @@ export function Schedule() {
                 <DropdownMenuItem onClick={() => void handleCancelSchedule(pin.id)}>
                   <X className="w-4 h-4 mr-2" />
                   {t.schedule.cancelSchedule}
+                </DropdownMenuItem>
+              )}
+              {pin.status === 'scheduled' && (
+                <DropdownMenuItem onClick={() => void handlePublishNow(pin.id)}>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Publier maintenant
                 </DropdownMenuItem>
               )}
               {pin.status === 'draft' && (
