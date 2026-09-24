@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { usePins } from '@/hooks/usePins';
-import type { Pin } from '@/lib/supabase';
+import { supabase, type Pin } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -484,6 +484,52 @@ export function Schedule() {
           <p className="text-muted-foreground">{t.schedule.subtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          {activeTab === 'scheduled' && (
+            <Button 
+              variant="default" 
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={async () => {
+                if (!confirm('Publier TOUS les pins planifiés maintenant sur Pinterest ?')) return;
+                setIsLoading(true);
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const token = session?.access_token;
+                  
+                  const response = await fetch('/api/publish-all', {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  const result = await response.json();
+                  
+                  if (response.ok) {
+                    await loadPins();
+                    toast({ 
+                      title: `${result.successful} pin(s) publié(s) !`,
+                      description: result.failed > 0 ? `${result.failed} échec(s)` : 'Tous les pins ont été publiés'
+                    });
+                  } else {
+                    throw new Error(result.error || 'Erreur');
+                  }
+                } catch (error) {
+                  toast({
+                    title: 'Erreur',
+                    description: error instanceof Error ? error.message : 'Impossible de publier',
+                    variant: 'destructive'
+                  });
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              <span className="truncate">Tout publier maintenant</span>
+            </Button>
+          )}
           {activeTab === 'drafts' && selectedPins.length > 0 && user && (
             <BulkScheduler
               pinIds={selectedPins}
