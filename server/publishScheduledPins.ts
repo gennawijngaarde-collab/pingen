@@ -36,6 +36,7 @@ interface PinRow {
   board_id: string | null;
   alt_text: string | null;
   retry_count: number | null;
+  scheduled_at: string | null;
 }
 
 interface PinterestAccountRow {
@@ -253,7 +254,7 @@ export async function publishDuePins(
   const now = new Date().toISOString();
   let query = client
     .from('pins')
-    .select('id, user_id, title, description, image_url, link, board_id, alt_text, retry_count')
+    .select('id, user_id, title, description, image_url, link, board_id, alt_text, retry_count, scheduled_at')
     .order('scheduled_at', { ascending: true })
     .limit(50);
 
@@ -299,10 +300,13 @@ export async function publishDuePins(
     } catch (err) {
       if (isTrialAccessError(err)) {
         result.awaitingAccess++;
+        // Keep the user's future schedule intact; only back off pins that are already due.
+        const isDue = !pin.scheduled_at || pin.scheduled_at <= now;
         await client
           .from('pins')
           .update({
-            scheduled_at: new Date(Date.now() + ACCESS_PENDING_RETRY_MS).toISOString(),
+            ...(isDue && { scheduled_at: new Date(Date.now() + ACCESS_PENDING_RETRY_MS).toISOString() }),
+            status: 'scheduled',
             error_message: PINTEREST_TRIAL_ACCESS_MESSAGE,
             updated_at: now,
           })
