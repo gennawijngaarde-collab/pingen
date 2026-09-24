@@ -13,9 +13,12 @@ interface PublishResponse {
   processed?: number;
   successful?: number;
   failed?: number;
+  awaitingAccess?: number;
   error?: string;
   details?: Array<{ pinId: string; status: string; error?: string }>;
 }
+
+const PINTEREST_APP_URL = 'https://developers.pinterest.com/apps/';
 
 /**
  * Client-side safety net for the autopilot: while the app is open it detects
@@ -27,6 +30,7 @@ export function AutoPublisher() {
   const [pendingCount, setPendingCount] = useState(0);
   const [isPublishing, setIsPublishing] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [awaitingAccess, setAwaitingAccess] = useState(0);
   const autoTriggered = useRef(false);
 
   const checkPendingPins = useCallback(async () => {
@@ -58,6 +62,7 @@ export function AutoPublisher() {
       const result = (await response.json()) as PublishResponse;
       if (!response.ok) throw new Error(result.error || `Erreur ${response.status}`);
 
+      setAwaitingAccess(result.awaitingAccess ?? 0);
       if ((result.failed ?? 0) > 0) {
         const firstError = result.details?.find((d) => d.error)?.error;
         setLastError(firstError || `${result.failed} pin(s) n'ont pas pu être publiés.`);
@@ -90,6 +95,32 @@ export function AutoPublisher() {
       clearInterval(interval);
     };
   }, [user, checkPendingPins, publishAll]);
+
+  if (awaitingAccess > 0) {
+    return (
+      <Alert className="mb-6 border-blue-200 bg-blue-50">
+        <Clock className="h-4 w-4 text-blue-600" />
+        <AlertTitle className="text-blue-900">
+          {awaitingAccess} pin(s) en attente d'approbation Pinterest
+        </AlertTitle>
+        <AlertDescription className="text-blue-800 text-sm space-y-2">
+          <p>
+            Ton application Pinterest est en accès « Trial » : Pinterest n'autorise pas encore la
+            publication réelle. Demande l'accès « Standard » depuis ton espace développeur ; tes pins
+            planifiés seront publiés automatiquement dès l'approbation, sans rien refaire.
+          </p>
+          <a
+            href={PINTEREST_APP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center font-medium underline underline-offset-2"
+          >
+            Ouvrir developers.pinterest.com
+          </a>
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   if (pendingCount === 0 && !lastError) return null;
 

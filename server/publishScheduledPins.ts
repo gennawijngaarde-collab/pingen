@@ -9,6 +9,20 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 15 * 60 * 1000;
+const ACCESS_PENDING_RETRY_MS = 60 * 60 * 1000;
+
+/**
+ * Pinterest refuses production writes until the app is granted "Standard"
+ * access. This is an account-level approval, not a pin problem, so affected
+ * pins must stay scheduled (no retry budget consumed) and publish
+ * automatically once access is granted.
+ */
+export const PINTEREST_TRIAL_ACCESS_MESSAGE =
+  "En attente d'approbation Pinterest : l'app est en accès « Trial ». Demande l'accès « Standard » sur developers.pinterest.com ; ce pin sera publié automatiquement dès l'approbation.";
+
+function isTrialAccessError(err: unknown): boolean {
+  return err instanceof Error && /Trial access/i.test(err.message);
+}
 const PINTEREST_API = 'https://api.pinterest.com/v5';
 const DEFAULT_APP_ID = '1609578';
 
@@ -38,7 +52,14 @@ export interface PublishResult {
   processed: number;
   successful: number;
   failed: number;
-  details: Array<{ pinId: string; status: 'published' | 'retry' | 'failed'; pinterestPinId?: string; error?: string }>;
+  /** Pins blocked only by the Pinterest app access level (still scheduled). */
+  awaitingAccess: number;
+  details: Array<{
+    pinId: string;
+    status: 'published' | 'retry' | 'failed' | 'awaiting_access';
+    pinterestPinId?: string;
+    error?: string;
+  }>;
 }
 
 function env(...names: string[]): string {
@@ -229,7 +250,7 @@ export async function publishDuePins(client: SupabaseClient): Promise<PublishRes
 
   if (error) throw new Error(`Failed to load scheduled pins: ${error.message}`);
 
-  const result: PublishResult = { processed: 0, successful: 0, failed: 0, details: [] };
+  const result: PublishResult = { processed: 0, successful: 0, failed: 0, awaitingAccess: 0, details: [] };
   if (!pins || pins.length === 0) return result;
 
   const userIds = Array.from(new Set(pins.map((p) => p.user_id)));
@@ -256,6 +277,20 @@ export async function publishDuePins(client: SupabaseClient): Promise<PublishRes
       result.successful++;
       result.details.push({ pinId: pin.id, status: 'published', pinterestPinId });
     } catch (err) {
+      if (isTrialAccessError(err)) {
+        result.awaitingAccess++;
+        await client
+          .from('pins')
+          .update({
+            scheduled_at: new Date(Date.now() + ACCESS_PENDING_RETRY_MS).toISOString(),
+            error_message: PINTEREST_TRIAL_ACCESS_MESSAGE,
+            updated_at: now,
+          })
+          .eq('id', pin.id);
+        result.details.push({ pinId: pin.id, status: 'awaiting_access', error: PINTEREST_TRIAL_ACCESS_MESSAGE });
+        continue;
+      }
+
       result.failed++;
       const message = err instanceof Error ? err.message : 'Unknown error';
       const retryCount = (pin.retry_count || 0) + 1;

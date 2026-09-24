@@ -511,13 +511,18 @@ export function Schedule() {
                     const firstError = Array.isArray(result.details)
                       ? result.details.find((d: { error?: string }) => d.error)?.error
                       : undefined;
+                    const awaiting = Number(result.awaitingAccess) || 0;
                     toast({ 
-                      title: result.processed === 0
-                        ? 'Aucun pin à publier pour le moment'
-                        : `${result.successful} pin(s) publié(s) !`,
-                      description: result.failed > 0
-                        ? `${result.failed} échec(s)${firstError ? ` : ${firstError}` : ''}`
-                        : result.processed === 0 ? 'Les pins planifiés dans le futur seront publiés automatiquement.' : 'Tous les pins ont été publiés',
+                      title: awaiting > 0 && result.successful === 0
+                        ? `${awaiting} pin(s) en attente d'approbation Pinterest`
+                        : result.processed === 0
+                          ? 'Aucun pin à publier pour le moment'
+                          : `${result.successful} pin(s) publié(s) !`,
+                      description: awaiting > 0
+                        ? firstError
+                        : result.failed > 0
+                          ? `${result.failed} échec(s)${firstError ? ` : ${firstError}` : ''}`
+                          : result.processed === 0 ? 'Les pins planifiés dans le futur seront publiés automatiquement.' : 'Tous les pins ont été publiés',
                       variant: result.failed > 0 ? 'destructive' : undefined,
                     });
                   } else {

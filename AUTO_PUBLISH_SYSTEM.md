@@ -40,6 +40,13 @@ Pour chaque pin `status = 'scheduled'` dont `scheduled_at <= now()` :
 Sans `SUPABASE_SERVICE_ROLE_KEY`, l'endpoint appelé en mode cron répond `503` avec un message explicite ;
 les couches 3 et 4 (mode utilisateur) fonctionnent quand même.
 
+## Prérequis Pinterest : accès « Standard »
+
+Une app Pinterest en accès **Trial** reçoit `403 Apps with Trial access may not create Pins in production`.
+Le moteur détecte ce cas : les pins concernés **restent `scheduled`** (pas de retry consommé), avec
+`error_message` explicite, re-tentés toutes les heures, et partent automatiquement dès que Pinterest
+accorde l'accès Standard. Demande : https://developers.pinterest.com/apps/ → app 1609578 → « Request Standard access ».
+
 ## Contraintes plan Vercel Hobby
 
 - **12 fonctions serverless max** par déploiement — le dossier `api/` en compte exactement 12. Toute nouvelle route doit être fusionnée dans une existante.
