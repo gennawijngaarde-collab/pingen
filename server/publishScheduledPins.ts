@@ -17,8 +17,9 @@ const ACCESS_PENDING_RETRY_MS = 60 * 60 * 1000;
  * pins must stay scheduled (no retry budget consumed) and publish
  * automatically once access is granted.
  */
+export const PINTEREST_ACCESS_PENDING_CODE = 'PINTEREST_ACCESS_PENDING';
 export const PINTEREST_TRIAL_ACCESS_MESSAGE =
-  "En attente d'approbation Pinterest : l'app est en accès « Trial ». Demande l'accès « Standard » sur developers.pinterest.com ; ce pin sera publié automatiquement dès l'approbation.";
+  `${PINTEREST_ACCESS_PENDING_CODE}: Pinterest app has Trial access; request Standard access on developers.pinterest.com. This pin will be published automatically once approved.`;
 
 function isTrialAccessError(err: unknown): boolean {
   return err instanceof Error && /Trial access/i.test(err.message);

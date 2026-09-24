@@ -65,6 +65,33 @@ export interface Dictionary {
     copyHashtags: string;
     close: string;
   };
+  /** Publishing buttons, banners and toasts. `{count}`, `{ok}`, `{ko}` are interpolated. */
+  publish: {
+    publish: string;
+    publishNow: string;
+    publishAll: string;
+    publishAllConfirm: string;
+    publishing: string;
+    nothingToPublish: string;
+    nothingToPublishDesc: string;
+    publishedOne: string;
+    publishedMany: string;
+    partialFailure: string;
+    publishFailed: string;
+    publishError: string;
+    cannotPublish: string;
+    sessionExpired: string;
+    awaitingAccessTitle: string;
+    awaitingAccessBody: string;
+    awaitingAccessPin: string;
+    awaitingAccessShort: string;
+    openPinterestDev: string;
+    readyToPublish: string;
+    readyToPublishDesc: string;
+    autoPublishing: string;
+    autoPublishFailed: string;
+    someFailed: string;
+  };
   hero: {
     titleBefore: string;
     titleHighlight: string;

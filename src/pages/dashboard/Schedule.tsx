@@ -70,7 +70,13 @@ function dominantStatus(statuses: Pin['status'][]): Pin['status'] | null {
 }
 
 import { AutoPublisher } from '@/components/dashboard/AutoPublisher';
-import { publishPinsNow, describePublishResult } from '@/lib/publish';
+import {
+  publishPinsNow,
+  describePublishResult,
+  describePublishError,
+  describePinError,
+  isAccessPendingMessage,
+} from '@/lib/publish';
 
 export function Schedule() {
   const { user } = useAuth();
@@ -188,11 +194,11 @@ export function Schedule() {
       setIsLoading(true);
       const { result } = await publishPin(pinId);
       await loadPins();
-      toast(describePublishResult(result));
+      toast(describePublishResult(result, t.publish));
     } catch (error) {
       toast({
-        title: 'Erreur de publication',
-        description: error instanceof Error ? error.message : 'Impossible de publier le pin',
+        title: t.publish.publishError,
+        description: describePublishError(error, t.publish),
         variant: 'destructive',
       });
     } finally {
@@ -402,7 +408,13 @@ export function Schedule() {
 
                 {pin.status === 'failed' && (
                   <p className="text-xs text-red-600 mt-2">
-                    {pin.error_message || 'Erreur de publication'}
+                    {describePinError(pin.error_message, t.publish)}
+                  </p>
+                )}
+
+                {pin.status === 'scheduled' && isAccessPendingMessage(pin.error_message) && (
+                  <p className="text-xs text-blue-700 mt-2">
+                    {t.publish.awaitingAccessPin}
                   </p>
                 )}
 
@@ -427,7 +439,7 @@ export function Schedule() {
                     }}
                   >
                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Publier
+                    {t.publish.publish}
                   </Button>
                 )}
               </div>
@@ -468,7 +480,7 @@ export function Schedule() {
               {(pin.status === 'scheduled' || pin.status === 'failed') && (
                 <DropdownMenuItem onClick={() => void handlePublishNow(pin.id)}>
                   <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Publier maintenant
+                  {t.publish.publishNow}
                 </DropdownMenuItem>
               )}
               {pin.status === 'draft' && (
@@ -506,16 +518,16 @@ export function Schedule() {
               variant="default" 
               className="bg-green-600 hover:bg-green-700 text-white"
               onClick={async () => {
-                if (!confirm('Publier maintenant TOUS les pins programmés sur Pinterest, y compris ceux prévus plus tard ?')) return;
+                if (!confirm(t.publish.publishAllConfirm)) return;
                 setIsLoading(true);
                 try {
                   const result = await publishPinsNow({ scope: 'all' });
                   await loadPins();
-                  toast(describePublishResult(result));
+                  toast(describePublishResult(result, t.publish));
                 } catch (error) {
                   toast({
-                    title: 'Erreur',
-                    description: error instanceof Error ? error.message : 'Impossible de publier',
+                    title: t.publish.publishError,
+                    description: describePublishError(error, t.publish),
                     variant: 'destructive'
                   });
                 } finally {
@@ -525,7 +537,7 @@ export function Schedule() {
               disabled={isLoading}
             >
               {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-              <span className="truncate">Tout publier maintenant</span>
+              <span className="truncate">{t.publish.publishAll}</span>
             </Button>
           )}
           {activeTab === 'drafts' && selectedPins.length > 0 && user && (

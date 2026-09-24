@@ -1,6 +1,22 @@
 import { supabase } from './supabase';
+import type { Dictionary } from '@/i18n/types';
 
 export const PUBLISH_ENDPOINT = '/api/cron/publish-scheduled-pins';
+
+/** Error thrown when no Supabase session is available; translated by the caller. */
+export class SessionExpiredError extends Error {
+  constructor() {
+    super('SESSION_EXPIRED');
+    this.name = 'SessionExpiredError';
+  }
+}
+
+/** Replaces `{key}` placeholders in a translated template. */
+export function fmt(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) =>
+    key in values ? String(values[key]) : `{${key}}`
+  );
+}
 
 export interface PublishDetail {
   pinId: string;
@@ -31,7 +47,7 @@ export interface PublishNowOptions {
 export async function publishPinsNow(options: PublishNowOptions = {}): Promise<PublishNowResult> {
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
-  if (!token) throw new Error('Session expirée, reconnecte-toi.');
+  if (!token) throw new SessionExpiredError();
 
   const response = await fetch(PUBLISH_ENDPOINT, {
     method: 'POST',
@@ -43,7 +59,7 @@ export async function publishPinsNow(options: PublishNowOptions = {}): Promise<P
   });
 
   const result = (await response.json().catch(() => ({}))) as Partial<PublishNowResult> & { error?: string };
-  if (!response.ok) throw new Error(result.error || `Erreur ${response.status}`);
+  if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
 
   return {
     processed: result.processed ?? 0,
@@ -54,35 +70,59 @@ export async function publishPinsNow(options: PublishNowOptions = {}): Promise<P
   };
 }
 
-/** Human-readable summary of a publish run, for toasts. */
-export function describePublishResult(result: PublishNowResult): {
+const ACCESS_PENDING_CODE = 'PINTEREST_ACCESS_PENDING';
+
+/** True when a stored `error_message` means "waiting for Pinterest Standard access". */
+export function isAccessPendingMessage(message: string | null | undefined): boolean {
+  return typeof message === 'string' && message.startsWith(ACCESS_PENDING_CODE);
+}
+
+/** Translates a pin's stored error message when it is a known code. */
+export function describePinError(message: string | null | undefined, t: Dictionary['publish']): string {
+  if (isAccessPendingMessage(message)) return t.awaitingAccessPin;
+  return message || t.publishError;
+}
+
+/** Translated message for a thrown publish error. */
+export function describePublishError(error: unknown, t: Dictionary['publish']): string {
+  if (error instanceof SessionExpiredError) return t.sessionExpired;
+  return error instanceof Error && error.message ? error.message : t.cannotPublish;
+}
+
+/** Human-readable, translated summary of a publish run, for toasts. */
+export function describePublishResult(
+  result: PublishNowResult,
+  t: Dictionary['publish']
+): {
   title: string;
   description?: string;
   variant?: 'destructive';
 } {
-  const firstError = result.details.find((d) => d.error)?.error;
+  // Pinterest/API errors are technical and come from the server; access-pending is translated.
+  const firstFailure = result.details.find((d) => d.status === 'failed' || d.status === 'retry')?.error;
 
   if (result.processed === 0) {
-    return {
-      title: 'Aucun pin à publier',
-      description: 'Aucun pin programmé ne correspond à cette action.',
-    };
+    return { title: t.nothingToPublish, description: t.nothingToPublishDesc };
   }
-  if (result.awaitingAccess > 0 && result.successful === 0) {
+  if (result.awaitingAccess > 0 && result.successful === 0 && result.failed === 0) {
     return {
-      title: `${result.awaitingAccess} pin(s) en attente d'approbation Pinterest`,
-      description: firstError,
+      title: fmt(t.awaitingAccessTitle, { count: result.awaitingAccess }),
+      description: t.awaitingAccessPin,
     };
   }
   if (result.failed > 0) {
     return {
-      title: result.successful > 0 ? `${result.successful} publié(s), ${result.failed} échec(s)` : 'Publication impossible',
-      description: firstError,
+      title:
+        result.successful > 0
+          ? fmt(t.partialFailure, { ok: result.successful, ko: result.failed })
+          : t.publishFailed,
+      description: firstFailure,
       variant: 'destructive',
     };
   }
   return {
-    title: result.successful === 1 ? 'Pin publié sur Pinterest !' : `${result.successful} pins publiés sur Pinterest !`,
-    description: result.awaitingAccess > 0 ? `${result.awaitingAccess} pin(s) en attente d'approbation Pinterest.` : undefined,
+    title: result.successful === 1 ? t.publishedOne : fmt(t.publishedMany, { count: result.successful }),
+    description:
+      result.awaitingAccess > 0 ? fmt(t.awaitingAccessShort, { count: result.awaitingAccess }) : undefined,
   };
 }
