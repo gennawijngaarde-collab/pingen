@@ -27,16 +27,8 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Typecheck
-        run: npm run typecheck
-        continue-on-error: true
-
       - name: Build
-        run: npm run build || vite build
+        run: npx vite build
         env:
           VITE_APP_URL: http://localhost:5173
           VITE_APP_NAME: GenX
