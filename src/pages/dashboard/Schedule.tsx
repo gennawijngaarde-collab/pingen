@@ -69,6 +69,8 @@ function dominantStatus(statuses: Pin['status'][]): Pin['status'] | null {
   return null;
 }
 
+import { AutoPublisher } from '@/components/dashboard/AutoPublisher';
+
 export function Schedule() {
   const { user } = useAuth();
   const { pins, fetchPins, deletePin, updatePin, publishPin } = usePins();
@@ -478,6 +480,8 @@ export function Schedule() {
 
   return (
     <div className="space-y-8">
+      <AutoPublisher />
+      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">{t.schedule.title}</h2>
