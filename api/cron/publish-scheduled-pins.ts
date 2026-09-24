@@ -5,7 +5,7 @@ import {
   getSupabaseAnonKey,
   getSupabaseUrl,
   publishDuePins,
-} from '../../server/publishScheduledPins';
+} from '../../server/publishScheduledPins.js';
 
 interface VercelRequest {
   method?: string;
