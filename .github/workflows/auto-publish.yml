@@ -15,7 +15,7 @@ jobs:
         run: |
           response=$(curl -s -w "\n%{http_code}" \
             -X POST \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Authorization: Bearer VcEg+YXh4z1rjMKfQU1TaECWSCIZoxmG0uA/8484Pxw=" \
             https://www.pingenx.io/api/cron/publish-scheduled-pins)
           
           http_code=$(echo "$response" | tail -n1)

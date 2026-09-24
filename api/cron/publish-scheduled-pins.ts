@@ -10,7 +10,7 @@ interface VercelCronRequest extends VercelRequest {
 export default async function handler(req: VercelCronRequest, res: VercelResponse) {
   // Verify this is a Vercel Cron request
   const authHeader = req.headers.authorization;
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = process.env.CRON_SECRET || 'VcEg+YXh4z1rjMKfQU1TaECWSCIZoxmG0uA/8484Pxw=';
 
   // For security, require either Vercel Cron header or a secret
   if (authHeader !== `Bearer ${cronSecret}` && !authHeader?.includes('Vercel-Cron')) {
