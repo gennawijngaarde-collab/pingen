@@ -90,6 +90,7 @@ export interface Dictionary {
     titleEmpty: string;
     pinUpdated: string;
     updateFailed: string;
+    deleteConfirm: string;
   };
   /** Publishing buttons, banners and toasts. `{count}`, `{ok}`, `{ko}` are interpolated. */
   publish: {

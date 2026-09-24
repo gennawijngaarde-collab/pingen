@@ -126,11 +126,9 @@ export function DashboardLayout() {
           <div className="bg-gradient-to-br from-primary to-primary/80 rounded-xl p-4 text-white">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="w-5 h-5" />
-              <span className="font-semibold">Passer à Pro</span>
+              <span className="font-semibold">{t.analytics.layout.upgradeTitle}</span>
             </div>
-            <p className="text-sm text-white/80 mb-3">
-              Débloquez tous les fonctionnalités avancées
-            </p>
+            <p className="text-sm text-white/80 mb-3">{t.analytics.layout.upgradeDesc}</p>
             <Button
               size="sm"
               variant="secondary"
@@ -138,7 +136,7 @@ export function DashboardLayout() {
               asChild
             >
               <Link to={ROUTES.settingsBilling}>
-                Upgrader
+                {t.analytics.layout.upgradeCta}
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Link>
             </Button>
@@ -198,7 +196,7 @@ export function DashboardLayout() {
                 <DropdownMenuItem asChild>
                   <Link to={ROUTES.settingsBilling}>
                     <Sparkles className="w-4 h-4 mr-2" />
-                    Mon abonnement
+                    {t.analytics.layout.mySubscription}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

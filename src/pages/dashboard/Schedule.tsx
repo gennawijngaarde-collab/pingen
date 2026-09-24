@@ -163,7 +163,7 @@ export function Schedule() {
     });
 
   const handleDelete = async (pinId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce pin ?')) return;
+    if (!confirm(t.schedule.deleteConfirm)) return;
     try {
       await deletePin(pinId);
       toast({ title: t.schedule.pinDeleted });

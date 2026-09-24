@@ -3,6 +3,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { processScheduledPins } from '@/lib/scheduler';
 import { useToast } from '@/hooks/use-toast';
+import { useI18n } from '@/i18n/I18nProvider';
+import { fmt } from '@/i18n/fmt';
 
 /**
  * SchedulerWorker Component
@@ -17,6 +19,8 @@ import { useToast } from '@/hooks/use-toast';
  */
 export function SchedulerWorker() {
   const { toast } = useToast();
+  const { t } = useI18n();
+  const tw = t.autopilot.worker;
   const isProcessing = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -34,15 +38,15 @@ export function SchedulerWorker() {
         
         if (result.successful > 0) {
           toast({
-            title: 'Pins publiés !',
-            description: `${result.successful} pin(s) publié(s) sur Pinterest`,
+            title: tw.publishedTitle,
+            description: fmt(tw.publishedDesc, { count: result.successful }),
           });
         }
         
         if (result.failed > 0) {
           toast({
-            title: 'Erreur de publication',
-            description: `${result.failed} pin(s) n'ont pas pu être publié(s)`,
+            title: tw.publishFailedTitle,
+            description: fmt(tw.publishFailedDesc, { count: result.failed }),
             variant: 'destructive',
           });
         }
@@ -52,7 +56,7 @@ export function SchedulerWorker() {
     } finally {
       isProcessing.current = false;
     }
-  }, [toast]);
+  }, [toast, tw]);
 
   useEffect(() => {
     // Process immediately on mount

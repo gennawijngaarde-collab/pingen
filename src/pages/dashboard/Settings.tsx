@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/i18n/I18nProvider';
+import { fmt } from '@/i18n/fmt';
+import type { SettingsDictionary } from '@/i18n/sections/settings';
 import {
   supabase,
   isDemoMode,
@@ -53,15 +57,60 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const PLAN_PRICES: Record<string, string> = {
-  starter: 'Gratuit',
-  pro: '19€/mois',
-  business: '49€/mois',
-};
+const MIN_PASSWORD_LENGTH = 6;
+
+type PlanKey = 'starter' | 'pro' | 'business';
+
+const getPlanFeatures = (s: SettingsDictionary): Record<PlanKey, string[]> => ({
+  starter: [
+    s.features.starterPins,
+    s.features.starterAccounts,
+    s.features.basicTemplates,
+    s.features.basicAnalytics,
+  ],
+  pro: [
+    s.features.proPins,
+    s.features.proAccounts,
+    s.features.premiumTemplates,
+    s.features.aiGeneration,
+    s.features.advancedAnalytics,
+    s.features.prioritySupport,
+  ],
+  business: [
+    s.features.unlimitedPins,
+    s.features.businessAccounts,
+    s.features.automationApi,
+    s.features.advancedAi,
+    s.features.dedicatedSupport,
+    s.features.teamCollaboration,
+  ],
+});
 
 export function Settings() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
+  const { t, dateLocale } = useI18n();
+  const s = t.settings;
+
+  const planPrices = useMemo<Record<PlanKey, string>>(
+    () => ({
+      starter: t.common.free,
+      pro: s.planPricePro,
+      business: s.planPriceBusiness,
+    }),
+    [t.common.free, s.planPricePro, s.planPriceBusiness]
+  );
+  const planFeatures = useMemo(() => getPlanFeatures(s), [s]);
+  const notificationItems = useMemo(
+    () => [
+      { title: s.notifPinsPublishedTitle, description: s.notifPinsPublishedDesc, defaultChecked: true },
+      { title: s.notifWeeklyReportsTitle, description: s.notifWeeklyReportsDesc, defaultChecked: true },
+      { title: s.notifNewFeaturesTitle, description: s.notifNewFeaturesDesc, defaultChecked: false },
+      { title: s.notifTipsTitle, description: s.notifTipsDesc, defaultChecked: true },
+    ],
+    [s]
+  );
+  const currentPlan: PlanKey = profile?.plan || 'starter';
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'profile';
 
@@ -151,7 +200,7 @@ export function Settings() {
 
     if (oauthError) {
       toast({
-        title: 'Connexion Pinterest annulée',
+        title: s.oauthCanceledTitle,
         description: oauthError,
         variant: 'destructive',
       });
@@ -166,8 +215,8 @@ export function Settings() {
 
     if (!peekOAuthState(state)) {
       toast({
-        title: 'Session OAuth invalide',
-        description: 'Relancez la connexion Pinterest depuis les paramètres.',
+        title: s.oauthInvalidTitle,
+        description: s.oauthInvalidDesc,
         variant: 'destructive',
       });
       clearOAuthParams();
@@ -177,7 +226,7 @@ export function Settings() {
     sessionStorage.setItem(lockKey, 'processing');
     clearOAuthState();
     setIsConnectingPinterest(true);
-    setPinterestStatus('Finalisation de la connexion Pinterest…');
+    setPinterestStatus(s.finalizingConnection);
 
     void (async () => {
       try {
@@ -207,19 +256,19 @@ export function Settings() {
 
         sessionStorage.setItem(lockKey, 'done');
         toast({
-          title: 'Compte Pinterest connecté',
-          description: `@${result.user.username} — ${result.boards.length} tableau(x) synchronisé(s).`,
+          title: s.pinterestConnectedTitle,
+          description: fmt(s.pinterestConnectedDesc, {
+            username: result.user.username,
+            count: result.boards.length,
+          }),
         });
         setPinterestStatus(null);
       } catch (error) {
         console.error(error);
         sessionStorage.removeItem(lockKey);
         toast({
-          title: 'Échec connexion Pinterest',
-          description:
-            error instanceof Error
-              ? error.message
-              : 'Impossible de finaliser OAuth. Vérifiez App ID, Secret et Redirect URI.',
+          title: s.pinterestConnectFailedTitle,
+          description: error instanceof Error ? error.message : s.pinterestConnectFailedDesc,
           variant: 'destructive',
         });
         setPinterestStatus(null);
@@ -249,8 +298,8 @@ export function Settings() {
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
     if (!fullName) {
       toast({
-        title: 'Nom requis',
-        description: 'Veuillez renseigner au moins un prénom.',
+        title: s.nameRequiredTitle,
+        description: s.nameRequiredDesc,
         variant: 'destructive',
       });
       return;
@@ -265,7 +314,7 @@ export function Settings() {
 
     if (error) {
       toast({
-        title: 'Erreur',
+        title: s.errorTitle,
         description: error,
         variant: 'destructive',
       });
@@ -280,8 +329,8 @@ export function Settings() {
 
     await refreshProfile();
     toast({
-      title: 'Profil sauvegardé',
-      description: 'Vos informations ont été mises à jour.',
+      title: s.profileSavedTitle,
+      description: s.profileSavedDesc,
     });
   };
 
@@ -292,7 +341,7 @@ export function Settings() {
     setIsSavingPhoto(false);
     if (error) {
       toast({
-        title: 'Photo non enregistrée',
+        title: s.photoNotSavedTitle,
         description: error,
         variant: 'destructive',
       });
@@ -311,12 +360,12 @@ export function Settings() {
     try {
       const dataUrl = await compressProfileImage(file);
       const saved = await persistAvatar(dataUrl);
-      if (saved) toast({ title: 'Photo mise à jour' });
+      if (saved) toast({ title: s.photoUpdatedTitle });
     } catch (error) {
       setIsSavingPhoto(false);
       toast({
-        title: 'Photo impossible',
-        description: error instanceof Error ? error.message : 'Réessayez avec une autre image.',
+        title: s.photoFailedTitle,
+        description: error instanceof Error ? error.message : s.photoFailedDesc,
         variant: 'destructive',
       });
     }
@@ -324,30 +373,30 @@ export function Settings() {
 
   const handlePhotoDelete = async () => {
     const saved = await persistAvatar(null);
-    if (saved) toast({ title: 'Photo supprimée' });
+    if (saved) toast({ title: s.photoDeletedTitle });
   };
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({
-        title: 'Champs manquants',
-        description: 'Remplissez tous les champs pour changer le mot de passe.',
+        title: s.missingFieldsTitle,
+        description: s.missingFieldsDesc,
         variant: 'destructive',
       });
       return;
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
       toast({
-        title: 'Mot de passe trop court',
-        description: 'Le mot de passe doit contenir au moins 6 caractères.',
+        title: s.passwordTooShortTitle,
+        description: fmt(s.passwordTooShortDesc, { min: MIN_PASSWORD_LENGTH }),
         variant: 'destructive',
       });
       return;
     }
     if (newPassword !== confirmPassword) {
       toast({
-        title: 'Confirmation incorrecte',
-        description: 'Le nouveau mot de passe et sa confirmation ne correspondent pas.',
+        title: s.passwordMismatchTitle,
+        description: s.passwordMismatchDesc,
         variant: 'destructive',
       });
       return;
@@ -363,15 +412,13 @@ export function Settings() {
       setNewPassword('');
       setConfirmPassword('');
       toast({
-        title: 'Mot de passe mis à jour',
-        description: isDemoMode
-          ? 'Mode démo : changement simulé.'
-          : 'Votre mot de passe a été changé.',
+        title: s.passwordUpdatedTitle,
+        description: isDemoMode ? s.passwordUpdatedDemoDesc : s.passwordUpdatedDesc,
       });
     } catch (error) {
       toast({
-        title: 'Erreur',
-        description: error instanceof Error ? error.message : 'Impossible de changer le mot de passe.',
+        title: s.errorTitle,
+        description: error instanceof Error ? error.message : s.passwordChangeFailedDesc,
         variant: 'destructive',
       });
     } finally {
@@ -390,7 +437,7 @@ export function Settings() {
       const config = await fetchPinterestRuntimeConfig();
 
       if (config.appId || config.configured || hasPinterestConfig) {
-        setPinterestStatus('Redirection vers Pinterest…');
+        setPinterestStatus(s.redirectingToPinterest);
         await startPinterestOAuth();
         return;
       }
@@ -421,16 +468,14 @@ export function Settings() {
       await syncAccountCount((refreshed || []).length);
 
       toast({
-        title: 'Compte Pinterest connecté (démo)',
-        description:
-          'Compte simulé. Pour le vrai Pinterest : crée une app sur developers.pinterest.com et colle App ID + Secret ci-dessous.',
+        title: s.demoConnectedTitle,
+        description: s.demoConnectedDesc,
       });
     } catch (error) {
       console.error(error);
       toast({
-        title: 'Erreur',
-        description:
-          error instanceof Error ? error.message : 'Impossible de connecter le compte.',
+        title: s.errorTitle,
+        description: error instanceof Error ? error.message : s.connectFailedDesc,
         variant: 'destructive',
       });
     } finally {
@@ -447,8 +492,8 @@ export function Settings() {
 
     if (error) {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de déconnecter le compte.',
+        title: s.errorTitle,
+        description: s.disconnectFailedDesc,
         variant: 'destructive',
       });
       return;
@@ -457,7 +502,7 @@ export function Settings() {
     const refreshed = await getUserPinterestAccounts(user!.id);
     setAccounts(refreshed || []);
     await syncAccountCount((refreshed || []).length);
-    toast({ title: 'Compte déconnecté' });
+    toast({ title: s.accountDisconnectedTitle });
   };
 
   useEffect(() => {
@@ -475,8 +520,8 @@ export function Settings() {
 
     if (canceled) {
       toast({
-        title: 'Paiement annulé',
-        description: 'Aucun changement n’a été appliqué à votre plan.',
+        title: s.paymentCanceledTitle,
+        description: s.paymentCanceledDesc,
       });
       clearBillingParams();
       return;
@@ -523,13 +568,13 @@ export function Settings() {
 
         await refreshProfile();
         toast({
-          title: `Plan ${confirmed.plan} activé`,
-          description: 'Votre paiement Stripe a bien été confirmé.',
+          title: fmt(s.planActivatedTitle, { plan: confirmed.plan }),
+          description: s.paymentConfirmedDesc,
         });
       } catch (error) {
         toast({
-          title: 'Paiement non confirmé',
-          description: error instanceof Error ? error.message : 'Réessaie depuis Facturation.',
+          title: s.paymentNotConfirmedTitle,
+          description: error instanceof Error ? error.message : s.paymentNotConfirmedDesc,
           variant: 'destructive',
         });
       } finally {
@@ -537,7 +582,7 @@ export function Settings() {
         clearBillingParams();
       }
     })();
-  }, [refreshProfile, searchParams, setSearchParams, toast, user]);
+  }, [refreshProfile, searchParams, setSearchParams, toast, user, s]);
 
   const handleChangePlan = async (plan: 'starter' | 'pro' | 'business') => {
     if (!user) return;
@@ -550,7 +595,7 @@ export function Settings() {
         setIsSaving(false);
         toast({
           title: 'Stripe',
-          description: error instanceof Error ? error.message : 'Impossible de lancer le paiement.',
+          description: error instanceof Error ? error.message : s.checkoutFailedDesc,
           variant: 'destructive',
         });
       }
@@ -565,7 +610,7 @@ export function Settings() {
         setIsSaving(false);
         toast({
           title: 'Stripe',
-          description: error instanceof Error ? error.message : 'Impossible d’ouvrir le portail.',
+          description: error instanceof Error ? error.message : s.portalFailedDesc,
           variant: 'destructive',
         });
       }
@@ -581,8 +626,8 @@ export function Settings() {
 
     if (error) {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de changer de plan.',
+        title: s.errorTitle,
+        description: s.planChangeFailedDesc,
         variant: 'destructive',
       });
       return;
@@ -590,10 +635,11 @@ export function Settings() {
 
     await refreshProfile();
     toast({
-      title: plan === 'starter' ? 'Abonnement annulé' : `Plan ${plan} activé !`,
-      description: stripeReady
-        ? 'Votre abonnement a été mis à jour.'
-        : 'Stripe n’est pas encore configuré : le plan a été mis à jour sans paiement.',
+      title:
+        plan === 'starter'
+          ? s.subscriptionCanceledTitle
+          : fmt(s.planActivatedExclaimTitle, { plan }),
+      description: stripeReady ? s.subscriptionUpdatedDesc : s.planUpdatedNoStripeDesc,
     });
   };
 
@@ -602,41 +648,38 @@ export function Settings() {
     await new Promise((resolve) => setTimeout(resolve, 400));
     setIsSaving(false);
     toast({
-      title: 'Préférences sauvegardées',
-      description: 'Vos préférences de notification ont été enregistrées.',
+      title: s.notificationsSavedTitle,
+      description: s.notificationsSavedDesc,
     });
   };
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const formatDate = (iso: string) => format(new Date(iso), 'PPP', { locale: dateLocale });
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold">Paramètres</h2>
-        <p className="text-muted-foreground">
-          Gérez votre compte et vos préférences
-        </p>
+        <h2 className="text-2xl font-bold">{s.title}</h2>
+        <p className="text-muted-foreground">{s.subtitle}</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 lg:w-auto">
           <TabsTrigger value="profile" className="gap-2">
             <User className="w-4 h-4" />
-            Profil
+            {s.tabProfile}
           </TabsTrigger>
           <TabsTrigger value="account" className="gap-2">
             <Lock className="w-4 h-4" />
-            Compte
+            {s.tabAccount}
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="w-4 h-4" />
-            Notifications
+            {s.tabNotifications}
           </TabsTrigger>
           <TabsTrigger value="billing" className="gap-2">
             <CreditCard className="w-4 h-4" />
-            Abonnement
+            {s.tabBilling}
           </TabsTrigger>
         </TabsList>
 
@@ -644,10 +687,8 @@ export function Settings() {
         <TabsContent value="profile" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Photo de profil</CardTitle>
-              <CardDescription>
-                Cette photo sera visible sur votre profil public
-              </CardDescription>
+              <CardTitle>{s.photoTitle}</CardTitle>
+              <CardDescription>{s.photoDesc}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 min-w-0">
@@ -680,7 +721,7 @@ export function Settings() {
                       ) : (
                         <Camera className="w-4 h-4 mr-2 shrink-0" />
                       )}
-                      <span className="truncate">Changer la photo</span>
+                      <span className="truncate">{s.changePhoto}</span>
                     </Button>
                     {avatarUrl ? (
                       <Button
@@ -691,16 +732,14 @@ export function Settings() {
                         onClick={() => {
                           void handlePhotoDelete();
                         }}
-                        aria-label="Supprimer la photo"
+                        aria-label={s.deletePhotoAria}
                       >
                         <Trash2 className="w-4 h-4" />
-                        <span className="hidden sm:inline ml-2">Supprimer</span>
+                        <span className="hidden sm:inline ml-2">{s.delete}</span>
                       </Button>
                     ) : null}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    JPG, PNG, GIF ou WebP. L&apos;image est compressée automatiquement.
-                  </p>
+                  <p className="text-sm text-muted-foreground">{s.photoHint}</p>
                 </div>
               </div>
             </CardContent>
@@ -708,15 +747,13 @@ export function Settings() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Informations personnelles</CardTitle>
-              <CardDescription>
-                Mettez à jour vos informations de profil
-              </CardDescription>
+              <CardTitle>{s.personalInfoTitle}</CardTitle>
+              <CardDescription>{s.personalInfoDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">Prénom</Label>
+                  <Label htmlFor="firstName">{s.firstName}</Label>
                   <Input
                     id="firstName"
                     value={firstName}
@@ -724,7 +761,7 @@ export function Settings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Nom</Label>
+                  <Label htmlFor="lastName">{s.lastName}</Label>
                   <Input
                     id="lastName"
                     value={lastName}
@@ -733,22 +770,20 @@ export function Settings() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{s.email}</Label>
                 <Input
                   id="email"
                   type="email"
                   defaultValue={user?.email || ''}
                   disabled
                 />
-                <p className="text-sm text-muted-foreground">
-                  Pour changer votre email, contactez le support.
-                </p>
+                <p className="text-sm text-muted-foreground">{s.emailHint}</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
+                <Label htmlFor="bio">{s.bio}</Label>
                 <Textarea
                   id="bio"
-                  placeholder="Parlez-nous de vous..."
+                  placeholder={s.bioPlaceholder}
                   rows={4}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
@@ -756,7 +791,7 @@ export function Settings() {
                 />
               </div>
               <Button onClick={handleSaveProfile} disabled={isSaving}>
-                {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+                {isSaving ? s.saving : s.save}
               </Button>
             </CardContent>
           </Card>
@@ -766,17 +801,15 @@ export function Settings() {
         <TabsContent value="account" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Comptes Pinterest connectés</CardTitle>
-              <CardDescription>
-                Connectez vos comptes Pinterest pour publier automatiquement
-              </CardDescription>
+              <CardTitle>{s.pinterestAccountsTitle}</CardTitle>
+              <CardDescription>{s.pinterestAccountsDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
 
               {(isConnectingPinterest || pinterestStatus) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground rounded-lg border p-3">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {pinterestStatus || 'Connexion en cours…'}
+                  {pinterestStatus || s.connecting}
                 </div>
               )}
 
@@ -786,7 +819,7 @@ export function Settings() {
                 </div>
               ) : accounts.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Aucun compte Pinterest connecté.
+                  {s.noPinterestAccounts}
                 </p>
               ) : (
                 accounts.map((account) => (
@@ -803,9 +836,9 @@ export function Settings() {
                       <div>
                         <p className="font-medium">@{account.username}</p>
                         <p className="text-sm text-muted-foreground">
-                          Connecté le {formatDate(account.created_at)}
+                          {fmt(s.connectedOn, { date: formatDate(account.created_at) })}
                           {account.boards?.length
-                            ? ` · ${account.boards.length} tableau(x)`
+                            ? ` · ${fmt(s.boardsCount, { count: account.boards.length })}`
                             : ''}
                         </p>
                       </div>
@@ -816,7 +849,7 @@ export function Settings() {
                       onClick={() => handleDisconnectPinterest(account.id)}
                       disabled={isConnectingPinterest}
                     >
-                      Déconnecter
+                      {s.disconnect}
                     </Button>
                   </div>
                 ))
@@ -833,14 +866,12 @@ export function Settings() {
                 {isConnectingPinterest ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Connexion…
+                    {s.connectingShort}
                   </>
                 ) : (
                   <>
                     <LinkIcon className="w-4 h-4 mr-2" />
-                    {accounts.length === 0
-                      ? 'Connecter mon compte Pinterest'
-                      : 'Connecter un autre compte'}
+                    {accounts.length === 0 ? s.connectFirstAccount : s.connectAnotherAccount}
                   </>
                 )}
               </Button>
@@ -849,14 +880,12 @@ export function Settings() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Changer le mot de passe</CardTitle>
-              <CardDescription>
-                Mettez à jour votre mot de passe pour plus de sécurité
-              </CardDescription>
+              <CardTitle>{s.changePasswordTitle}</CardTitle>
+              <CardDescription>{s.changePasswordDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="currentPassword">Mot de passe actuel</Label>
+                <Label htmlFor="currentPassword">{s.currentPassword}</Label>
                 <Input
                   id="currentPassword"
                   type="password"
@@ -865,7 +894,7 @@ export function Settings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="newPassword">Nouveau mot de passe</Label>
+                <Label htmlFor="newPassword">{s.newPassword}</Label>
                 <Input
                   id="newPassword"
                   type="password"
@@ -874,7 +903,7 @@ export function Settings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                <Label htmlFor="confirmPassword">{s.confirmPassword}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -883,7 +912,7 @@ export function Settings() {
                 />
               </div>
               <Button onClick={handleChangePassword} disabled={isSaving}>
-                {isSaving ? 'Mise à jour...' : 'Mettre à jour'}
+                {isSaving ? s.updating : s.update}
               </Button>
             </CardContent>
           </Card>
@@ -893,34 +922,11 @@ export function Settings() {
         <TabsContent value="notifications" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Préférences de notification</CardTitle>
-              <CardDescription>
-                Choisissez comment vous souhaitez être notifié
-              </CardDescription>
+              <CardTitle>{s.notificationsTitle}</CardTitle>
+              <CardDescription>{s.notificationsDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {[
-                {
-                  title: 'Pins publiés',
-                  description: 'Recevez une notification quand un Pin est publié',
-                  defaultChecked: true,
-                },
-                {
-                  title: 'Rapports hebdomadaires',
-                  description: 'Recevez un résumé de vos performances chaque semaine',
-                  defaultChecked: true,
-                },
-                {
-                  title: 'Nouvelles fonctionnalités',
-                  description: 'Soyez informé des nouvelles fonctionnalités',
-                  defaultChecked: false,
-                },
-                {
-                  title: 'Conseils et astuces',
-                  description: 'Recevez des conseils pour améliorer vos Pins',
-                  defaultChecked: true,
-                },
-              ].map((item, index) => (
+              {notificationItems.map((item, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">{item.title}</p>
@@ -933,7 +939,7 @@ export function Settings() {
               ))}
               <Separator />
               <Button onClick={handleSaveNotifications} disabled={isSaving}>
-                {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+                {isSaving ? s.saving : s.save}
               </Button>
             </CardContent>
           </Card>
@@ -943,11 +949,9 @@ export function Settings() {
         <TabsContent value="billing" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Plan actuel</CardTitle>
+              <CardTitle>{s.currentPlanTitle}</CardTitle>
               <CardDescription>
-                {stripeReady
-                  ? 'Les upgrades Pro (19€) et Business (49€) passent par Stripe Checkout.'
-                  : 'Stripe n’est pas encore configuré : les changements de plan restent locaux jusqu’à STRIPE_SECRET_KEY.'}
+                {stripeReady ? s.billingStripeReadyDesc : s.billingStripeNotReadyDesc}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -957,11 +961,9 @@ export function Settings() {
                     <h3 className="font-bold text-lg capitalize">
                       {profile?.plan || 'Starter'}
                     </h3>
-                    <Badge className="bg-primary">Actif</Badge>
+                    <Badge className="bg-primary">{s.active}</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {PLAN_PRICES[profile?.plan || 'starter']}
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">{planPrices[currentPlan]}</p>
                 </div>
                 {profile?.plan === 'starter' && (
                   <Button
@@ -970,40 +972,15 @@ export function Settings() {
                     disabled={isSaving}
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
-                    Upgrader
+                    {s.upgrade}
                   </Button>
                 )}
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium">Inclus dans votre plan:</h4>
+                <h4 className="font-medium">{s.includedInPlan}</h4>
                 <ul className="space-y-2">
-                  {(
-                    {
-                      starter: [
-                        '10 Pins par mois',
-                        '1 compte Pinterest',
-                        'Templates de base',
-                        'Analytics basiques',
-                      ],
-                      pro: [
-                        '100 Pins par mois',
-                        '3 comptes Pinterest',
-                        'Templates premium',
-                        'Génération IA',
-                        'Analytics avancés',
-                        'Support prioritaire',
-                      ],
-                      business: [
-                        'Pins illimités',
-                        '10 comptes Pinterest',
-                        'API d\'automatisation',
-                        'Génération IA avancée',
-                        'Support dédié 24/7',
-                        'Collaboration d\'équipe',
-                      ],
-                    }[profile?.plan || 'starter']
-                  ).map((feature, index) => (
+                  {planFeatures[currentPlan].map((feature, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm">
                       <Check className="w-4 h-4 text-green-600" />
                       {feature}
@@ -1023,7 +1000,7 @@ export function Settings() {
                       }
                       disabled={isSaving}
                     >
-                      {profile?.plan === 'pro' ? 'Passer à Business' : 'Passer à Pro'}
+                      {profile?.plan === 'pro' ? s.switchToBusiness : s.switchToPro}
                     </Button>
                     <Button
                       variant="ghost"
@@ -1031,7 +1008,7 @@ export function Settings() {
                       onClick={() => handleChangePlan('starter')}
                       disabled={isSaving}
                     >
-                      Annuler l'abonnement
+                      {s.cancelSubscription}
                     </Button>
                   </div>
                 </>
@@ -1043,7 +1020,7 @@ export function Settings() {
                     onClick={() => handleChangePlan('business')}
                     disabled={isSaving}
                   >
-                    Passer à Business (49€/mois)
+                    {s.switchToBusinessWithPrice}
                   </Button>
                 </>
               )}

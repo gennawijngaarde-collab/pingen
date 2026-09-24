@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 import { ROUTES } from '@/lib/routes';
+import { useI18n } from '@/i18n/I18nProvider';
+import { fmt } from '@/i18n/fmt';
+import type { DashboardHomeDictionary } from '@/i18n/sections/dashboardHome';
 import { useAuth } from '@/hooks/useAuth';
 import { usePins } from '@/hooks/usePins';
 import { getUserAnalytics } from '@/lib/supabase';
@@ -58,7 +62,7 @@ function pctChange(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
-function AutopilotBanner({ userId }: { userId: string }) {
+function AutopilotBanner({ userId, d }: { userId: string; d: DashboardHomeDictionary }) {
   const summary = getAutopilotStatusSummary(userId);
 
   return (
@@ -70,17 +74,17 @@ function AutopilotBanner({ userId }: { userId: string }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <p className="font-semibold">Autopilote Pinterest</p>
+              <p className="font-semibold">{d.autopilotTitle}</p>
               <Badge variant={summary.enabled ? 'default' : 'secondary'}>
-                {summary.enabled ? 'Actif' : 'Inactif'}
+                {summary.enabled ? d.statusActive : d.statusInactive}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               {summary.enabled
-                ? `${summary.postsPerDay} pin(s)/jour · ${summary.hoursLabel || 'horaires à définir'}${
+                ? `${fmt(d.autopilotPinsPerDay, { count: summary.postsPerDay })} · ${summary.hoursLabel || d.autopilotHoursFallback}${
                     summary.business ? ` · ${summary.business.slice(0, 60)}${summary.business.length > 60 ? '…' : ''}` : ''
                   }`
-                : 'Activez la génération automatique selon votre business et vos horaires.'}
+                : d.autopilotDisabledHint}
             </p>
           </div>
         </div>
@@ -90,7 +94,7 @@ function AutopilotBanner({ userId }: { userId: string }) {
           className={`w-full sm:w-auto shrink ${!summary.enabled ? 'bg-primary hover:bg-primary/90' : ''}`}
         >
           <Link to={ROUTES.autopilot}>
-            {summary.enabled ? 'Gérer' : 'Configurer'}
+            {summary.enabled ? d.manage : d.configure}
             <ArrowRight className="w-4 h-4 ml-2 shrink-0" />
           </Link>
         </Button>
@@ -100,6 +104,8 @@ function AutopilotBanner({ userId }: { userId: string }) {
 }
 
 export function Dashboard() {
+  const { t, dateLocale } = useI18n();
+  const d = t.dashboardHome;
   const { user, profile } = useAuth();
   const { pins, fetchPins } = usePins();
   const [isLoading, setIsLoading] = useState(true);
@@ -171,21 +177,21 @@ export function Dashboard() {
         return (
           <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
             <CheckCircle2 className="w-3 h-3 mr-1" />
-            Publié
+            {d.statusPublished}
           </Badge>
         );
       case 'scheduled':
         return (
           <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
             <Clock className="w-3 h-3 mr-1" />
-            Planifié
+            {d.statusScheduled}
           </Badge>
         );
       case 'draft':
         return (
           <Badge variant="secondary">
             <AlertCircle className="w-3 h-3 mr-1" />
-            Brouillon
+            {d.statusDraft}
           </Badge>
         );
       default:
@@ -210,36 +216,34 @@ export function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0">
         <div className="min-w-0">
           <h2 className="text-2xl font-bold">
-            Bonjour, {profile?.full_name?.split(' ')[0] || 'Utilisateur'} ! 👋
+            {fmt(d.greeting, { name: profile?.full_name?.split(' ')[0] || d.defaultUserName })}
           </h2>
-          <p className="text-muted-foreground">
-            Voici ce qui se passe avec votre Pinterest aujourd'hui.
-          </p>
+          <p className="text-muted-foreground">{d.welcomeSubtitle}</p>
         </div>
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full sm:w-auto min-w-0">
           <Button variant="outline" className="min-w-0 shrink" asChild>
             <Link to={ROUTES.autopilot}>
               <Bot className="w-4 h-4 shrink-0" />
-              <span className="truncate">Autopilote</span>
+              <span className="truncate">{d.navAutopilot}</span>
             </Link>
           </Button>
           <Button variant="outline" className="min-w-0 shrink" asChild>
             <Link to={ROUTES.schedule}>
               <Calendar className="w-4 h-4 shrink-0" />
-              <span className="truncate">Calendrier</span>
+              <span className="truncate">{d.navCalendar}</span>
             </Link>
           </Button>
           <Button className="bg-primary hover:bg-primary/90 col-span-2 sm:col-span-1 min-w-0 shrink" asChild>
             <Link to={ROUTES.generator}>
               <Plus className="w-4 h-4 shrink-0" />
-              <span className="truncate">Créer un Pin</span>
+              <span className="truncate">{d.createPin}</span>
             </Link>
           </Button>
         </div>
       </div>
 
       {user && (
-        <AutopilotBanner userId={user.id} />
+        <AutopilotBanner userId={user.id} d={d} />
       )}
 
       {/* Stats Grid */}
@@ -247,7 +251,7 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Impressions
+              {d.statImpressions}
             </CardTitle>
             <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
               <Eye className="w-4 h-4 text-primary" />
@@ -272,7 +276,7 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Saves
+              {d.statSaves}
             </CardTitle>
             <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
               <Heart className="w-4 h-4 text-red-600" />
@@ -297,7 +301,7 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Clics
+              {d.statClicks}
             </CardTitle>
             <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
               <Share2 className="w-4 h-4 text-blue-600" />
@@ -322,7 +326,7 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Engagement
+              {d.statEngagement}
             </CardTitle>
             <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-purple-600" />
@@ -348,10 +352,10 @@ export function Dashboard() {
         {/* Recent Pins */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Pins récents</h3>
+            <h3 className="text-lg font-semibold">{d.recentPins}</h3>
             <Button variant="ghost" size="sm" asChild>
               <Link to={ROUTES.schedule}>
-                Voir tout
+                {d.viewAll}
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Link>
             </Button>
@@ -365,11 +369,11 @@ export function Dashboard() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Wand2 className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                <p className="mb-4">Vous n'avez pas encore de pins.</p>
+                <p className="mb-4">{d.noPinsYet}</p>
                 <Button className="bg-primary hover:bg-primary/90" asChild>
                   <Link to={ROUTES.generator}>
                     <Plus className="w-4 h-4 mr-2" />
-                    Créer mon premier Pin
+                    {d.createFirstPin}
                   </Link>
                 </Button>
               </CardContent>
@@ -396,21 +400,18 @@ export function Dashboard() {
                     {pin.status === 'published' && pin.published_at && (
                       <p className="text-sm text-green-600 flex items-center gap-1">
                         <CheckCircle2 className="w-4 h-4" />
-                        Publié le{' '}
-                        {new Date(pin.published_at).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'short',
+                        {fmt(d.publishedOn, {
+                          date: format(new Date(pin.published_at), d.publishedDateFormat, {
+                            locale: dateLocale,
+                          }),
                         })}
                       </p>
                     )}
                     {pin.status === 'scheduled' && pin.scheduled_at && (
                       <p className="text-sm text-blue-600 flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        {new Date(pin.scheduled_at).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
+                        {format(new Date(pin.scheduled_at), d.scheduledDateFormat, {
+                          locale: dateLocale,
                         })}
                       </p>
                     )}
@@ -426,12 +427,12 @@ export function Dashboard() {
           {/* Plan Usage */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Utilisation du plan</CardTitle>
+              <CardTitle className="text-lg">{d.planUsageTitle}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Pins ce mois</span>
+                  <span className="text-muted-foreground">{d.pinsThisMonth}</span>
                   <span className="font-medium">
                     {pinsThisMonth} / {pinLimit === Infinity ? '∞' : pinLimit}
                   </span>
@@ -440,7 +441,7 @@ export function Dashboard() {
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Comptes Pinterest</span>
+                  <span className="text-muted-foreground">{d.pinterestAccounts}</span>
                   <span className="font-medium">
                     {profile?.pinterest_accounts_connected || 0} /{' '}
                     {profile?.plan === 'starter' ? 1 : profile?.plan === 'pro' ? 3 : 10}
@@ -457,7 +458,7 @@ export function Dashboard() {
               </div>
               <div className="pt-2">
                 <p className="text-sm text-muted-foreground">
-                  Plan actuel:{' '}
+                  {d.currentPlan}{' '}
                   <span className="font-medium text-foreground capitalize">
                     {profile?.plan || 'starter'}
                   </span>
@@ -466,7 +467,7 @@ export function Dashboard() {
                   <Button className="w-full mt-3 bg-primary hover:bg-primary/90" size="sm" asChild>
                     <Link to={ROUTES.settingsBilling}>
                       <Sparkles className="w-4 h-4 mr-2" />
-                      Passer à Pro
+                      {d.upgradeToPro}
                     </Link>
                   </Button>
                 )}
@@ -477,31 +478,31 @@ export function Dashboard() {
           {/* Quick Actions */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Actions rapides</CardTitle>
+              <CardTitle className="text-lg">{d.quickActionsTitle}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <Button variant="outline" className="w-full justify-start" asChild>
                 <Link to={ROUTES.autopilot}>
                   <Bot className="w-4 h-4 mr-2" />
-                  Configurer l&apos;autopilote
+                  {d.configureAutopilot}
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
                 <Link to={ROUTES.generator}>
                   <Wand2 className="w-4 h-4 mr-2" />
-                  Générer un Pin avec IA
+                  {d.generatePinWithAi}
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
                 <Link to={ROUTES.schedule}>
                   <Calendar className="w-4 h-4 mr-2" />
-                  Planifier des Pins
+                  {d.schedulePins}
                 </Link>
               </Button>
               <Button variant="outline" className="w-full justify-start" asChild>
                 <Link to={ROUTES.analytics}>
                   <TrendingUp className="w-4 h-4 mr-2" />
-                  Voir les analytics
+                  {d.viewAnalytics}
                 </Link>
               </Button>
             </CardContent>
@@ -515,11 +516,8 @@ export function Dashboard() {
                   <Sparkles className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-sm mb-1">Conseil du jour</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Publiez entre 14h et 16h pour maximiser votre engagement 
-                    sur Pinterest.
-                  </p>
+                  <h4 className="font-semibold text-sm mb-1">{d.tipOfTheDay}</h4>
+                  <p className="text-sm text-muted-foreground">{d.tipContent}</p>
                 </div>
               </div>
             </CardContent>

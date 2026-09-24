@@ -1,7 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { useI18n } from '@/i18n/I18nProvider';
+import { fmt } from '@/i18n/fmt';
+import type { AutopilotDictionary } from '@/i18n/sections/autopilot';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,30 +37,48 @@ import {
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i);
 
-const TONES = [
-  { value: 'professional', label: 'Professionnel' },
-  { value: 'casual', label: 'Décontracté' },
-  { value: 'inspiring', label: 'Inspirant' },
-  { value: 'educational', label: 'Éducatif' },
-  { value: 'funny', label: 'Humoristique' },
+const TONE_VALUES = ['professional', 'casual', 'inspiring', 'educational', 'funny'] as const;
+
+/**
+ * Niche `value`s are persisted in settings, used as the Pinterest board name and
+ * injected into the AI prompt, so they must stay stable; only the label is translated.
+ */
+const NICHE_OPTIONS: ReadonlyArray<{
+  value: string;
+  key: keyof AutopilotDictionary['niches'];
+}> = [
+  { value: 'Décoration', key: 'decoration' },
+  { value: 'Mode', key: 'fashion' },
+  { value: 'Cuisine', key: 'cooking' },
+  { value: 'Voyage', key: 'travel' },
+  { value: 'Fitness', key: 'fitness' },
+  { value: 'DIY', key: 'diy' },
+  { value: 'Technologie', key: 'tech' },
+  { value: 'Business', key: 'business' },
+  { value: 'Art', key: 'art' },
+  { value: 'Photographie', key: 'photography' },
 ];
 
-const NICHES = [
-  'Décoration',
-  'Mode',
-  'Cuisine',
-  'Voyage',
-  'Fitness',
-  'DIY',
-  'Technologie',
-  'Business',
-  'Art',
-  'Photographie',
-];
+/** Mirrors the checks in `validateAutopilotForEnable`, which returns untranslated text. */
+function getValidationMessage(settings: AutopilotSettings, ta: AutopilotDictionary): string {
+  if (!settings.business.trim()) return ta.validationBusiness;
+  return ta.validationHours;
+}
 
 export function AutopilotPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, dateLocale } = useI18n();
+  const ta = t.autopilot;
+
+  const tones = useMemo(
+    () => TONE_VALUES.map((value) => ({ value, label: ta.tones[value] })),
+    [ta]
+  );
+  const niches = useMemo(
+    () => NICHE_OPTIONS.map(({ value, key }) => ({ value, label: ta.niches[key] })),
+    [ta]
+  );
   const [settings, setSettings] = useState<AutopilotSettings>(DEFAULT_AUTOPILOT);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingNow, setIsGeneratingNow] = useState(false);
@@ -98,7 +120,11 @@ export function AutopilotPage() {
     if (next.enabled) {
       const error = validateAutopilotForEnable(next);
       if (error) {
-        toast({ title: 'Configuration incomplète', description: error, variant: 'destructive' });
+        toast({
+          title: ta.incompleteConfigTitle,
+          description: getValidationMessage(next, ta),
+          variant: 'destructive',
+        });
         return;
       }
     }
@@ -109,10 +135,13 @@ export function AutopilotPage() {
       setSettings(saved);
       refreshUpcoming(saved);
       toast({
-        title: saved.enabled ? 'Autopilote activé' : 'Paramètres enregistrés',
+        title: saved.enabled ? ta.enabledTitle : ta.savedTitle,
         description: saved.enabled
-          ? `${saved.postsPerDay} pin(s)/jour aux horaires : ${saved.postingHours.map(formatHourLabel).join(', ')}`
-          : 'Vos réglages ont été sauvegardés.',
+          ? fmt(ta.enabledDesc, {
+              count: saved.postsPerDay,
+              hours: saved.postingHours.map(formatHourLabel).join(', '),
+            })
+          : ta.savedDesc,
       });
     } finally {
       setIsSaving(false);
@@ -123,7 +152,11 @@ export function AutopilotPage() {
     if (!user) return;
     const error = validateAutopilotForEnable(settings);
     if (error) {
-      toast({ title: 'Configuration incomplète', description: error, variant: 'destructive' });
+      toast({
+        title: ta.incompleteConfigTitle,
+        description: getValidationMessage(settings, ta),
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -136,8 +169,8 @@ export function AutopilotPage() {
       const result = await processAutopilot(user.id, 1);
       if (result.generated > 0) {
         toast({
-          title: 'Pin généré et planifié',
-          description: 'Un nouveau pin a été ajouté à votre calendrier autopilote.',
+          title: ta.generatedTitle,
+          description: ta.generatedDesc,
         });
         refreshUpcoming(getAutopilotSettings(user.id));
         window.dispatchEvent(
@@ -147,17 +180,15 @@ export function AutopilotPage() {
         );
       } else {
         toast({
-          title: 'Calendrier à jour',
+          title: ta.upToDateTitle,
           description:
-            result.reason === 'calendar_full'
-              ? 'Tous les créneaux à venir sont déjà remplis.'
-              : result.reason || 'Rien à générer pour le moment.',
+            result.reason === 'calendar_full' ? ta.calendarFull : ta.nothingToGenerate,
         });
       }
     } catch (err) {
       toast({
-        title: 'Erreur autopilote',
-        description: err instanceof Error ? err.message : 'Génération impossible',
+        title: ta.errorTitle,
+        description: err instanceof Error ? err.message : ta.generationFailed,
         variant: 'destructive',
       });
     } finally {
@@ -171,18 +202,15 @@ export function AutopilotPage() {
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Bot className="w-7 h-7 text-primary" />
-            Autopilote Pinterest
+            {ta.title}
           </h2>
-          <p className="text-muted-foreground mt-1 max-w-2xl">
-            Génère et planifie des pins automatiquement selon votre business, aux heures que vous
-            choisissez — pour augmenter le trafic vers votre site sans y passer vos journées.
-          </p>
+          <p className="text-muted-foreground mt-1 max-w-2xl">{ta.subtitle}</p>
         </div>
         <div className="flex items-center gap-3 rounded-xl border px-4 py-3 bg-card">
           <div>
-            <p className="text-sm font-medium">Autopilote</p>
+            <p className="text-sm font-medium">{ta.toggleLabel}</p>
             <p className="text-xs text-muted-foreground">
-              {settings.enabled ? 'Actif' : 'Inactif'}
+              {settings.enabled ? ta.active : ta.inactive}
             </p>
           </div>
           <Switch
@@ -197,31 +225,29 @@ export function AutopilotPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 min-w-0">
           <CardHeader>
-            <CardTitle className="text-lg">1. Votre business</CardTitle>
-            <CardDescription>
-              L&apos;IA s&apos;appuie sur ces infos pour créer des pins variés et orientés trafic.
-            </CardDescription>
+            <CardTitle className="text-lg">{ta.businessCardTitle}</CardTitle>
+            <CardDescription>{ta.businessCardDesc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="business">Description du business *</Label>
+              <Label htmlFor="business">{ta.businessLabel}</Label>
               <Textarea
                 id="business"
                 className="mt-2"
                 rows={4}
-                placeholder="Ex. Boutique en ligne de bougies artisanales naturelles, style cosy scandinave…"
+                placeholder={ta.businessPlaceholder}
                 value={settings.business}
                 onChange={(e) => update('business', e.target.value)}
               />
             </div>
             <div>
-              <Label htmlFor="website">URL de votre site (lien des pins)</Label>
+              <Label htmlFor="website">{ta.websiteLabel}</Label>
               <div className="relative mt-2">
                 <Globe className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="website"
                   className="pl-9"
-                  placeholder="https://monsite.com"
+                  placeholder={ta.websitePlaceholder}
                   value={settings.websiteUrl}
                   onChange={(e) => update('websiteUrl', e.target.value)}
                 />
@@ -229,51 +255,51 @@ export function AutopilotPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="offer">Offre / produit (optionnel)</Label>
+                <Label htmlFor="offer">{ta.offerLabel}</Label>
                 <Input
                   id="offer"
                   className="mt-2"
-                  placeholder="Ex. Kit découverte, coaching…"
+                  placeholder={ta.offerPlaceholder}
                   value={settings.productOrOffer}
                   onChange={(e) => update('productOrOffer', e.target.value)}
                 />
               </div>
               <div>
-                <Label htmlFor="audience">Audience (optionnel)</Label>
+                <Label htmlFor="audience">{ta.audienceLabel}</Label>
                 <Input
                   id="audience"
                   className="mt-2"
-                  placeholder="Ex. Femmes 25–40 ans"
+                  placeholder={ta.audiencePlaceholder}
                   value={settings.audience}
                   onChange={(e) => update('audience', e.target.value)}
                 />
               </div>
             </div>
             <div>
-              <Label className="mb-2 block">Niche</Label>
+              <Label className="mb-2 block">{ta.nicheLabel}</Label>
               <div className="flex flex-wrap gap-2">
-                {NICHES.map((niche) => (
+                {niches.map((niche) => (
                   <button
-                    key={niche}
+                    key={niche.value}
                     type="button"
                     onClick={() =>
-                      update('niche', settings.niche === niche ? '' : niche)
+                      update('niche', settings.niche === niche.value ? '' : niche.value)
                     }
                     className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                      settings.niche === niche
+                      settings.niche === niche.value
                         ? 'bg-primary text-white'
                         : 'bg-muted hover:bg-muted/80'
                     }`}
                   >
-                    {niche}
+                    {niche.label}
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <Label className="mb-2 block">Ton</Label>
+              <Label className="mb-2 block">{ta.toneLabel}</Label>
               <div className="flex flex-wrap gap-2">
-                {TONES.map((tone) => (
+                {tones.map((tone) => (
                   <button
                     key={tone.value}
                     type="button"
@@ -297,25 +323,25 @@ export function AutopilotPage() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Zap className="w-5 h-5 text-primary" />
-                Statut
+                {ta.statusTitle}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">État</span>
+                <span className="text-muted-foreground">{ta.stateLabel}</span>
                 <Badge variant={settings.enabled ? 'default' : 'secondary'}>
-                  {settings.enabled ? 'Actif' : 'Arrêté'}
+                  {settings.enabled ? ta.active : ta.stopped}
                 </Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Pins générés</span>
+                <span className="text-muted-foreground">{ta.generatedPins}</span>
                 <span className="font-medium">{settings.totalGenerated}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground shrink-0">Dernière génération</span>
+                <span className="text-muted-foreground shrink-0">{ta.lastGeneration}</span>
                 <span className="font-medium text-right">
                   {settings.lastGeneratedAt
-                    ? new Date(settings.lastGeneratedAt).toLocaleString('fr-FR')
+                    ? format(new Date(settings.lastGeneratedAt), 'PPp', { locale: dateLocale })
                     : '—'}
                 </span>
               </div>
@@ -326,13 +352,13 @@ export function AutopilotPage() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Clock className="w-5 h-5" />
-                Prochains créneaux
+                {ta.upcomingTitle}
               </CardTitle>
-              <CardDescription>Selon vos horaires (aperçu)</CardDescription>
+              <CardDescription>{ta.upcomingDesc}</CardDescription>
             </CardHeader>
             <CardContent>
               {upcoming.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucun créneau configuré.</p>
+                <p className="text-sm text-muted-foreground">{ta.noSlots}</p>
               ) : (
                 <ul className="space-y-2 text-sm">
                   {upcoming.map((slot) => (
@@ -340,18 +366,9 @@ export function AutopilotPage() {
                       key={slot.toISOString()}
                       className="flex justify-between border-b border-border/60 pb-2 last:border-0"
                     >
-                      <span>
-                        {slot.toLocaleDateString('fr-FR', {
-                          weekday: 'short',
-                          day: 'numeric',
-                          month: 'short',
-                        })}
-                      </span>
+                      <span>{format(slot, 'EEE d MMM', { locale: dateLocale })}</span>
                       <span className="font-medium">
-                        {slot.toLocaleTimeString('fr-FR', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {format(slot, 'p', { locale: dateLocale })}
                       </span>
                     </li>
                   ))}
@@ -364,16 +381,13 @@ export function AutopilotPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">2. Horaires de publication</CardTitle>
-          <CardDescription>
-            L&apos;autopilote crée des pins pour ces heures, tous les jours, et les publie via le
-            planificateur (compte Pinterest connecté).
-          </CardDescription>
+          <CardTitle className="text-lg">{ta.scheduleCardTitle}</CardTitle>
+          <CardDescription>{ta.scheduleCardDesc}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
             <div>
-              <Label htmlFor="ppd">Pins par jour</Label>
+              <Label htmlFor="ppd">{ta.postsPerDay}</Label>
               <BoundedNumberInput
                 id="ppd"
                 min={1}
@@ -382,10 +396,12 @@ export function AutopilotPage() {
                 value={settings.postsPerDay}
                 onCommit={(value) => update('postsPerDay', value)}
               />
-              <p className="text-xs text-muted-foreground mt-1">Entre 1 et 5</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {fmt(ta.rangeHint, { min: 1, max: 5 })}
+              </p>
             </div>
             <div>
-              <Label htmlFor="lookahead">Jours à l&apos;avance</Label>
+              <Label htmlFor="lookahead">{ta.lookAheadDays}</Label>
               <BoundedNumberInput
                 id="lookahead"
                 min={1}
@@ -394,13 +410,15 @@ export function AutopilotPage() {
                 value={settings.lookAheadDays}
                 onCommit={(value) => update('lookAheadDays', value)}
               />
-              <p className="text-xs text-muted-foreground mt-1">Entre 1 et 14</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {fmt(ta.rangeHint, { min: 1, max: 14 })}
+              </p>
             </div>
           </div>
 
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-              <Label>Heures (heure locale)</Label>
+              <Label>{ta.hoursLabel}</Label>
               <Button
                 type="button"
                 variant="ghost"
@@ -408,7 +426,7 @@ export function AutopilotPage() {
                 className="self-start"
                 onClick={() => update('postingHours', [...DEFAULT_POSTING_HOURS])}
               >
-                Réinitialiser (9h / 13h / 19h)
+                {ta.resetHours}
               </Button>
             </div>
             <div className="grid grid-cols-4 xs:grid-cols-6 sm:grid-cols-8 gap-2">
@@ -431,11 +449,12 @@ export function AutopilotPage() {
               })}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Sélectionnés :{' '}
-              {settings.postingHours.length
-                ? settings.postingHours.map(formatHourLabel).join(', ')
-                : 'aucun'}
-              . Max {settings.postsPerDay} pin(s) / jour parmi ces heures.
+              {fmt(ta.selectedHours, {
+                hours: settings.postingHours.length
+                  ? settings.postingHours.map(formatHourLabel).join(', ')
+                  : ta.noneSelected,
+                count: settings.postsPerDay,
+              })}
             </p>
           </div>
 
@@ -449,10 +468,10 @@ export function AutopilotPage() {
               {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Enregistrement…
+                  {ta.saving}
                 </>
               ) : (
-                'Enregistrer les paramètres'
+                ta.saveSettings
               )}
             </Button>
             <Button
@@ -466,12 +485,12 @@ export function AutopilotPage() {
               {isGeneratingNow ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Génération…
+                  {ta.generating}
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Générer un pin maintenant
+                  {ta.generateNow}
                 </>
               )}
             </Button>

@@ -4,6 +4,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { processAutopilot } from '@/lib/autopilot';
 import { useToast } from '@/hooks/use-toast';
+import { useI18n } from '@/i18n/I18nProvider';
+import { fmt } from '@/i18n/fmt';
 
 /**
  * Remplit automatiquement le calendrier de pins selon le business
@@ -14,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 export function AutopilotWorker() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useI18n();
+  const tw = t.autopilot.worker;
   const isRunning = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -25,8 +29,8 @@ export function AutopilotWorker() {
       const result = await processAutopilot(user.id, 1);
       if (!result.skipped && result.generated > 0) {
         toast({
-          title: 'Autopilote : pin généré',
-          description: `${result.generated} pin(s) créé(s) et planifié(s) selon vos horaires.`,
+          title: tw.generatedTitle,
+          description: fmt(tw.generatedDesc, { count: result.generated }),
         });
         window.dispatchEvent(
           new CustomEvent('pingen:pins-changed', {
@@ -39,7 +43,7 @@ export function AutopilotWorker() {
     } finally {
       isRunning.current = false;
     }
-  }, [user, toast]);
+  }, [user, toast, tw]);
 
   useEffect(() => {
     if (!user) return;

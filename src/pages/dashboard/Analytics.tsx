@@ -14,6 +14,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useI18n } from '@/i18n/I18nProvider';
+import { fmt } from '@/i18n/fmt';
+import { format } from 'date-fns';
 import {
   TrendingUp,
   TrendingDown,
@@ -39,12 +42,16 @@ interface StatSummary {
   trend: 'up' | 'down';
 }
 
-const RANGE_DAYS: Record<string, number> = {
+type TimeRange = '24h' | '7d' | '30d' | '90d';
+
+const RANGE_DAYS: Record<TimeRange, number> = {
   '24h': 1,
   '7d': 7,
   '30d': 30,
   '90d': 90,
 };
+
+const TIME_RANGES = Object.keys(RANGE_DAYS) as TimeRange[];
 
 function isoDate(daysAgo: number): string {
   const d = new Date(Date.now() - daysAgo * 24 * 3600 * 1000);
@@ -90,7 +97,8 @@ const BarChart = ({ data }: { data: { label: string; value: number }[] }) => {
 export function Analytics() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [timeRange, setTimeRange] = useState('7d');
+  const { t, dateLocale } = useI18n();
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [rows, setRows] = useState<AnalyticsRow[]>([]);
   const [previousRows, setPreviousRows] = useState<AnalyticsRow[]>([]);
   const [publishedPins, setPublishedPins] = useState<Pin[]>([]);
@@ -100,7 +108,7 @@ export function Analytics() {
     if (!user) return;
     setIsLoading(true);
     try {
-      const days = RANGE_DAYS[timeRange] || 7;
+      const days = RANGE_DAYS[timeRange];
       const [current, previous, pins] = await Promise.all([
         getUserAnalytics(user.id, isoDate(days - 1), isoDate(0)),
         getUserAnalytics(user.id, isoDate(days * 2 - 1), isoDate(days)),
@@ -152,10 +160,10 @@ export function Analytics() {
     return [...rows]
       .sort((a, b) => a.date.localeCompare(b.date))
       .map((r) => ({
-        label: new Date(r.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+        label: format(new Date(r.date), t.analytics.chartDateFormat, { locale: dateLocale }),
         value: r.impressions || 0,
       }));
-  }, [rows]);
+  }, [rows, t, dateLocale]);
 
   // Top pins publiés, triés par impressions
   const topPins = useMemo(() => {
@@ -175,7 +183,7 @@ export function Analytics() {
   const boardStats = useMemo(() => {
     const byBoard = new Map<string, { pins: number; impressions: number; saves: number }>();
     for (const pin of publishedPins) {
-      const name = pin.board_name || 'Général';
+      const name = pin.board_name || t.analytics.defaultBoard;
       const entry = byBoard.get(name) || { pins: 0, impressions: 0, saves: 0 };
       entry.pins += 1;
       entry.impressions += pin.impressions || 0;
@@ -185,7 +193,7 @@ export function Analytics() {
     return [...byBoard.entries()]
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.impressions - a.impressions);
-  }, [publishedPins]);
+  }, [publishedPins, t]);
 
   const maxBoardImpressions = Math.max(...boardStats.map((b) => b.impressions), 1);
 
@@ -202,7 +210,7 @@ export function Analytics() {
     a.download = `pingen-analytics-${timeRange}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: 'Export téléchargé', description: 'Le fichier CSV a été généré.' });
+    toast({ title: t.analytics.exportDoneTitle, description: t.analytics.exportDoneDesc });
   };
 
   const formatNumber = (num: number) => {
@@ -217,28 +225,32 @@ export function Analytics() {
 
   const statCards = [
     {
-      title: 'Impressions',
+      id: 'impressions',
+      title: t.analytics.stats.impressions,
       stat: stats.impressions,
       format: (v: number) => formatNumber(v),
       icon: <Eye className="w-4 h-4 text-primary" />,
       iconBg: 'bg-primary/10',
     },
     {
-      title: 'Saves',
+      id: 'saves',
+      title: t.analytics.stats.saves,
       stat: stats.saves,
       format: (v: number) => formatNumber(v),
       icon: <Heart className="w-4 h-4 text-red-600" />,
       iconBg: 'bg-red-100',
     },
     {
-      title: 'Clics',
+      id: 'clicks',
+      title: t.analytics.stats.clicks,
       stat: stats.clicks,
       format: (v: number) => formatNumber(v),
       icon: <Share2 className="w-4 h-4 text-blue-600" />,
       iconBg: 'bg-blue-100',
     },
     {
-      title: "Taux d'engagement",
+      id: 'engagement',
+      title: t.analytics.stats.engagementRate,
       stat: stats.engagement,
       format: (v: number) => `${v}%`,
       icon: <Users className="w-4 h-4 text-purple-600" />,
@@ -251,27 +263,26 @@ export function Analytics() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Analytics</h2>
-          <p className="text-muted-foreground">
-            Suivez les performances de vos Pins
-          </p>
+          <h2 className="text-2xl font-bold">{t.analytics.title}</h2>
+          <p className="text-muted-foreground">{t.analytics.subtitle}</p>
         </div>
         <div className="flex gap-3">
-          <Select value={timeRange} onValueChange={setTimeRange}>
+          <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
             <SelectTrigger className="w-[140px]">
               <Calendar className="w-4 h-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="24h">24 heures</SelectItem>
-              <SelectItem value="7d">7 jours</SelectItem>
-              <SelectItem value="30d">30 jours</SelectItem>
-              <SelectItem value="90d">90 jours</SelectItem>
+              {TIME_RANGES.map((range) => (
+                <SelectItem key={range} value={range}>
+                  {t.analytics.ranges[range]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={handleExport} disabled={rows.length === 0}>
             <Download className="w-4 h-4 mr-2" />
-            Exporter
+            {t.analytics.export}
           </Button>
         </div>
       </div>
@@ -285,7 +296,7 @@ export function Analytics() {
           {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {statCards.map((card) => (
-              <Card key={card.title}>
+              <Card key={card.id}>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     {card.title}
@@ -317,12 +328,12 @@ export function Analytics() {
           {/* Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Évolution des impressions</CardTitle>
+              <CardTitle>{t.analytics.chartTitle}</CardTitle>
             </CardHeader>
             <CardContent>
               {chartData.length === 0 ? (
                 <p className="text-center py-12 text-muted-foreground">
-                  Aucune donnée sur cette période.
+                  {t.analytics.noDataForPeriod}
                 </p>
               ) : (
                 <>
@@ -344,12 +355,12 @@ export function Analytics() {
             {/* Top Pins */}
             <Card>
               <CardHeader>
-                <CardTitle>Top Pins</CardTitle>
+                <CardTitle>{t.analytics.topPins}</CardTitle>
               </CardHeader>
               <CardContent>
                 {topPins.length === 0 ? (
                   <p className="text-center py-8 text-muted-foreground">
-                    Aucun pin publié pour le moment.
+                    {t.analytics.noPublishedPins}
                   </p>
                 ) : (
                   <div className="space-y-4">
@@ -369,8 +380,12 @@ export function Analytics() {
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-sm line-clamp-1">{pin.title}</h4>
                           <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                            <span>{formatNumber(pin.impressions || 0)} impressions</span>
-                            <span>{pin.saves || 0} saves</span>
+                            <span>
+                              {fmt(t.analytics.pinImpressions, {
+                                count: formatNumber(pin.impressions || 0),
+                              })}
+                            </span>
+                            <span>{fmt(t.analytics.pinSaves, { count: pin.saves || 0 })}</span>
                           </div>
                         </div>
                         <Badge variant="secondary">{pin.engagement}%</Badge>
@@ -384,12 +399,12 @@ export function Analytics() {
             {/* Board Stats */}
             <Card>
               <CardHeader>
-                <CardTitle>Performance par tableau</CardTitle>
+                <CardTitle>{t.analytics.boardPerformance}</CardTitle>
               </CardHeader>
               <CardContent>
                 {boardStats.length === 0 ? (
                   <p className="text-center py-8 text-muted-foreground">
-                    Publiez des pins pour voir les performances par tableau.
+                    {t.analytics.noBoardData}
                   </p>
                 ) : (
                   <div className="space-y-4">
@@ -398,7 +413,10 @@ export function Analytics() {
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{board.name}</span>
                           <span className="text-sm text-muted-foreground">
-                            {board.pins} pin{board.pins > 1 ? 's' : ''}
+                            {fmt(
+                              board.pins > 1 ? t.analytics.pinCountMany : t.analytics.pinCountOne,
+                              { count: board.pins }
+                            )}
                           </span>
                         </div>
                         <div className="flex items-center gap-4">

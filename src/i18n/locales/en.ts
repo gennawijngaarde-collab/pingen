@@ -88,6 +88,7 @@ const en: Dictionary = {
     titleEmpty: 'The title cannot be empty.',
     pinUpdated: 'Pin updated',
     updateFailed: 'Could not update the pin',
+    deleteConfirm: 'Are you sure you want to delete this pin?',
   },
   publish: {
     publish: 'Publish',

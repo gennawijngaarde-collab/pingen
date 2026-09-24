@@ -23,6 +23,9 @@ import {
   type GeneratedPinContent,
 } from '@/lib/ai';
 import { checkForDuplicates } from '@/lib/duplicate-detection';
+import { useI18n } from '@/i18n/I18nProvider';
+import { fmt } from '@/i18n/fmt';
+import type { GeneratorDictionary } from '@/i18n/sections/generator';
 import {
   Wand2,
   Upload,
@@ -38,28 +41,32 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
-const niches = [
-  'Décoration',
-  'Mode',
-  'Cuisine',
-  'Voyage',
-  'Fitness',
-  'DIY',
-  'Technologie',
-  'Business',
-  'Art',
-  'Photographie',
+// `value` is passed to the AI prompts / stored on the pin and must stay stable;
+// only `labelKey` is localized.
+const niches: { value: string; labelKey: keyof GeneratorDictionary['niches'] }[] = [
+  { value: 'Décoration', labelKey: 'decoration' },
+  { value: 'Mode', labelKey: 'fashion' },
+  { value: 'Cuisine', labelKey: 'cooking' },
+  { value: 'Voyage', labelKey: 'travel' },
+  { value: 'Fitness', labelKey: 'fitness' },
+  { value: 'DIY', labelKey: 'diy' },
+  { value: 'Technologie', labelKey: 'technology' },
+  { value: 'Business', labelKey: 'business' },
+  { value: 'Art', labelKey: 'art' },
+  { value: 'Photographie', labelKey: 'photography' },
 ];
 
-const tones = [
-  { value: 'professional', label: 'Professionnel' },
-  { value: 'casual', label: 'Décontracté' },
-  { value: 'inspiring', label: 'Inspirant' },
-  { value: 'educational', label: 'Éducatif' },
-  { value: 'funny', label: 'Humoristique' },
+const tones: { value: string; labelKey: keyof GeneratorDictionary['tones'] }[] = [
+  { value: 'professional', labelKey: 'professional' },
+  { value: 'casual', labelKey: 'casual' },
+  { value: 'inspiring', labelKey: 'inspiring' },
+  { value: 'educational', labelKey: 'educational' },
+  { value: 'funny', labelKey: 'funny' },
 ];
 
 export function PinGenerator() {
+  const { t } = useI18n();
+  const g = t.generator;
   const { toast } = useToast();
   const navigate = useNavigate();
   const { createPin, pins, fetchPins } = usePins();
@@ -120,8 +127,8 @@ export function PinGenerator() {
 
     if (!/^https?:\/\//i.test(url)) {
       toast({
-        title: 'URL invalide',
-        description: 'L\'URL doit commencer par http:// ou https://',
+        title: g.urlInvalidTitle,
+        description: g.urlInvalidDescription,
         variant: 'destructive',
       });
       return;
@@ -137,9 +144,8 @@ export function PinGenerator() {
       setIsCheckingUrl(false);
       setSelectedImage(null);
       toast({
-        title: 'Image introuvable',
-        description:
-          'Cette URL ne pointe pas vers une image. Utilisez le lien direct d\'une image (se terminant par .jpg, .png…), pas celui d\'une page web.',
+        title: g.imageNotFoundTitle,
+        description: g.imageNotFoundDescription,
         variant: 'destructive',
       });
     };
@@ -149,15 +155,15 @@ export function PinGenerator() {
   const handleGenerateFromImage = async () => {
     if (!selectedImage) {
       toast({
-        title: 'Image requise',
-        description: 'Veuillez d\'abord télécharger ou entrer une image.',
+        title: g.imageRequiredTitle,
+        description: g.imageRequiredDescription,
         variant: 'destructive',
       });
       return;
     }
 
     setIsGenerating(true);
-    setGenerationStep('Analyse de l\'image et rédaction…');
+    setGenerationStep(g.stepAnalyzingImage);
 
     try {
       const content = hasTextAi
@@ -166,15 +172,13 @@ export function PinGenerator() {
 
       setGeneratedContent(content);
       toast({
-        title: 'Contenu généré !',
-        description: hasTextAi
-          ? 'Contenu créé par l’IA à partir de votre image.'
-          : 'Mode démo : contenu simulé.',
+        title: g.contentGeneratedTitle,
+        description: hasTextAi ? g.contentGeneratedAi : g.contentGeneratedDemo,
       });
     } catch {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de générer le contenu. Réessayez.',
+        title: g.errorTitle,
+        description: g.generateContentFailed,
         variant: 'destructive',
       });
     } finally {
@@ -189,10 +193,10 @@ export function PinGenerator() {
     setStatusMessage(null);
 
     if (!business) {
-      const msg = 'Décrivez votre activité dans le champ « Votre business » pour générer un Pin.';
+      const msg = g.businessRequiredMessage;
       setStatusError(msg);
       toast({
-        title: 'Business requis',
+        title: g.businessRequiredTitle,
         description: msg,
         variant: 'destructive',
       });
@@ -200,8 +204,8 @@ export function PinGenerator() {
     }
 
     setIsGenerating(true);
-    setGenerationStep('1/2 Conception du Pin…');
-    setStatusMessage('Génération en cours (texte + image, ~20–60 s)…');
+    setGenerationStep(g.stepConcept);
+    setStatusMessage(g.statusGenerating);
 
     try {
       let pinImageUrl: string;
@@ -231,7 +235,7 @@ export function PinGenerator() {
       if (duplicateCheck.isDuplicate || duplicateCheck.isSimilar) {
         setDuplicateWarning(duplicateCheck.message);
         toast({
-          title: duplicateCheck.isDuplicate ? 'Doublon détecté !' : 'Pin similaire trouvé',
+          title: duplicateCheck.isDuplicate ? g.duplicateDetectedTitle : g.similarPinTitle,
           description: duplicateCheck.message ?? undefined,
           variant: duplicateCheck.isDuplicate ? 'destructive' : 'default',
         });
@@ -239,8 +243,8 @@ export function PinGenerator() {
         setDuplicateWarning(null);
       }
 
-      setGenerationStep('2/2 Génération de l\'image (Grok)…');
-      setStatusMessage('Création de l\'image avec Grok…');
+      setGenerationStep(g.stepImage);
+      setStatusMessage(g.statusCreatingImage);
 
       let imageFailedMessage: string | null = null;
       try {
@@ -252,9 +256,9 @@ export function PinGenerator() {
         console.error(imageError);
         imageFailedMessage = formatAiError(imageError);
         pinImageUrl = `https://placehold.co/768x1344/E3001B/FFFFFF/png?text=${encodeURIComponent('Pin')}`;
-        setStatusError(`Texte généré, mais l'image a échoué : ${imageFailedMessage}`);
+        setStatusError(fmt(g.textOkImageFailed, { error: imageFailedMessage }));
         toast({
-          title: 'Texte OK — image en échec',
+          title: g.textOkImageFailedTitle,
           description: imageFailedMessage,
           variant: 'destructive',
         });
@@ -264,12 +268,11 @@ export function PinGenerator() {
       setGeneratedContent(content);
 
       if (!imageFailedMessage) {
-        setStatusMessage('Pin généré avec succès.');
+        setStatusMessage(g.statusSuccess);
         setStatusError(null);
         toast({
-          title: 'Pin généré !',
-          description:
-            'Image + texte créés pour votre business. Cliquez sur Régénérer pour une autre variante.',
+          title: g.pinGeneratedTitle,
+          description: g.pinGeneratedDescription,
         });
       }
     } catch (error) {
@@ -278,7 +281,7 @@ export function PinGenerator() {
       setStatusError(msg);
       setStatusMessage(null);
       toast({
-        title: 'Erreur de génération',
+        title: g.generationErrorTitle,
         description: msg,
         variant: 'destructive',
       });
@@ -302,8 +305,8 @@ export function PinGenerator() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: 'Copié !',
-      description: 'Le texte a été copié dans le presse-papiers.',
+      title: g.copiedTitle,
+      description: g.copiedDescription,
     });
   };
 
@@ -335,8 +338,10 @@ export function PinGenerator() {
 
     if (duplicateCheck.isDuplicate) {
       toast({
-        title: 'Doublon exact détecté',
-        description: `${duplicateCheck.message ?? 'Pin identique trouvé'}. Modifiez le titre ou régénérez.`,
+        title: g.exactDuplicateTitle,
+        description: fmt(g.exactDuplicateDescription, {
+          message: duplicateCheck.message ?? g.identicalPinFound,
+        }),
         variant: 'destructive',
       });
       return;
@@ -349,16 +354,16 @@ export function PinGenerator() {
     if (pin) {
       setDuplicateWarning(null); // Effacer l'avertissement après sauvegarde
       toast({
-        title: 'Pin sauvegardé !',
-        description: duplicateCheck.isSimilar 
-          ? 'Pin sauvegardé malgré la similarité avec un pin existant.'
-          : 'Votre Pin a été ajouté aux brouillons.',
+        title: g.pinSavedTitle,
+        description: duplicateCheck.isSimilar
+          ? g.pinSavedDespiteSimilarity
+          : g.pinSavedDescription,
       });
       navigate(ROUTES.schedule);
     } else {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de sauvegarder le pin.',
+        title: g.errorTitle,
+        description: g.savePinFailed,
         variant: 'destructive',
       });
     }
@@ -375,8 +380,10 @@ export function PinGenerator() {
 
     if (duplicateCheck.isDuplicate) {
       toast({
-        title: 'Doublon exact détecté',
-        description: `${duplicateCheck.message ?? 'Pin identique trouvé'}. Modifiez le titre ou régénérez.`,
+        title: g.exactDuplicateTitle,
+        description: fmt(g.exactDuplicateDescription, {
+          message: duplicateCheck.message ?? g.identicalPinFound,
+        }),
         variant: 'destructive',
       });
       return;
@@ -390,16 +397,16 @@ export function PinGenerator() {
     if (pin) {
       setDuplicateWarning(null); // Effacer l'avertissement après planification
       toast({
-        title: 'Pin planifié !',
+        title: g.pinScheduledTitle,
         description: duplicateCheck.isSimilar
-          ? 'Pin planifié malgré la similarité avec un pin existant.'
-          : 'Votre Pin sera publié dans 1 heure. Modifiez la date depuis la planification.',
+          ? g.pinScheduledDespiteSimilarity
+          : g.pinScheduledDescription,
       });
       navigate(ROUTES.schedule);
     } else {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de planifier le pin.',
+        title: g.errorTitle,
+        description: g.schedulePinFailed,
         variant: 'destructive',
       });
     }
@@ -414,10 +421,8 @@ export function PinGenerator() {
     <div className="space-y-8 min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Générateur de Pins</h2>
-          <p className="text-muted-foreground">
-            Créez des Pins optimisés avec l&apos;aide de l&apos;IA — image + texte selon votre business
-          </p>
+          <h2 className="text-2xl font-bold">{g.pageTitle}</h2>
+          <p className="text-muted-foreground">{g.pageSubtitle}</p>
         </div>
       </div>
 
@@ -434,7 +439,7 @@ export function PinGenerator() {
               {isGenerating && (
                 <p className="flex items-center gap-2 font-medium mb-1">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {generationStep || 'Génération en cours…'}
+                  {generationStep || g.generatingInProgress}
                 </p>
               )}
               {statusError ? <p className="break-words">{statusError}</p> : statusMessage ? <p className="break-words">{statusMessage}</p> : null}
@@ -446,11 +451,9 @@ export function PinGenerator() {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-amber-900 mb-1">Contenu similaire détecté</p>
+                  <p className="font-medium text-amber-900 mb-1">{g.similarContentTitle}</p>
                   <p className="text-amber-800 break-words">{duplicateWarning}</p>
-                  <p className="text-amber-700 text-xs mt-2">
-                    Vous pouvez régénérer pour une variante différente ou continuer pour sauvegarder ce contenu.
-                  </p>
+                  <p className="text-amber-700 text-xs mt-2">{g.similarContentHint}</p>
                 </div>
               </div>
             </div>
@@ -462,33 +465,33 @@ export function PinGenerator() {
         <div className="space-y-6 min-w-0">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle className="text-lg">1. Source du Pin</CardTitle>
+              <CardTitle className="text-lg">{g.sourceCardTitle}</CardTitle>
             </CardHeader>
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="auto">
                     <Briefcase className="w-4 h-4 mr-1 sm:mr-2" />
-                    <span className="hidden sm:inline">Auto</span>
+                    <span className="hidden sm:inline">{g.tabAuto}</span>
                   </TabsTrigger>
                   <TabsTrigger value="upload">
                     <Upload className="w-4 h-4 mr-1 sm:mr-2" />
-                    <span className="hidden sm:inline">Upload</span>
+                    <span className="hidden sm:inline">{g.tabUpload}</span>
                   </TabsTrigger>
                   <TabsTrigger value="url">
                     <Link className="w-4 h-4 mr-1 sm:mr-2" />
-                    <span className="hidden sm:inline">URL</span>
+                    <span className="hidden sm:inline">{g.tabUrl}</span>
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="auto" className="mt-4 space-y-4">
                   <div>
                     <Label htmlFor="business" className="mb-2 block">
-                      Votre business *
+                      {g.businessLabel}
                     </Label>
                     <Textarea
                       id="business"
-                      placeholder="Ex. Boutique de décoration bohème pour petits appartements, style naturel et cosy…"
+                      placeholder={g.businessPlaceholder}
                       value={businessDescription}
                       onChange={(e) => setBusinessDescription(e.target.value)}
                       rows={3}
@@ -496,36 +499,36 @@ export function PinGenerator() {
                   </div>
                   <div>
                     <Label htmlFor="offer" className="mb-2 block">
-                      Produit / offre (optionnel)
+                      {g.offerLabel}
                     </Label>
                     <Input
                       id="offer"
-                      placeholder="Ex. Kit déco murale, coaching 1:1, ebook…"
+                      placeholder={g.offerPlaceholder}
                       value={productOrOffer}
                       onChange={(e) => setProductOrOffer(e.target.value)}
                     />
                   </div>
                   <div>
                     <Label htmlFor="audience" className="mb-2 block">
-                      Audience (optionnel)
+                      {g.audienceLabel}
                     </Label>
                     <Input
                       id="audience"
-                      placeholder="Ex. Femmes 25-40 ans, primo-accédants…"
+                      placeholder={g.audiencePlaceholder}
                       value={audience}
                       onChange={(e) => setAudience(e.target.value)}
                     />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    L&apos;IA génère une <strong>nouvelle image</strong> (Grok, format vertical
-                    avec titre lisible) et le texte du Pin. Chaque génération produit une variante
-                    différente.
+                    {g.autoHelpBefore}
+                    <strong>{g.autoHelpStrong}</strong>
+                    {g.autoHelpAfter}
                   </p>
                   {selectedImage && activeTab === 'auto' && (
                     <div className="relative rounded-lg overflow-hidden border">
                       <img
                         src={selectedImage}
-                        alt="Pin généré"
+                        alt={g.generatedPinAlt}
                         className="max-h-64 w-full object-cover"
                       />
                     </div>
@@ -545,11 +548,12 @@ export function PinGenerator() {
                       <div className="relative">
                         <img
                           src={selectedImage}
-                          alt="Selected"
+                          alt={g.selectedImageAlt}
                           className="max-h-64 mx-auto rounded-lg"
                         />
                         <button
                           type="button"
+                          aria-label={g.removeImage}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedImage(null);
@@ -565,12 +569,8 @@ export function PinGenerator() {
                         <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                           <ImageIcon className="w-8 h-8 text-primary" />
                         </div>
-                        <p className="font-medium mb-2">
-                          Cliquez pour télécharger une image
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          PNG, JPG, GIF jusqu&apos;à 10MB
-                        </p>
+                        <p className="font-medium mb-2">{g.uploadPrompt}</p>
+                        <p className="text-sm text-muted-foreground">{g.uploadHint}</p>
                       </>
                     )}
                     <input
@@ -585,7 +585,7 @@ export function PinGenerator() {
                     <div className="mt-4">
                       <Progress value={uploadProgress} className="h-2" />
                       <p className="text-sm text-muted-foreground mt-2 text-center">
-                        Téléchargement... {uploadProgress}%
+                        {fmt(g.uploading, { percent: uploadProgress })}
                       </p>
                     </div>
                   )}
@@ -594,7 +594,7 @@ export function PinGenerator() {
                 <TabsContent value="url" className="mt-4 space-y-4">
                   <div className="flex gap-2">
                     <Input
-                      placeholder="https://exemple.com/image.jpg"
+                      placeholder={g.urlPlaceholder}
                       value={imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
                       onKeyDown={(e) => {
@@ -609,7 +609,7 @@ export function PinGenerator() {
                       {isCheckingUrl ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        'OK'
+                        g.urlSubmit
                       )}
                     </Button>
                   </div>
@@ -617,11 +617,12 @@ export function PinGenerator() {
                     <div className="relative">
                       <img
                         src={selectedImage}
-                        alt="Selected"
+                        alt={g.selectedImageAlt}
                         className="max-h-64 mx-auto rounded-lg"
                       />
                       <button
                         type="button"
+                        aria-label={g.removeImage}
                         onClick={() => {
                           setSelectedImage(null);
                           setImageUrl('');
@@ -639,33 +640,33 @@ export function PinGenerator() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">2. Options de génération</CardTitle>
+              <CardTitle className="text-lg">{g.optionsCardTitle}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="mb-2 block">Niche (optionnel)</Label>
+                <Label className="mb-2 block">{g.nicheLabel}</Label>
                 <div className="flex flex-wrap gap-2">
                   {niches.map((niche) => (
                     <button
-                      key={niche}
+                      key={niche.value}
                       type="button"
                       onClick={() =>
-                        setSelectedNiche(selectedNiche === niche ? '' : niche)
+                        setSelectedNiche(selectedNiche === niche.value ? '' : niche.value)
                       }
                       className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                        selectedNiche === niche
+                        selectedNiche === niche.value
                           ? 'bg-primary text-white'
                           : 'bg-muted hover:bg-muted/80'
                       }`}
                     >
-                      {niche}
+                      {g.niches[niche.labelKey]}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <Label className="mb-2 block">Ton (optionnel)</Label>
+                <Label className="mb-2 block">{g.toneLabel}</Label>
                 <div className="flex flex-wrap gap-2">
                   {tones.map((tone) => (
                     <button
@@ -680,7 +681,7 @@ export function PinGenerator() {
                           : 'bg-muted hover:bg-muted/80'
                       }`}
                     >
-                      {tone.label}
+                      {g.tones[tone.labelKey]}
                     </button>
                   ))}
                 </div>
@@ -698,17 +699,17 @@ export function PinGenerator() {
                 {isGenerating ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    {generationStep || 'Génération en cours...'}
+                    {generationStep || g.generatingInProgress}
                   </>
                 ) : activeTab === 'auto' ? (
                   <>
                     <Sparkles className="w-5 h-5 mr-2" />
-                    Générer image + texte
+                    {g.generateImageAndText}
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5 mr-2" />
-                    Générer le contenu
+                    {g.generateContent}
                   </>
                 )}
               </Button>
@@ -719,7 +720,7 @@ export function PinGenerator() {
         <div className="space-y-6 min-w-0">
           <Card className="min-w-0">
             <CardHeader className="flex flex-row items-center justify-between gap-2">
-              <CardTitle className="text-lg">3. Contenu généré</CardTitle>
+              <CardTitle className="text-lg">{g.generatedCardTitle}</CardTitle>
               {generatedContent && (
                 <Button
                   variant="outline"
@@ -728,7 +729,7 @@ export function PinGenerator() {
                   disabled={isGenerating}
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Régénérer
+                  {g.regenerate}
                 </Button>
               )}
             </CardHeader>
@@ -736,23 +737,20 @@ export function PinGenerator() {
               {!generatedContent ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Wand2 className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                  <p>
-                    Mode Auto : décrivez votre business pour générer image + texte.
-                    Ou uploadez une image pour générer uniquement le texte.
-                  </p>
+                  <p>{g.emptyState}</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   <div>
                     <Label className="flex items-center justify-between mb-2">
-                      Titre
+                      {g.titleLabel}
                       <button
                         type="button"
                         onClick={() => copyToClipboard(generatedContent.title)}
                         className="text-primary hover:underline text-sm"
                       >
                         <Copy className="w-4 h-4 inline mr-1" />
-                        Copier
+                        {g.copy}
                       </button>
                     </Label>
                     <div className="p-3 bg-muted rounded-lg">
@@ -762,7 +760,7 @@ export function PinGenerator() {
 
                   <div>
                     <Label className="flex items-center justify-between mb-2">
-                      Description
+                      {g.descriptionLabel}
                       <button
                         type="button"
                         onClick={() =>
@@ -771,7 +769,7 @@ export function PinGenerator() {
                         className="text-primary hover:underline text-sm"
                       >
                         <Copy className="w-4 h-4 inline mr-1" />
-                        Copier
+                        {g.copy}
                       </button>
                     </Label>
                     <div className="p-3 bg-muted rounded-lg">
@@ -783,7 +781,7 @@ export function PinGenerator() {
                     <Label className="flex items-center justify-between mb-2">
                       <span className="flex items-center gap-2">
                         <Hash className="w-4 h-4" />
-                        Hashtags
+                        {g.hashtagsLabel}
                       </span>
                       <button
                         type="button"
@@ -793,7 +791,7 @@ export function PinGenerator() {
                         className="text-primary hover:underline text-sm"
                       >
                         <Copy className="w-4 h-4 inline mr-1" />
-                        Copier
+                        {g.copy}
                       </button>
                     </Label>
                     <div className="flex flex-wrap gap-2">
@@ -806,7 +804,7 @@ export function PinGenerator() {
                   </div>
 
                   <div>
-                    <Label className="mb-2 block">Texte alternatif (SEO)</Label>
+                    <Label className="mb-2 block">{g.altTextLabel}</Label>
                     <p className="text-sm text-muted-foreground">
                       {generatedContent.altText}
                     </p>
@@ -814,11 +812,11 @@ export function PinGenerator() {
 
                   {selectedImage && (
                     <div className="border rounded-lg p-4">
-                      <Label className="mb-2 block">Aperçu du Pin</Label>
+                      <Label className="mb-2 block">{g.previewLabel}</Label>
                       <div className="relative rounded-lg overflow-hidden aspect-[2/3] max-h-80 mx-auto bg-muted">
                         <img
                           src={selectedImage}
-                          alt="Preview"
+                          alt={g.previewAlt}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
@@ -837,7 +835,7 @@ export function PinGenerator() {
                       onClick={handleSavePin}
                       disabled={isSaving}
                     >
-                      Sauvegarder
+                      {g.save}
                     </Button>
                     <Button
                       className="flex-1 bg-primary hover:bg-primary/90"
@@ -845,7 +843,7 @@ export function PinGenerator() {
                       disabled={isSaving}
                     >
                       <Calendar className="w-4 h-4 mr-2" />
-                      Planifier
+                      {g.schedule}
                     </Button>
                   </div>
                 </div>

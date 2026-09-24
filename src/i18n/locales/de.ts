@@ -88,6 +88,7 @@ const de: Dictionary = {
     titleEmpty: 'Der Titel darf nicht leer sein.',
     pinUpdated: 'Pin geändert',
     updateFailed: 'Der Pin konnte nicht geändert werden',
+    deleteConfirm: 'Möchten Sie diesen Pin wirklich löschen?',
   },
   publish: {
     publish: 'Veröffentlichen',
