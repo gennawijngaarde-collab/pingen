@@ -233,20 +233,40 @@ async function publishOne(client: SupabaseClient, pin: PinRow, account: Pinteres
   return pinterestPinId;
 }
 
+export interface PublishOptions {
+  /** Publish only these pins, right now, regardless of their scheduled date. */
+  pinIds?: string[];
+  /** 'due' (default): only overdue pins. 'all': every scheduled pin, including future ones. */
+  scope?: 'due' | 'all';
+}
+
 /**
- * Publish every pin whose `scheduled_at` is in the past.
+ * Publish scheduled pins.
+ * Default behaviour publishes every pin whose `scheduled_at` is in the past.
  * With a service-role client this covers all users; with a user client RLS
  * restricts it to that user's pins.
  */
-export async function publishDuePins(client: SupabaseClient): Promise<PublishResult> {
+export async function publishDuePins(
+  client: SupabaseClient,
+  options: PublishOptions = {}
+): Promise<PublishResult> {
   const now = new Date().toISOString();
-  const { data: pins, error } = await client
+  let query = client
     .from('pins')
     .select('id, user_id, title, description, image_url, link, board_id, alt_text, retry_count')
-    .eq('status', 'scheduled')
-    .lte('scheduled_at', now)
     .order('scheduled_at', { ascending: true })
     .limit(50);
+
+  if (options.pinIds && options.pinIds.length > 0) {
+    // Explicit request: allow re-publishing failed pins too.
+    query = query.in('id', options.pinIds).in('status', ['scheduled', 'failed', 'draft']);
+  } else if (options.scope === 'all') {
+    query = query.eq('status', 'scheduled');
+  } else {
+    query = query.eq('status', 'scheduled').lte('scheduled_at', now);
+  }
+
+  const { data: pins, error } = await query;
 
   if (error) throw new Error(`Failed to load scheduled pins: ${error.message}`);
 

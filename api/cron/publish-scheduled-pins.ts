@@ -5,11 +5,40 @@ import {
   getSupabaseAnonKey,
   getSupabaseUrl,
   publishDuePins,
+  type PublishOptions,
 } from '../../server/publishScheduledPins.js';
 
 interface VercelRequest {
   method?: string;
   headers?: Record<string, string | string[] | undefined>;
+  body?: unknown;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function parseOptions(req: VercelRequest): PublishOptions {
+  let body: Record<string, unknown> = {};
+  if (typeof req.body === 'string') {
+    try {
+      body = JSON.parse(req.body) as Record<string, unknown>;
+    } catch {
+      body = {};
+    }
+  } else if (typeof req.body === 'object' && req.body !== null) {
+    body = req.body as Record<string, unknown>;
+  }
+
+  const rawIds = Array.isArray(body.pinIds)
+    ? body.pinIds
+    : typeof body.pinId === 'string'
+      ? [body.pinId]
+      : [];
+  const pinIds = rawIds.filter((id): id is string => typeof id === 'string' && UUID_RE.test(id)).slice(0, 50);
+
+  return {
+    pinIds: pinIds.length > 0 ? pinIds : undefined,
+    scope: body.scope === 'all' ? 'all' : 'due',
+  };
 }
 
 interface VercelResponse {
@@ -49,7 +78,9 @@ async function resolveUserId(token: string): Promise<string | null> {
  *  - Automation (GitHub Actions / Vercel Cron): `Authorization: Bearer <CRON_SECRET>`
  *    or the `x-vercel-cron` header. Uses the service-role key to cover all users.
  *  - A signed-in user (in-app button): `Authorization: Bearer <Supabase JWT>`.
- *    Runs under RLS, so only that user's pins are published.
+ *    Runs under RLS, so only that user's pins are published. Optional JSON body:
+ *    `{ pinId }` / `{ pinIds: [] }` to publish specific pins immediately (even if
+ *    scheduled later), or `{ scope: 'all' }` to publish every scheduled pin now.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
@@ -99,8 +130,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(503).json({ error: 'Supabase is not configured on the server' });
       return;
     }
-    const result = await publishDuePins(client);
-    console.log(`[user ${userId}] publish result:`, JSON.stringify(result));
+    // Only signed-in users may publish ahead of schedule or target specific pins (RLS scopes them).
+    const options = parseOptions(req);
+    const result = await publishDuePins(client, options);
+    console.log(`[user ${userId}] publish result (${JSON.stringify(options)}):`, JSON.stringify(result));
     res.status(200).json({ success: true, mode: 'user', ...result, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('[publish-scheduled-pins] error:', error);

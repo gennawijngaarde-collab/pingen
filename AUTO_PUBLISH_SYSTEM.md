@@ -21,6 +21,12 @@ Pour chaque pin `status = 'scheduled'` dont `scheduled_at <= now()` :
 | Automatisation (GitHub Actions / Vercel Cron) | `Authorization: Bearer <CRON_SECRET>` ou header `x-vercel-cron` | Tous les utilisateurs (client Supabase **service role**) |
 | Utilisateur connecté (bouton dans l'app / AutoPublisher) | `Authorization: Bearer <JWT Supabase>` | Ses propres pins uniquement (RLS) |
 
+En mode utilisateur, le corps JSON permet de publier **par avance** :
+`{ "pinId": "<uuid>" }` (ou `pinIds: []`) publie ce pin immédiatement quelle que soit sa date ;
+`{ "scope": "all" }` publie tous les pins programmés, y compris futurs. Sans corps : pins en retard uniquement.
+Le helper frontend est `src/lib/publish.ts` (`publishPinsNow`), utilisé par le bouton « Publier » de chaque
+pin, « Tout publier maintenant », l'AutoPublisher et `usePins().publishPin`.
+
 ### Couches de déclenchement
 
 1. **GitHub Actions** — `.github/workflows/auto-publish.yml`, cron `*/5 * * * *`. Fonctionne 24/7 sans que l'app soit ouverte.

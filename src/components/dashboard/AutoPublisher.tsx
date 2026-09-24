@@ -1,22 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { publishPinsNow } from '@/lib/publish';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle2, Clock, Loader2, AlertTriangle } from 'lucide-react';
 
 const CHECK_INTERVAL_MS = 30_000;
-export const PUBLISH_ENDPOINT = '/api/cron/publish-scheduled-pins';
-
-interface PublishResponse {
-  success?: boolean;
-  processed?: number;
-  successful?: number;
-  failed?: number;
-  awaitingAccess?: number;
-  error?: string;
-  details?: Array<{ pinId: string; status: string; error?: string }>;
-}
 
 const PINTEREST_APP_URL = 'https://developers.pinterest.com/apps/';
 
@@ -51,20 +41,11 @@ export function AutoPublisher() {
     setIsPublishing(true);
     setLastError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) throw new Error('Session expirée, reconnecte-toi.');
+      const result = await publishPinsNow({ scope: 'due' });
 
-      const response = await fetch(PUBLISH_ENDPOINT, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const result = (await response.json()) as PublishResponse;
-      if (!response.ok) throw new Error(result.error || `Erreur ${response.status}`);
-
-      setAwaitingAccess(result.awaitingAccess ?? 0);
-      if ((result.failed ?? 0) > 0) {
-        const firstError = result.details?.find((d) => d.error)?.error;
+      setAwaitingAccess(result.awaitingAccess);
+      if (result.failed > 0) {
+        const firstError = result.details.find((d) => d.error)?.error;
         setLastError(firstError || `${result.failed} pin(s) n'ont pas pu être publiés.`);
       }
       window.dispatchEvent(new Event('pingen:pins-changed'));

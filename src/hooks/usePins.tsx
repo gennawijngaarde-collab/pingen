@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase, type Pin } from '@/lib/supabase';
+import { publishPinsNow, type PublishDetail, type PublishNowResult } from '@/lib/publish';
 import { useAuth } from './useAuth';
 
 interface UsePinsReturn {
@@ -11,7 +12,7 @@ interface UsePinsReturn {
   updatePin: (pinId: string, updates: Partial<Pin>) => Promise<Pin | null>;
   deletePin: (pinId: string) => Promise<void>;
   schedulePin: (pinId: string, scheduledAt: string) => Promise<Pin | null>;
-  publishPin: (pinId: string) => Promise<Pin | null>;
+  publishPin: (pinId: string) => Promise<{ result: PublishNowResult; detail: PublishDetail | undefined }>;
 }
 
 export function usePins(): UsePinsReturn {
@@ -126,12 +127,16 @@ export function usePins(): UsePinsReturn {
     });
   }, [updatePin]);
 
+  /**
+   * Really publishes the pin on Pinterest via the server engine (even if it is
+   * scheduled for later), then reloads the list.
+   */
   const publishPin = useCallback(async (pinId: string) => {
-    return updatePin(pinId, { 
-      status: 'published', 
-      published_at: new Date().toISOString() 
-    });
-  }, [updatePin]);
+    const result = await publishPinsNow({ pinIds: [pinId] });
+    await fetchPins();
+    const detail = result.details.find((d) => d.pinId === pinId);
+    return { result, detail };
+  }, [fetchPins]);
 
   return {
     pins,

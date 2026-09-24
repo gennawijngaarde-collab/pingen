@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
 import { useAuth } from '@/hooks/useAuth';
 import { usePins } from '@/hooks/usePins';
-import { supabase, type Pin } from '@/lib/supabase';
+import { type Pin } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -69,7 +69,8 @@ function dominantStatus(statuses: Pin['status'][]): Pin['status'] | null {
   return null;
 }
 
-import { AutoPublisher, PUBLISH_ENDPOINT } from '@/components/dashboard/AutoPublisher';
+import { AutoPublisher } from '@/components/dashboard/AutoPublisher';
+import { publishPinsNow, describePublishResult } from '@/lib/publish';
 
 export function Schedule() {
   const { user } = useAuth();
@@ -185,12 +186,9 @@ export function Schedule() {
   const handlePublishNow = async (pinId: string) => {
     try {
       setIsLoading(true);
-      await publishPin(pinId);
+      const { result } = await publishPin(pinId);
       await loadPins();
-      toast({ 
-        title: 'Pin publié !',
-        description: 'Le pin a été publié sur Pinterest'
-      });
+      toast(describePublishResult(result));
     } catch (error) {
       toast({
         title: 'Erreur de publication',
@@ -415,8 +413,23 @@ export function Schedule() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-col items-end gap-2 shrink-0">
                 {getStatusBadge(pin.status)}
+                {(pin.status === 'scheduled' || pin.status === 'failed') && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs border-green-600 text-green-700 hover:bg-green-50"
+                    disabled={isLoading}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handlePublishNow(pin.id);
+                    }}
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Publier
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -452,7 +465,7 @@ export function Schedule() {
                   {t.schedule.cancelSchedule}
                 </DropdownMenuItem>
               )}
-              {pin.status === 'scheduled' && (
+              {(pin.status === 'scheduled' || pin.status === 'failed') && (
                 <DropdownMenuItem onClick={() => void handlePublishNow(pin.id)}>
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Publier maintenant
@@ -493,41 +506,12 @@ export function Schedule() {
               variant="default" 
               className="bg-green-600 hover:bg-green-700 text-white"
               onClick={async () => {
-                if (!confirm('Publier TOUS les pins planifiés maintenant sur Pinterest ?')) return;
+                if (!confirm('Publier maintenant TOUS les pins programmés sur Pinterest, y compris ceux prévus plus tard ?')) return;
                 setIsLoading(true);
                 try {
-                  const { data: { session } } = await supabase.auth.getSession();
-                  const token = session?.access_token;
-                  
-                  const response = await fetch(PUBLISH_ENDPOINT, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
-                  });
-                  
-                  const result = await response.json();
-                  
-                  if (response.ok) {
-                    await loadPins();
-                    const firstError = Array.isArray(result.details)
-                      ? result.details.find((d: { error?: string }) => d.error)?.error
-                      : undefined;
-                    const awaiting = Number(result.awaitingAccess) || 0;
-                    toast({ 
-                      title: awaiting > 0 && result.successful === 0
-                        ? `${awaiting} pin(s) en attente d'approbation Pinterest`
-                        : result.processed === 0
-                          ? 'Aucun pin à publier pour le moment'
-                          : `${result.successful} pin(s) publié(s) !`,
-                      description: awaiting > 0
-                        ? firstError
-                        : result.failed > 0
-                          ? `${result.failed} échec(s)${firstError ? ` : ${firstError}` : ''}`
-                          : result.processed === 0 ? 'Les pins planifiés dans le futur seront publiés automatiquement.' : 'Tous les pins ont été publiés',
-                      variant: result.failed > 0 ? 'destructive' : undefined,
-                    });
-                  } else {
-                    throw new Error(result.error || 'Erreur');
-                  }
+                  const result = await publishPinsNow({ scope: 'all' });
+                  await loadPins();
+                  toast(describePublishResult(result));
                 } catch (error) {
                   toast({
                     title: 'Erreur',
