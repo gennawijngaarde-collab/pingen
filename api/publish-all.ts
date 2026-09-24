@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { processScheduledPins } from '../../src/lib/scheduler';
-import { supabase } from '../../src/lib/supabase';
 
 // Helper to verify Supabase JWT token
 async function verifySupabaseToken(token: string): Promise<{ userId: string | null; error: string | null }> {

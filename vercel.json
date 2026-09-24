@@ -4,5 +4,7 @@
       "path": "/api/cron/publish-scheduled-pins",
       "schedule": "*/5 * * * *"
     }
-  ]
+  ],
+  "buildCommand": "vite build",
+  "ignoreCommand": "exit 0"
 }
