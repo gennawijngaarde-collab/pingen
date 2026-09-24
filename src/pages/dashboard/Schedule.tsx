@@ -69,7 +69,7 @@ function dominantStatus(statuses: Pin['status'][]): Pin['status'] | null {
   return null;
 }
 
-import { AutoPublisher } from '@/components/dashboard/AutoPublisher';
+import { AutoPublisher, PUBLISH_ENDPOINT } from '@/components/dashboard/AutoPublisher';
 
 export function Schedule() {
   const { user } = useAuth();
@@ -499,21 +499,26 @@ export function Schedule() {
                   const { data: { session } } = await supabase.auth.getSession();
                   const token = session?.access_token;
                   
-                  const response = await fetch('/api/publish-all', {
+                  const response = await fetch(PUBLISH_ENDPOINT, {
                     method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${token}`,
-                      'Content-Type': 'application/json'
-                    }
+                    headers: { Authorization: `Bearer ${token}` },
                   });
                   
                   const result = await response.json();
                   
                   if (response.ok) {
                     await loadPins();
+                    const firstError = Array.isArray(result.details)
+                      ? result.details.find((d: { error?: string }) => d.error)?.error
+                      : undefined;
                     toast({ 
-                      title: `${result.successful} pin(s) publié(s) !`,
-                      description: result.failed > 0 ? `${result.failed} échec(s)` : 'Tous les pins ont été publiés'
+                      title: result.processed === 0
+                        ? 'Aucun pin à publier pour le moment'
+                        : `${result.successful} pin(s) publié(s) !`,
+                      description: result.failed > 0
+                        ? `${result.failed} échec(s)${firstError ? ` : ${firstError}` : ''}`
+                        : result.processed === 0 ? 'Les pins planifiés dans le futur seront publiés automatiquement.' : 'Tous les pins ont été publiés',
+                      variant: result.failed > 0 ? 'destructive' : undefined,
                     });
                   } else {
                     throw new Error(result.error || 'Erreur');

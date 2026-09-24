@@ -8,5 +8,10 @@
       "path": "./tsconfig.node.json"
     }
   ],
-  "exclude": ["api", "node_modules"]
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
 }

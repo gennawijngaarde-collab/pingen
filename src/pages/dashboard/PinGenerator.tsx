@@ -205,7 +205,6 @@ export function PinGenerator() {
 
     try {
       let pinImageUrl: string;
-      let content: GeneratedPinContent;
 
       const concept = await generatePinConcept({
         business,
@@ -215,7 +214,7 @@ export function PinGenerator() {
         tone: selectedTone || undefined,
       });
 
-      content = {
+      const content: GeneratedPinContent = {
         title: concept.title,
         description: concept.description,
         hashtags: concept.hashtags,
