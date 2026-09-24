@@ -76,6 +76,7 @@ import {
   describePublishError,
   describePinError,
   isAccessPendingMessage,
+  fmt,
 } from '@/lib/publish';
 
 export function Schedule() {
@@ -165,11 +166,11 @@ export function Schedule() {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce pin ?')) return;
     try {
       await deletePin(pinId);
-      toast({ title: 'Pin supprimé' });
+      toast({ title: t.schedule.pinDeleted });
     } catch {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de supprimer le pin',
+        title: t.schedule.errorTitle,
+        description: t.schedule.deleteFailed,
         variant: 'destructive',
       });
     }
@@ -179,11 +180,11 @@ export function Schedule() {
     try {
       await cancelScheduledPin(pinId);
       await loadPins();
-      toast({ title: 'Planification annulée' });
+      toast({ title: t.schedule.scheduleCancelled });
     } catch {
       toast({
-        title: 'Erreur',
-        description: "Impossible d'annuler la planification",
+        title: t.schedule.errorTitle,
+        description: t.schedule.cancelFailed,
         variant: 'destructive',
       });
     }
@@ -220,13 +221,13 @@ export function Schedule() {
       await loadPins();
       if (wasDraft) setActiveTab('scheduled');
       toast({
-        title: wasDraft ? 'Pin planifié' : 'Pin replanifié',
-        description: `Publication le ${format(scheduledAt, "dd MMM yyyy 'à' HH:mm", { locale: dateLocale })}`,
+        title: wasDraft ? t.schedule.pinScheduled : t.schedule.pinRescheduled,
+        description: fmt(t.schedule.publishOn, { date: format(scheduledAt, 'PPp', { locale: dateLocale }) }),
       });
     } catch {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de replanifier le pin',
+        title: t.schedule.errorTitle,
+        description: t.schedule.rescheduleFailed,
         variant: 'destructive',
       });
     }
@@ -262,8 +263,8 @@ export function Schedule() {
       toast({ title: t.schedule.copyHashtags });
     } catch {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de copier',
+        title: t.schedule.errorTitle,
+        description: t.schedule.copyFailed,
         variant: 'destructive',
       });
     }
@@ -273,8 +274,8 @@ export function Schedule() {
     if (!contentPin) return;
     if (!editTitle.trim()) {
       toast({
-        title: 'Titre requis',
-        description: 'Le titre ne peut pas être vide.',
+        title: t.schedule.titleRequired,
+        description: t.schedule.titleEmpty,
         variant: 'destructive',
       });
       return;
@@ -285,11 +286,11 @@ export function Schedule() {
     });
     if (updated) {
       setContentPin(null);
-      toast({ title: 'Pin modifié' });
+      toast({ title: t.schedule.pinUpdated });
     } else {
       toast({
-        title: 'Erreur',
-        description: 'Impossible de modifier le pin',
+        title: t.schedule.errorTitle,
+        description: t.schedule.updateFailed,
         variant: 'destructive',
       });
     }

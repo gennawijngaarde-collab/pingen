@@ -64,6 +64,21 @@ export interface Dictionary {
     link: string;
     copyHashtags: string;
     close: string;
+    errorTitle: string;
+    pinDeleted: string;
+    deleteFailed: string;
+    scheduleCancelled: string;
+    cancelFailed: string;
+    pinScheduled: string;
+    pinRescheduled: string;
+    /** `{date}` is interpolated with a locale-formatted date/time. */
+    publishOn: string;
+    rescheduleFailed: string;
+    copyFailed: string;
+    titleRequired: string;
+    titleEmpty: string;
+    pinUpdated: string;
+    updateFailed: string;
   };
   /** Publishing buttons, banners and toasts. `{count}`, `{ok}`, `{ko}` are interpolated. */
   publish: {
