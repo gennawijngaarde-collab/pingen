@@ -1,6 +1,16 @@
 import type { Dictionary } from '../types';
+import { dashboardHome } from '../sections/dashboardHome';
+import { generator } from '../sections/generator';
+import { settings } from '../sections/settings';
+import { analytics } from '../sections/analytics';
+import { autopilot } from '../sections/autopilot';
 
 const en: Dictionary = {
+  dashboardHome: dashboardHome.en,
+  generator: generator.en,
+  settings: settings.en,
+  analytics: analytics.en,
+  autopilot: autopilot.en,
   common: {
     login: 'Log in',
     signup: 'Start for free',

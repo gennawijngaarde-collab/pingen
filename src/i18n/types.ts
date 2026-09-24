@@ -1,6 +1,17 @@
+import type { DashboardHomeDictionary } from './sections/dashboardHome';
+import type { GeneratorDictionary } from './sections/generator';
+import type { SettingsDictionary } from './sections/settings';
+import type { AnalyticsDictionary } from './sections/analytics';
+import type { AutopilotDictionary } from './sections/autopilot';
+
 export type AppLocale = 'fr' | 'en' | 'es' | 'de';
 
 export interface Dictionary {
+  dashboardHome: DashboardHomeDictionary;
+  generator: GeneratorDictionary;
+  settings: SettingsDictionary;
+  analytics: AnalyticsDictionary;
+  autopilot: AutopilotDictionary;
   common: {
     login: string;
     signup: string;
