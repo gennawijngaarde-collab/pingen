@@ -18,6 +18,7 @@ import {
 } from '@/lib/supabase';
 import { compressProfileImage } from '@/lib/profileImage';
 import {
+  cancelSubscription,
   confirmStripeCheckout,
   fetchStripeStatus,
   openStripePortal,
@@ -57,7 +58,7 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 8;
 
 type PlanKey = 'starter' | 'pro' | 'business';
 
@@ -252,7 +253,7 @@ export function Settings() {
 
         const refreshed = await getUserPinterestAccounts(user.id);
         setAccounts(refreshed || []);
-        await syncAccountCount((refreshed || []).length);
+        await refreshProfile();
 
         sessionStorage.setItem(lockKey, 'done');
         toast({
@@ -282,15 +283,6 @@ export function Settings() {
 
   const handleTabChange = (tab: string) => {
     setSearchParams(tab === 'profile' ? {} : { tab });
-  };
-
-  const syncAccountCount = async (count: number) => {
-    if (!user) return;
-    await supabase
-      .from('profiles')
-      .update({ pinterest_accounts_connected: count })
-      .eq('id', user.id);
-    await refreshProfile();
   };
 
   const handleSaveProfile = async () => {
@@ -405,6 +397,12 @@ export function Settings() {
     setIsSaving(true);
     try {
       if (!isDemoMode) {
+        // Re-authenticate with the current password before allowing the change.
+        const { error: reauthError } = await supabase.auth.signInWithPassword({
+          email: user?.email || '',
+          password: currentPassword,
+        });
+        if (reauthError) throw new Error(s.currentPasswordIncorrect);
         const { error } = await supabase.auth.updateUser({ password: newPassword });
         if (error) throw error;
       }
@@ -465,7 +463,7 @@ export function Settings() {
 
       const refreshed = await getUserPinterestAccounts(user.id);
       setAccounts(refreshed || []);
-      await syncAccountCount((refreshed || []).length);
+      await refreshProfile();
 
       toast({
         title: s.demoConnectedTitle,
@@ -501,7 +499,7 @@ export function Settings() {
 
     const refreshed = await getUserPinterestAccounts(user!.id);
     setAccounts(refreshed || []);
-    await syncAccountCount((refreshed || []).length);
+    await refreshProfile();
     toast({ title: s.accountDisconnectedTitle });
   };
 
@@ -535,36 +533,9 @@ export function Settings() {
     void (async () => {
       setIsSaving(true);
       try {
-        const confirmed = await confirmStripeCheckout(sessionId, user.id);
-        const { error } = await supabase
-          .from('profiles')
-          .update({ plan: confirmed.plan })
-          .eq('id', user.id);
-        if (error) throw error;
-
-        if (confirmed.customerId) {
-          setStripeCustomerId(confirmed.customerId);
-          const existing = await getUserSubscription(user.id);
-          if (existing?.id) {
-            await supabase
-              .from('subscriptions')
-              .update({
-                stripe_customer_id: confirmed.customerId,
-                stripe_subscription_id: confirmed.subscriptionId ?? null,
-                plan: confirmed.plan,
-                status: 'active',
-              })
-              .eq('id', existing.id);
-          } else {
-            await supabase.from('subscriptions').insert({
-              user_id: user.id,
-              stripe_customer_id: confirmed.customerId,
-              stripe_subscription_id: confirmed.subscriptionId ?? null,
-              plan: confirmed.plan,
-              status: 'active',
-            });
-          }
-        }
+        // The server verifies the payment with Stripe and activates the plan itself.
+        const confirmed = await confirmStripeCheckout(sessionId);
+        if (confirmed.customerId) setStripeCustomerId(confirmed.customerId);
 
         await refreshProfile();
         toast({
@@ -587,10 +558,31 @@ export function Settings() {
   const handleChangePlan = async (plan: 'starter' | 'pro' | 'business') => {
     if (!user) return;
 
-    if (plan !== 'starter' && stripeReady) {
+    // Demo mode (no Supabase): the local backend keeps the old behaviour.
+    if (isDemoMode) {
+      setIsSaving(true);
+      const { error } = await supabase.from('profiles').update({ plan }).eq('id', user.id);
+      setIsSaving(false);
+      if (error) {
+        toast({ title: s.errorTitle, description: s.planChangeFailedDesc, variant: 'destructive' });
+        return;
+      }
+      await refreshProfile();
+      toast({
+        title: plan === 'starter' ? s.subscriptionCanceledTitle : fmt(s.planActivatedExclaimTitle, { plan }),
+        description: s.planUpdatedNoStripeDesc,
+      });
+      return;
+    }
+
+    if (plan !== 'starter') {
+      if (!stripeReady) {
+        toast({ title: 'Stripe', description: s.checkoutFailedDesc, variant: 'destructive' });
+        return;
+      }
       setIsSaving(true);
       try {
-        await startStripeCheckout(plan as PaidPlan, user.id, user.email || '');
+        await startStripeCheckout(plan as PaidPlan);
       } catch (error) {
         setIsSaving(false);
         toast({
@@ -602,10 +594,10 @@ export function Settings() {
       return;
     }
 
-    if (plan === 'starter' && stripeReady && stripeCustomerId) {
+    if (stripeReady && stripeCustomerId) {
       setIsSaving(true);
       try {
-        await openStripePortal(stripeCustomerId);
+        await openStripePortal();
       } catch (error) {
         setIsSaving(false);
         toast({
@@ -617,30 +609,21 @@ export function Settings() {
       return;
     }
 
+    // Downgrade without a Stripe customer: handled server-side (plans are never written by the browser).
     setIsSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ plan })
-      .eq('id', user.id);
-    setIsSaving(false);
-
-    if (error) {
+    try {
+      await cancelSubscription();
+      await refreshProfile();
+      toast({ title: s.subscriptionCanceledTitle, description: s.subscriptionUpdatedDesc });
+    } catch (error) {
       toast({
         title: s.errorTitle,
-        description: s.planChangeFailedDesc,
+        description: error instanceof Error ? error.message : s.planChangeFailedDesc,
         variant: 'destructive',
       });
-      return;
+    } finally {
+      setIsSaving(false);
     }
-
-    await refreshProfile();
-    toast({
-      title:
-        plan === 'starter'
-          ? s.subscriptionCanceledTitle
-          : fmt(s.planActivatedExclaimTitle, { plan }),
-      description: stripeReady ? s.subscriptionUpdatedDesc : s.planUpdatedNoStripeDesc,
-    });
   };
 
   const handleSaveNotifications = async () => {

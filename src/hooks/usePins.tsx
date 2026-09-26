@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { supabase, type Pin } from '@/lib/supabase';
 import { publishPinsNow, type PublishDetail, type PublishNowResult } from '@/lib/publish';
+import { persistPinImage } from '@/lib/pinStorage';
+import { toAppError } from '@/lib/errors';
 import { useAuth } from './useAuth';
 
 interface UsePinsReturn {
@@ -49,6 +51,11 @@ export function usePins(): UsePinsReturn {
     }
   }, [user]);
 
+  /**
+   * Creates a pin. Browser-composed images are uploaded to Storage first so the
+   * database only stores public URLs. Throws an AppError (PIN_LIMIT_REACHED,
+   * IMAGE_UPLOAD_FAILED, …) that callers translate with `describeError`.
+   */
   const createPin = useCallback(async (pin: Omit<Pin, 'id' | 'created_at' | 'user_id'>) => {
     if (!user) return null;
     
@@ -56,9 +63,10 @@ export function usePins(): UsePinsReturn {
     setError(null);
     
     try {
+      const image_url = await persistPinImage(pin.image_url, user.id);
       const { data, error: supabaseError } = await supabase
         .from('pins')
-        .insert([{ ...pin, user_id: user.id }])
+        .insert([{ ...pin, image_url, user_id: user.id }])
         .select()
         .single();
       
@@ -68,8 +76,9 @@ export function usePins(): UsePinsReturn {
       setPins(prev => [newPin, ...prev]);
       return newPin;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create pin');
-      return null;
+      const appError = toAppError(err);
+      setError(appError.message);
+      throw appError;
     } finally {
       setIsLoading(false);
     }

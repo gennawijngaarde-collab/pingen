@@ -23,6 +23,7 @@ import {
   type GeneratedPinContent,
 } from '@/lib/ai';
 import { checkForDuplicates } from '@/lib/duplicate-detection';
+import { describeError } from '@/lib/errors';
 import { useI18n } from '@/i18n/I18nProvider';
 import { fmt } from '@/i18n/fmt';
 import type { GeneratorDictionary } from '@/i18n/sections/generator';
@@ -254,7 +255,7 @@ export function PinGenerator() {
         );
       } catch (imageError) {
         console.error(imageError);
-        imageFailedMessage = formatAiError(imageError);
+        imageFailedMessage = describeError(imageError, t.common.errors, formatAiError(imageError));
         pinImageUrl = `https://placehold.co/768x1344/E3001B/FFFFFF/png?text=${encodeURIComponent('Pin')}`;
         setStatusError(fmt(g.textOkImageFailed, { error: imageFailedMessage }));
         toast({
@@ -277,7 +278,7 @@ export function PinGenerator() {
       }
     } catch (error) {
       console.error(error);
-      const msg = formatAiError(error);
+      const msg = describeError(error, t.common.errors, formatAiError(error));
       setStatusError(msg);
       setStatusMessage(null);
       toast({
@@ -348,11 +349,10 @@ export function PinGenerator() {
     }
 
     setIsSaving(true);
-    const pin = await createPin(buildPinPayload('draft', null));
-    setIsSaving(false);
-
-    if (pin) {
-      setDuplicateWarning(null); // Effacer l'avertissement après sauvegarde
+    try {
+      const pin = await createPin(buildPinPayload('draft', null));
+      if (!pin) throw new Error(g.savePinFailed);
+      setDuplicateWarning(null);
       toast({
         title: g.pinSavedTitle,
         description: duplicateCheck.isSimilar
@@ -360,12 +360,14 @@ export function PinGenerator() {
           : g.pinSavedDescription,
       });
       navigate(ROUTES.schedule);
-    } else {
+    } catch (error) {
       toast({
         title: g.errorTitle,
-        description: g.savePinFailed,
+        description: describeError(error, t.common.errors, g.savePinFailed),
         variant: 'destructive',
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -391,11 +393,10 @@ export function PinGenerator() {
 
     setIsSaving(true);
     const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    const pin = await createPin(buildPinPayload('scheduled', scheduledAt));
-    setIsSaving(false);
-
-    if (pin) {
-      setDuplicateWarning(null); // Effacer l'avertissement après planification
+    try {
+      const pin = await createPin(buildPinPayload('scheduled', scheduledAt));
+      if (!pin) throw new Error(g.schedulePinFailed);
+      setDuplicateWarning(null);
       toast({
         title: g.pinScheduledTitle,
         description: duplicateCheck.isSimilar
@@ -403,12 +404,14 @@ export function PinGenerator() {
           : g.pinScheduledDescription,
       });
       navigate(ROUTES.schedule);
-    } else {
+    } catch (error) {
       toast({
         title: g.errorTitle,
-        description: g.schedulePinFailed,
+        description: describeError(error, t.common.errors, g.schedulePinFailed),
         variant: 'destructive',
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 

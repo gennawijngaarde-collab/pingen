@@ -24,6 +24,14 @@ export interface Dictionary {
     perMonth: string;
     popular: string;
     free: string;
+    errors: {
+      pinLimitReached: string;
+      quotaExceeded: string;
+      sessionExpired: string;
+      tooManyRequests: string;
+      imageUploadFailed: string;
+      unknown: string;
+    };
   };
   nav: {
     features: string;

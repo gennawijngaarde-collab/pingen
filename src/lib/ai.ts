@@ -1,5 +1,7 @@
-const TEXT_MODEL = 'google/gemini-2.5-flash';
 import { supabase } from './supabase';
+import { fetchRuntimeConfig } from './api';
+
+const TEXT_MODEL = 'google/gemini-2.5-flash';
 
 const TITLE_MAX = 80;
 
@@ -31,45 +33,15 @@ function sanitizeOverlayText(raw: string | undefined, title: string): string {
   return text.split(/\s+/).slice(0, 7).join(' ').slice(0, 60);
 }
 
-function isConfiguredKey(raw: string | undefined): boolean {
-  const key = (raw || '').trim();
-  if (key.length < 10) return false;
-  const lower = key.toLowerCase();
-  return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...');
-}
-
-const viteOpenRouterKey = ((import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined) || '').trim();
-const viteGrokKey = ((import.meta.env.VITE_GROK_API_KEY as string | undefined) || '').trim();
-
-/** Texte / vision via OpenRouter (clé VITE_ ou proxy Vite). */
-export const hasOpenRouterKey = isConfiguredKey(viteOpenRouterKey);
-/** Images via Grok (xAI). */
-export const hasGrokKey = isConfiguredKey(viteGrokKey);
-
 export interface AiStatus {
   hasTextAi: boolean;
   hasImageAi: boolean;
 }
 
+/** AI availability comes from the server only; no API key ever reaches the browser. */
 export async function fetchAiStatus(): Promise<AiStatus> {
-  try {
-    const response = await fetch('/api/ai/status', {
-      signal: AbortSignal.timeout(12000),
-    });
-    if (response.ok) {
-      const data = (await response.json()) as Partial<AiStatus>;
-      return {
-        hasTextAi: Boolean(data.hasTextAi),
-        hasImageAi: Boolean(data.hasImageAi),
-      };
-    }
-  } catch {
-    // Proxy Vite indisponible (build statique) : on se rabat sur les clés VITE_.
-  }
-  return {
-    hasTextAi: hasOpenRouterKey,
-    hasImageAi: hasGrokKey,
-  };
+  const config = await fetchRuntimeConfig();
+  return config.ai;
 }
 
 type OpenRouterTextPart = { type: 'text'; text: string };
@@ -156,6 +128,9 @@ export function formatAiError(error: unknown): string {
       : null;
   const message =
     error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+
+  // Keep quota codes intact so the UI can translate them (see lib/errors.ts).
+  if (message.includes('QUOTA_EXCEEDED')) return message;
 
   const lower = message.toLowerCase();
   if (lower.includes('no endpoints found') || lower.includes('not a valid model')) {

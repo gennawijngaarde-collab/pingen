@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react';
-import {
-  fetchAiStatus,
-  hasGrokKey,
-  hasOpenRouterKey,
-  type AiStatus,
-} from '@/lib/ai';
+import { fetchAiStatus, type AiStatus } from '@/lib/ai';
 
 export function useAiStatus(): AiStatus {
-  const [status, setStatus] = useState<AiStatus>({
-    hasTextAi: hasOpenRouterKey,
-    hasImageAi: hasGrokKey,
-  });
+  const [status, setStatus] = useState<AiStatus>({ hasTextAi: false, hasImageAi: false });
 
   useEffect(() => {
-    void fetchAiStatus().then(setStatus);
+    let cancelled = false;
+    void fetchAiStatus().then((next) => {
+      if (!cancelled) setStatus(next);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return status;

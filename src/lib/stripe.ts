@@ -1,3 +1,5 @@
+import { apiFetch, fetchRuntimeConfig } from './api';
+
 export type PaidPlan = 'pro' | 'business';
 
 export interface StripeStatus {
@@ -6,78 +8,52 @@ export interface StripeStatus {
 }
 
 export async function fetchStripeStatus(): Promise<StripeStatus> {
-  try {
-    const res = await fetch('/api/stripe/status');
-    if (!res.ok) {
-      return { configured: false, publishableKey: '' };
-    }
-    return (await res.json()) as StripeStatus;
-  } catch {
-    return { configured: false, publishableKey: '' };
-  }
+  const config = await fetchRuntimeConfig();
+  return config.stripe;
 }
 
-export async function startStripeCheckout(
-  plan: PaidPlan,
-  userId: string,
-  email: string
-): Promise<void> {
+/** Starts Stripe Checkout for the signed-in user (identity is taken from the session server-side). */
+export async function startStripeCheckout(plan: PaidPlan): Promise<void> {
   const origin = window.location.origin;
-  const res = await fetch('/api/stripe/checkout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  const data = await apiFetch<{ url?: string }>('/api/stripe/checkout', {
+    body: {
       plan,
-      userId,
-      email,
       successUrl: `${origin}/dashboard/settings?tab=billing&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${origin}/dashboard/settings?tab=billing&canceled=1`,
-    }),
+    },
   });
-  const data = (await res.json()) as { url?: string; error?: string };
-  if (!res.ok || !data.url) {
-    throw new Error(data.error || 'Impossible de démarrer le paiement Stripe.');
-  }
+  if (!data.url) throw new Error('Stripe Checkout unavailable');
   window.location.assign(data.url);
 }
 
+/**
+ * Confirms a Checkout session. The server verifies the payment with Stripe and
+ * activates the plan itself; the browser only refreshes the profile afterwards.
+ */
 export async function confirmStripeCheckout(
-  sessionId: string,
-  userId: string
+  sessionId: string
 ): Promise<{ plan: PaidPlan; customerId?: string; subscriptionId?: string }> {
-  const res = await fetch('/api/stripe/confirm', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, userId }),
-  });
-  const data = (await res.json()) as {
-    plan?: PaidPlan;
-    customerId?: string;
-    subscriptionId?: string;
-    error?: string;
-  };
-  if (!res.ok || !data.plan) {
-    throw new Error(data.error || 'Paiement Stripe non confirmé.');
-  }
-  return {
-    plan: data.plan,
-    customerId: data.customerId,
-    subscriptionId: data.subscriptionId,
-  };
+  const data = await apiFetch<{ plan?: PaidPlan; customerId?: string; subscriptionId?: string }>(
+    '/api/stripe/confirm',
+    { body: { sessionId } }
+  );
+  if (!data.plan) throw new Error('Stripe payment not confirmed');
+  return { plan: data.plan, customerId: data.customerId, subscriptionId: data.subscriptionId };
 }
 
-export async function openStripePortal(customerId: string): Promise<void> {
-  const res = await fetch('/api/stripe/portal', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      customerId,
-      returnUrl: `${window.location.origin}/dashboard/settings?tab=billing`,
-    }),
+/** Downgrades to Starter (cancels the Stripe subscription at period end when one exists). */
+export async function cancelSubscription(): Promise<{ scheduledDowngrade: boolean }> {
+  const data = await apiFetch<{ scheduledDowngrade?: boolean }>('/api/stripe/confirm', {
+    body: { action: 'cancel' },
   });
-  const data = (await res.json()) as { url?: string; error?: string };
-  if (!res.ok || !data.url) {
-    throw new Error(data.error || 'Impossible d’ouvrir le portail Stripe.');
-  }
+  return { scheduledDowngrade: Boolean(data.scheduledDowngrade) };
+}
+
+/** Opens the Stripe customer portal for the signed-in user's own customer. */
+export async function openStripePortal(): Promise<void> {
+  const data = await apiFetch<{ url?: string }>('/api/stripe/portal', {
+    body: { returnUrl: `${window.location.origin}/dashboard/settings?tab=billing` },
+  });
+  if (!data.url) throw new Error('Stripe portal unavailable');
   window.location.assign(data.url);
 }

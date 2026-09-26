@@ -1,20 +1,17 @@
+import { apiFetch, fetchRuntimeConfig } from './api';
+
 // Pinterest API Configuration
 const PINTEREST_API_BASE = 'https://api.pinterest.com/v5';
 const CANONICAL_PROD_ORIGIN = 'https://www.pingenx.io';
-/** App Pinterest GenX — public (client_id OAuth). */
+/** App Pinterest GenX — public (client_id OAuth). The secret only ever lives on the server. */
 export const PINTEREST_APP_ID = '1609578';
 
 const envAppId = ((import.meta.env.VITE_PINTEREST_APP_ID as string | undefined) || '').trim();
 const rawAppId = envAppId && envAppId !== '1607362' && envAppId !== '1606177' ? envAppId : PINTEREST_APP_ID;
-const rawAppSecret = ((import.meta.env.VITE_PINTEREST_APP_SECRET as string | undefined) || '').trim();
 
-/** True si App ID Pinterest réel configuré via .env (build-time) */
+/** True si App ID Pinterest réel configuré (build-time) */
 export const hasPinterestConfig =
   Boolean(rawAppId) && !rawAppId.includes('your') && rawAppId !== '...';
-
-/** Secret présent côté client (indicatif) — l'échange réel passe par /api/pinterest/oauth/token */
-export const hasPinterestSecretHint =
-  Boolean(rawAppSecret) && !rawAppSecret.includes('your') && rawAppSecret !== '...';
 
 export interface PinterestRuntimeConfig {
   configured: boolean;
@@ -24,45 +21,17 @@ export interface PinterestRuntimeConfig {
   scopes: string[];
 }
 
-/** Config runtime (après saisie des clés dans Paramètres, sans rebuild) */
+/** Config runtime publique (/api/config) */
 export async function fetchPinterestRuntimeConfig(): Promise<PinterestRuntimeConfig> {
-  try {
-    const res = await fetch('/api/pinterest/config');
-    if (!res.ok) {
-      return {
-        configured: hasPinterestConfig,
-        appId: rawAppId,
-        hasSecret: hasPinterestSecretHint,
-        redirectUri: getPinterestRedirectUri(),
-        scopes: [],
-      };
-    }
-    return (await res.json()) as PinterestRuntimeConfig;
-  } catch {
-    return {
-      configured: hasPinterestConfig,
-      appId: rawAppId,
-      hasSecret: hasPinterestSecretHint,
-      redirectUri: getPinterestRedirectUri(),
-      scopes: [],
-    };
-  }
-}
-
-export async function savePinterestCredentials(
-  appId: string,
-  appSecret: string
-): Promise<{ ok: boolean; message?: string; error?: string }> {
-  const res = await fetch('/api/pinterest/credentials', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ appId, appSecret }),
-  });
-  const data = (await res.json()) as { ok?: boolean; message?: string; error?: string };
-  if (!res.ok) {
-    return { ok: false, error: data.error || 'Échec de la sauvegarde' };
-  }
-  return { ok: true, message: data.message };
+  const config = await fetchRuntimeConfig();
+  const pinterest = config.pinterest;
+  return {
+    configured: pinterest.configured,
+    appId: pinterest.appId || rawAppId,
+    hasSecret: pinterest.hasSecret,
+    redirectUri: pinterest.redirectUri || getPinterestRedirectUri(),
+    scopes: pinterest.scopes,
+  };
 }
 
 export function getPinterestRedirectUri(origin?: string): string {
@@ -150,7 +119,9 @@ export function getPinterestAuthUrl(
 }
 
 function createOAuthState(): string {
-  const state = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const state = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   sessionStorage.setItem('pinterest_oauth_state', state);
   return state;
 }
@@ -195,29 +166,12 @@ export async function exchangeCodeForToken(
   code: string,
   redirectUri: string
 ): Promise<PinterestTokenResponse> {
-  const response = await fetch('/api/pinterest/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-    }),
+  const data = await apiFetch<PinterestTokenResponse>('/api/pinterest/oauth/token', {
+    body: { grant_type: 'authorization_code', code, redirect_uri: redirectUri },
   });
-
-  const data = (await response.json()) as PinterestTokenResponse & {
-    error?: string;
-    message?: string;
-  };
-
-  if (!response.ok) {
-    throw new Error(data.error || data.message || 'Échec de l\'échange du code OAuth');
-  }
-
   if (!data.access_token) {
     throw new Error('Token Pinterest manquant dans la réponse');
   }
-
   return data;
 }
 
@@ -225,25 +179,17 @@ export async function exchangeCodeForToken(
 export async function refreshPinterestToken(
   refreshToken: string
 ): Promise<PinterestTokenResponse> {
-  const response = await fetch('/api/pinterest/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'refresh_token',
-      refresh_token: refreshToken,
-    }),
+  return apiFetch<PinterestTokenResponse>('/api/pinterest/oauth/token', {
+    body: { grant_type: 'refresh_token', refresh_token: refreshToken },
   });
+}
 
-  const data = (await response.json()) as PinterestTokenResponse & {
-    error?: string;
-    message?: string;
-  };
-
-  if (!response.ok) {
-    throw new Error(data.error || data.message || 'Échec du refresh token Pinterest');
-  }
-
-  return data;
+/** Read-only Pinterest call through our proxy (Supabase JWT + the user's Pinterest token). */
+async function pinterestProxy<T>(endpoint: 'user' | 'boards', accessToken: string): Promise<T> {
+  return apiFetch<T>(`/api/pinterest/proxy?endpoint=${endpoint}`, {
+    method: 'GET',
+    headers: { 'X-Pinterest-Token': accessToken },
+  });
 }
 
 async function pinterestFetch<T>(
@@ -273,25 +219,13 @@ async function pinterestFetch<T>(
 
 // Get user info (via backend proxy to avoid CORS)
 export async function getPinterestUser(accessToken: string): Promise<PinterestUser> {
-  const response = await fetch('/api/pinterest/proxy?endpoint=user', {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Erreur Pinterest API' }));
-    throw new Error(error.error || 'Impossible de récupérer le profil Pinterest');
-  }
-
-  const data = await response.json() as {
+  const data = await pinterestProxy<{
     id?: string;
     username?: string;
     profile_image?: string | null;
     follower_count?: number;
     following_count?: number;
-  };
+  }>('user', accessToken);
 
   return {
     id: data.id || '',
@@ -304,19 +238,7 @@ export async function getPinterestUser(accessToken: string): Promise<PinterestUs
 
 // Get user's boards (via backend proxy to avoid CORS)
 export async function getPinterestBoards(accessToken: string): Promise<PinterestBoard[]> {
-  const response = await fetch('/api/pinterest/proxy?endpoint=boards', {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Erreur Pinterest API' }));
-    throw new Error(error.error || 'Impossible de récupérer les boards Pinterest');
-  }
-
-  const data = await response.json() as {
+  const data = await pinterestProxy<{
     items?: Array<{
       id: string;
       name: string;
@@ -325,7 +247,7 @@ export async function getPinterestBoards(accessToken: string): Promise<Pinterest
       pin_count?: number;
       privacy?: 'PUBLIC' | 'SECRET';
     }>;
-  };
+  }>('boards', accessToken);
 
   return (data.items || []).map((board) => ({
     id: board.id,

@@ -131,6 +131,7 @@ export interface SettingsDictionary {
   passwordUpdatedDesc: string;
   passwordUpdatedDemoDesc: string;
   passwordChangeFailedDesc: string;
+  currentPasswordIncorrect: string;
 
   // Toasts – billing
   paymentCanceledTitle: string;
@@ -277,6 +278,7 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     passwordUpdatedDesc: 'Votre mot de passe a été changé.',
     passwordUpdatedDemoDesc: 'Mode démo : changement simulé.',
     passwordChangeFailedDesc: 'Impossible de changer le mot de passe.',
+    currentPasswordIncorrect: 'Le mot de passe actuel est incorrect.',
 
     paymentCanceledTitle: 'Paiement annulé',
     paymentCanceledDesc: 'Aucun changement n’a été appliqué à votre plan.',
@@ -421,6 +423,7 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     passwordUpdatedDesc: 'Your password has been changed.',
     passwordUpdatedDemoDesc: 'Demo mode: simulated change.',
     passwordChangeFailedDesc: 'Could not change the password.',
+    currentPasswordIncorrect: 'The current password is incorrect.',
 
     paymentCanceledTitle: 'Payment canceled',
     paymentCanceledDesc: 'No changes were applied to your plan.',
@@ -564,6 +567,7 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     passwordUpdatedDesc: 'Tu contraseña se ha cambiado.',
     passwordUpdatedDemoDesc: 'Modo demo: cambio simulado.',
     passwordChangeFailedDesc: 'No se pudo cambiar la contraseña.',
+    currentPasswordIncorrect: 'La contraseña actual es incorrecta.',
 
     paymentCanceledTitle: 'Pago cancelado',
     paymentCanceledDesc: 'No se ha aplicado ningún cambio a tu plan.',
@@ -707,6 +711,7 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     passwordUpdatedDesc: 'Dein Passwort wurde geändert.',
     passwordUpdatedDemoDesc: 'Demo-Modus: Änderung simuliert.',
     passwordChangeFailedDesc: 'Das Passwort konnte nicht geändert werden.',
+    currentPasswordIncorrect: 'Das aktuelle Passwort ist falsch.',
 
     paymentCanceledTitle: 'Zahlung abgebrochen',
     paymentCanceledDesc: 'An deinem Plan wurde nichts geändert.',

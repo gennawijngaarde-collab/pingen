@@ -1,18 +1,10 @@
-import { supabase } from './supabase';
 import type { Dictionary } from '@/i18n/types';
+import { apiFetch, SessionExpiredError } from './api';
+import { fmt } from '@/i18n/fmt';
 
 export const PUBLISH_ENDPOINT = '/api/cron/publish-scheduled-pins';
 
-/** Error thrown when no Supabase session is available; translated by the caller. */
-export class SessionExpiredError extends Error {
-  constructor() {
-    super('SESSION_EXPIRED');
-    this.name = 'SessionExpiredError';
-  }
-}
-
-import { fmt } from '@/i18n/fmt';
-export { fmt };
+export { fmt, SessionExpiredError };
 
 export interface PublishDetail {
   pinId: string;
@@ -41,21 +33,7 @@ export interface PublishNowOptions {
  * board resolution, retries). Requires a signed-in user; RLS scopes the pins.
  */
 export async function publishPinsNow(options: PublishNowOptions = {}): Promise<PublishNowResult> {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  if (!token) throw new SessionExpiredError();
-
-  const response = await fetch(PUBLISH_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(options),
-  });
-
-  const result = (await response.json().catch(() => ({}))) as Partial<PublishNowResult> & { error?: string };
-  if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+  const result = await apiFetch<Partial<PublishNowResult>>(PUBLISH_ENDPOINT, { body: options, timeoutMs: 55_000 });
 
   return {
     processed: result.processed ?? 0,

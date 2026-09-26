@@ -1,176 +1,12 @@
-import { supabase, type Pin, type PinterestAccount } from './supabase';
-import { createPinterestPin, mockPinterestService, hasPinterestConfig } from './pinterest';
-
-export interface ScheduledJob {
-  id: string;
-  pinId: string;
-  userId: string;
-  scheduledAt: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  retryCount: number;
-  error?: string;
-}
-
-// Maximum retry attempts
-const MAX_RETRIES = 3;
-
-// Check if we're in demo mode (no Pinterest API credentials)
-const isDemoMode = !hasPinterestConfig;
+import { supabase, type Pin } from './supabase';
 
 /**
- * Process all pending scheduled pins that are due for publishing
+ * Scheduling helpers (client side, RLS-scoped).
+ *
+ * Publishing itself is done by the server engine (`server/publishScheduledPins.ts`,
+ * exposed at /api/cron/publish-scheduled-pins): Pinterest tokens are never used
+ * from the browser and the automation runs 24/7 without an open tab.
  */
-export async function processScheduledPins(): Promise<{
-  processed: number;
-  successful: number;
-  failed: number;
-}> {
-  const now = new Date().toISOString();
-  
-  // Get all pins that are scheduled and due for publishing
-  const { data: scheduledPins, error } = await supabase
-    .from('pins')
-    .select(`
-      *,
-      pinterest_accounts!inner(*)
-    `)
-    .eq('status', 'scheduled')
-    .lte('scheduled_at', now)
-    .order('scheduled_at', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching scheduled pins:', error);
-    throw error;
-  }
-
-  if (!scheduledPins || scheduledPins.length === 0) {
-    return { processed: 0, successful: 0, failed: 0 };
-  }
-
-  let successful = 0;
-  let failed = 0;
-
-  type PinWithPinterestAccounts = Pin & {
-    pinterest_accounts: PinterestAccount[] | PinterestAccount | null;
-  };
-
-  // Process each pin
-  for (const pin of scheduledPins as unknown as PinWithPinterestAccounts[]) {
-    try {
-      await publishScheduledPin(pin);
-      successful++;
-    } catch (err) {
-      console.error(`Failed to publish pin ${pin.id}:`, err);
-      failed++;
-      
-      // Update pin status to failed or retry
-      const retryCount = (pin.retry_count || 0) + 1;
-      if (retryCount >= MAX_RETRIES) {
-        await supabase
-          .from('pins')
-          .update({
-            status: 'failed',
-            error_message: err instanceof Error ? err.message : 'Unknown error',
-            retry_count: retryCount,
-          })
-          .eq('id', pin.id);
-      } else {
-        // Schedule retry in 15 minutes
-        const retryAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-        await supabase
-          .from('pins')
-          .update({
-            scheduled_at: retryAt,
-            retry_count: retryCount,
-            error_message: `Retry ${retryCount}/${MAX_RETRIES}: ${err instanceof Error ? err.message : 'Unknown error'}`,
-          })
-          .eq('id', pin.id);
-      }
-    }
-  }
-
-  return {
-    processed: scheduledPins.length,
-    successful,
-    failed,
-  };
-}
-
-/**
- * Publish a single scheduled pin to Pinterest
- */
-async function publishScheduledPin(
-  pin: Pin & { pinterest_accounts: PinterestAccount[] | PinterestAccount | null }
-): Promise<void> {
-  const account = Array.isArray(pin.pinterest_accounts)
-    ? pin.pinterest_accounts[0] ?? null
-    : pin.pinterest_accounts;
-  
-  if (!account) {
-    throw new Error('No Pinterest account connected for this pin');
-  }
-
-  // Check if token is expired and refresh if needed
-  if (new Date(account.token_expires_at) <= new Date()) {
-    // Token refresh logic would go here
-    // For now, we'll try with the existing token
-    console.warn('Token may be expired for account:', account.id);
-  }
-
-  let pinterestPinId: string;
-
-  if (isDemoMode) {
-    // Use mock service in demo mode
-    const result = await mockPinterestService.createPin({
-      title: pin.title,
-      description: pin.description,
-      link: pin.link || undefined,
-      board_id: pin.board_id || 'default-board',
-      image_url: pin.image_url,
-      alt_text: pin.alt_text || pin.title,
-    });
-    pinterestPinId = result.id;
-  } else {
-    // Publish to real Pinterest API
-    const result = await createPinterestPin(account.access_token, {
-      title: pin.title,
-      description: pin.description,
-      link: pin.link || undefined,
-      board_id: pin.board_id || '',
-      image_url: pin.image_url,
-      alt_text: pin.alt_text || pin.title,
-    });
-    pinterestPinId = result.id;
-  }
-
-  // Update pin status to published
-  const { error } = await supabase
-    .from('pins')
-    .update({
-      status: 'published',
-      published_at: new Date().toISOString(),
-      pinterest_pin_id: pinterestPinId,
-      error_message: null,
-      // En démo, on simule les premières métriques du pin publié
-      ...(isDemoMode && {
-        impressions: 150 + Math.round(Math.random() * 800),
-        saves: 10 + Math.round(Math.random() * 60),
-        clicks: 5 + Math.round(Math.random() * 40),
-      }),
-    })
-    .eq('id', pin.id);
-
-  if (error) {
-    throw new Error(`Failed to update pin status: ${error.message}`);
-  }
-
-  // Increment user's monthly pin count
-  await supabase.rpc('increment_pin_count', {
-    user_uuid: pin.user_id,
-  });
-
-  console.log(`Successfully published pin ${pin.id} to Pinterest as ${pinterestPinId}`);
-}
 
 /**
  * Schedule a new pin for publishing
@@ -293,20 +129,33 @@ export async function bulkSchedulePins(
   baseDate: Date,
   intervalMinutes: number = 60
 ): Promise<void> {
-  const updates = pinIds.map((pinId, index) => {
-    const scheduledAt = new Date(baseDate.getTime() + index * intervalMinutes * 60 * 1000);
-    return {
-      id: pinId,
-      status: 'scheduled',
-      scheduled_at: scheduledAt.toISOString(),
-      retry_count: 0,
-    };
-  });
+  const updates = pinIds.map((pinId, index) => ({
+    id: pinId,
+    scheduled_at: new Date(baseDate.getTime() + index * intervalMinutes * 60 * 1000).toISOString(),
+  }));
 
-  const { error } = await supabase.from('pins').upsert(updates);
+  await applySchedules(updates, 'Failed to bulk schedule pins');
+}
 
-  if (error) {
-    throw new Error(`Failed to bulk schedule pins: ${error.message}`);
+/** Plain UPDATEs (never upserts): RLS + column grants guarantee only own pins change. */
+async function applySchedules(items: Array<{ id: string; scheduled_at: string }>, errorPrefix: string): Promise<void> {
+  const results = await Promise.all(
+    items.map((item) =>
+      supabase
+        .from('pins')
+        .update({
+          status: 'scheduled',
+          scheduled_at: item.scheduled_at,
+          retry_count: 0,
+          error_message: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', item.id)
+    )
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) {
+    throw new Error(`${errorPrefix}: ${failed.error.message}`);
   }
 }
 
@@ -342,17 +191,8 @@ export async function autoSchedulePins(
     postsToday++;
     hourIndex++;
 
-    return {
-      id: pinId,
-      status: 'scheduled',
-      scheduled_at: scheduledAt.toISOString(),
-      retry_count: 0,
-    };
+    return { id: pinId, scheduled_at: scheduledAt.toISOString() };
   });
 
-  const { error } = await supabase.from('pins').upsert(schedules);
-
-  if (error) {
-    throw new Error(`Failed to auto-schedule pins: ${error.message}`);
-  }
+  await applySchedules(schedules, 'Failed to auto-schedule pins');
 }

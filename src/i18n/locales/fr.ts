@@ -23,6 +23,14 @@ const fr: Dictionary = {
     perMonth: 'mois',
     popular: 'Populaire',
     free: 'Gratuit',
+    errors: {
+      pinLimitReached: 'Limite mensuelle de pins atteinte pour votre plan ({limit}). Passez à un plan supérieur pour continuer.',
+      quotaExceeded: 'Quota IA journalier atteint pour votre plan ({limit}/jour). Réessayez demain ou passez à un plan supérieur.',
+      sessionExpired: 'Votre session a expiré. Reconnectez-vous.',
+      tooManyRequests: 'Trop de requêtes. Patientez un instant puis réessayez.',
+      imageUploadFailed: "L'image du pin n'a pas pu être enregistrée. Réessayez.",
+      unknown: 'Une erreur est survenue. Réessayez.',
+    },
   },
   nav: {
     features: 'Fonctionnalités',

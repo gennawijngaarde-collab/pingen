@@ -1,5 +1,6 @@
 import { supabase, type Pin } from './supabase';
 import { generateBusinessPin } from './ai';
+import { persistPinImage } from './pinStorage';
 
 export interface AutopilotSettings {
   enabled: boolean;
@@ -190,13 +191,14 @@ export async function processAutopilot(
 
   for (const slot of slotsToFill) {
     const pinPayload = await createAutopilotPinContent(settings);
+    const imageUrl = await persistPinImage(pinPayload.imageUrl, userId);
 
     const { error: insertError } = await supabase.from('pins').insert([
       {
         user_id: userId,
         title: pinPayload.title,
         description: pinPayload.description,
-        image_url: pinPayload.imageUrl,
+        image_url: imageUrl,
         link: settings.websiteUrl || null,
         board_id: null,
         board_name: settings.niche || 'Autopilote',
