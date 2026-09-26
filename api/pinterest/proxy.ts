@@ -1,67 +1,73 @@
-interface VercelRequest {
-  method?: string;
-  headers?: Record<string, string | string[] | undefined>;
-  url?: string;
-}
+import {
+  authenticate,
+  bearerToken,
+  clientIp,
+  header,
+  rateLimit,
+  unauthorized,
+  type ApiRequest,
+  type ApiResponse,
+} from '../../server/http.js';
 
-interface VercelResponse {
-  status: (code: number) => VercelResponse;
-  json: (body: Record<string, unknown>) => void;
-}
+const ENDPOINTS: Record<string, string> = {
+  user: 'https://api.pinterest.com/v5/user_account',
+  boards: 'https://api.pinterest.com/v5/boards?page_size=100',
+};
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+/**
+ * Read-only Pinterest proxy (browser cannot call api.pinterest.com directly: CORS).
+ *  - `Authorization: Bearer <Supabase JWT>` identifies the GenX user.
+ *  - `X-Pinterest-Token: <access token>` is the user's own Pinterest token.
+ */
+export default async function handler(req: ApiRequest, res: ApiResponse) {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-
-  // Extract auth header
-  const authHeader = req.headers?.authorization;
-  const authString = Array.isArray(authHeader) ? authHeader[0] : authHeader || '';
-  
-  if (!authString.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Authorization header manquant' });
+  if (!rateLimit(`pin-proxy:${clientIp(req)}`, 60, 60_000)) {
+    res.status(429).json({ error: 'Too many requests' });
     return;
   }
 
-  const accessToken = authString.replace('Bearer ', '').trim();
-  if (!accessToken) {
-    res.status(401).json({ error: 'Access token manquant' });
+  const user = await authenticate(req);
+  if (!user) {
+    unauthorized(res);
     return;
   }
 
-  // Determine endpoint from query parameter
-  const url = new URL(req.url || '', 'https://dummy.com');
+  // Legacy clients sent the Pinterest token in Authorization; new clients use X-Pinterest-Token.
+  const accessToken = header(req, 'x-pinterest-token').trim() || bearerToken(req);
+  if (!accessToken || accessToken.length > 4096) {
+    res.status(400).json({ error: 'Pinterest access token missing' });
+    return;
+  }
+
+  const url = new URL(req.url || '', 'https://localhost');
   const endpoint = url.searchParams.get('endpoint') || 'user';
-  
-  let pinterestUrl = 'https://api.pinterest.com/v5/user_account';
-  if (endpoint === 'boards') {
-    pinterestUrl = 'https://api.pinterest.com/v5/boards?page_size=100';
+  const pinterestUrl = ENDPOINTS[endpoint];
+  if (!pinterestUrl) {
+    res.status(400).json({ error: 'Unknown endpoint' });
+    return;
   }
 
   try {
     const response = await fetch(pinterestUrl, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(20_000),
     });
-
-    const data = (await response.json()) as Record<string, unknown>;
+    const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
 
     if (!response.ok) {
-      res.status(response.status).json({
-        error: (data.message as string) || (data.error as string) || 'Erreur Pinterest API',
-        details: data,
+      res.status(response.status >= 500 ? 502 : response.status).json({
+        error: (typeof data.message === 'string' && data.message) || 'Pinterest API error',
       });
       return;
     }
 
     res.status(200).json(data);
   } catch (error) {
-    res.status(500).json({
-      error: `Erreur lors de la récupération ${endpoint === 'boards' ? 'des boards' : 'du profil'} Pinterest`,
-      details: error instanceof Error ? error.message : String(error),
-    });
+    console.error('[pinterest/proxy] error', error);
+    res.status(504).json({ error: 'Pinterest did not answer in time. Please retry.' });
   }
 }

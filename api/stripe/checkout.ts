@@ -1,97 +1,85 @@
-interface VercelRequest {
-  method?: string;
-  body?: unknown;
-}
+import {
+  authenticate,
+  canonicalAppUrl,
+  clientIp,
+  isAllowedAppUrl,
+  isConfiguredKey,
+  jsonBody,
+  rateLimit,
+  str,
+  unauthorized,
+  type ApiRequest,
+  type ApiResponse,
+} from '../../server/http.js';
+import {
+  PLAN_AMOUNTS,
+  findSubscriptionForUser,
+  isPaidPlan,
+  stripeConfigured,
+  stripeErrorMessage,
+  stripeRequest,
+} from '../../server/stripe.js';
 
-interface VercelResponse {
-  status: (code: number) => VercelResponse;
-  json: (body: Record<string, unknown>) => void;
-}
-
-const PLAN_AMOUNTS = {
-  pro: 1900,
-  business: 4900,
-} as const;
-
-type PaidPlan = keyof typeof PLAN_AMOUNTS;
-
-function isPaidPlan(value: unknown): value is PaidPlan {
-  return value === 'pro' || value === 'business';
-}
-
-function isConfiguredKey(raw: string | undefined): boolean {
-  const key = (raw || '').trim();
-  if (key.length < 10) return false;
-  const lower = key.toLowerCase();
-  return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...');
-}
-
-async function stripeForm(
-  secretKey: string,
-  path: string,
-  params: URLSearchParams,
-  method: 'POST' | 'GET' = 'POST'
-): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
-  const res = await fetch(`https://api.stripe.com/v1${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${secretKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: method === 'GET' ? undefined : params,
-  });
-  const data = (await res.json()) as Record<string, unknown>;
-  return { ok: res.ok, status: res.status, data };
-}
-
-function stripeError(data: Record<string, unknown>): string {
-  const err = data.error;
-  if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
-    return err.message;
-  }
-  return typeof data.message === 'string' ? data.message : '';
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+/**
+ * Creates a Stripe Checkout session for the signed-in user.
+ * The user id and email come from the verified session, never from the body.
+ */
+export default async function handler(req: ApiRequest, res: ApiResponse) {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-
-  const secretKey = (process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || '').trim();
-  const pricePro = (process.env.STRIPE_PRICE_PRO || '').trim();
-  const priceBusiness = (process.env.STRIPE_PRICE_BUSINESS || '').trim();
-  if (!isConfiguredKey(secretKey)) {
-    res.status(400).json({ error: 'Stripe n’est pas configuré. Ajoute STRIPE_SECRET_KEY sur Vercel.' });
+  if (!stripeConfigured()) {
+    res.status(503).json({ error: 'Stripe is not configured.' });
+    return;
+  }
+  if (!rateLimit(`checkout:${clientIp(req)}`, 20, 60_000)) {
+    res.status(429).json({ error: 'Too many requests' });
     return;
   }
 
-  const body =
-    typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, unknown>) : {};
+  const user = await authenticate(req);
+  if (!user) {
+    unauthorized(res);
+    return;
+  }
 
+  const body = jsonBody(req);
   const plan = body.plan;
-  const userId = typeof body.userId === 'string' ? body.userId : '';
-  const email = typeof body.email === 'string' ? body.email : '';
-  const successUrl = typeof body.successUrl === 'string' ? body.successUrl : '';
-  const cancelUrl = typeof body.cancelUrl === 'string' ? body.cancelUrl : '';
-
-  if (!isPaidPlan(plan) || !userId || !successUrl || !cancelUrl) {
-    res.status(400).json({ error: 'plan, userId, successUrl et cancelUrl requis' });
+  if (!isPaidPlan(plan)) {
+    res.status(400).json({ error: 'plan must be "pro" or "business"' });
     return;
   }
+
+  const appUrl = canonicalAppUrl();
+  const successUrl = str(body.successUrl, 500);
+  const cancelUrl = str(body.cancelUrl, 500);
+  const success = isAllowedAppUrl(successUrl)
+    ? successUrl
+    : `${appUrl}/dashboard/settings?tab=billing&session_id={CHECKOUT_SESSION_ID}`;
+  const cancel = isAllowedAppUrl(cancelUrl) ? cancelUrl : `${appUrl}/dashboard/settings?tab=billing&canceled=1`;
 
   const params = new URLSearchParams();
   params.set('mode', 'subscription');
-  params.set('client_reference_id', userId);
-  params.set('success_url', successUrl);
-  params.set('cancel_url', cancelUrl);
-  params.set('metadata[user_id]', userId);
+  params.set('client_reference_id', user.id);
+  params.set('success_url', success);
+  params.set('cancel_url', cancel);
+  params.set('metadata[user_id]', user.id);
   params.set('metadata[plan]', plan);
-  params.set('subscription_data[metadata][user_id]', userId);
+  params.set('subscription_data[metadata][user_id]', user.id);
   params.set('subscription_data[metadata][plan]', plan);
-  if (email) params.set('customer_email', email);
+  params.set('allow_promotion_codes', 'true');
 
-  const priceId = plan === 'pro' ? pricePro : priceBusiness;
+  // Reuse the existing Stripe customer so invoices and the portal stay consistent.
+  const existing = await findSubscriptionForUser(user.id).catch(() => null);
+  if (existing?.customerId) {
+    params.set('customer', existing.customerId);
+  } else if (user.email) {
+    params.set('customer_email', user.email);
+  }
+
+  const priceId = (plan === 'pro' ? process.env.STRIPE_PRICE_PRO : process.env.STRIPE_PRICE_BUSINESS)?.trim() || '';
   if (isConfiguredKey(priceId)) {
     params.set('line_items[0][price]', priceId);
     params.set('line_items[0][quantity]', '1');
@@ -100,21 +88,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     params.set('line_items[0][price_data][currency]', 'eur');
     params.set('line_items[0][price_data][unit_amount]', String(PLAN_AMOUNTS[plan]));
     params.set('line_items[0][price_data][recurring][interval]', 'month');
-    params.set(
-      'line_items[0][price_data][product_data][name]',
-      plan === 'pro' ? 'PinGen Pro' : 'PinGen Business'
-    );
+    params.set('line_items[0][price_data][product_data][name]', plan === 'pro' ? 'GenX Pro' : 'GenX Business');
   }
 
-  const result = await stripeForm(secretKey, '/checkout/sessions', params, 'POST');
+  const result = await stripeRequest('/checkout/sessions', params);
   const checkoutUrl = typeof result.data.url === 'string' ? result.data.url : '';
   if (!result.ok || !checkoutUrl) {
-    res.status(result.status || 400).json({
-      error: stripeError(result.data) || 'Impossible de créer la session Stripe Checkout.',
-    });
+    console.error('[stripe/checkout] failed', result.status, stripeErrorMessage(result.data));
+    res.status(502).json({ error: 'Unable to create the Stripe Checkout session.' });
     return;
   }
 
   res.status(200).json({ url: checkoutUrl });
 }
-

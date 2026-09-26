@@ -1,23 +1,27 @@
-interface VercelRequest {
-  method?: string;
-  url?: string;
-  query?: Record<string, string | string[] | undefined>;
-  headers?: Record<string, string | string[] | undefined>;
-  body?: unknown;
-}
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+import {
+  authenticate,
+  clientIp,
+  consumeQuota,
+  isConfiguredKey,
+  jsonBody,
+  quotaExceeded,
+  rateLimit,
+  str,
+  unauthorized,
+  type ApiRequest,
+  type ApiResponse,
+} from '../../server/http.js';
 
-interface VercelResponse {
-  status: (code: number) => VercelResponse;
-  setHeader: (name: string, value: string) => void;
-  send: (body: string | Buffer) => void;
-  json: (body: Record<string, unknown>) => void;
-}
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+const MAX_REDIRECTS = 3;
 
 function pickQuery(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] || '' : value || '';
 }
 
-function getProxyUrl(req: VercelRequest): string {
+function getProxyUrl(req: ApiRequest): string {
   const fromQuery = pickQuery(req.query?.proxy);
   if (fromQuery) return fromQuery;
   const raw = req.url || '';
@@ -25,11 +29,69 @@ function getProxyUrl(req: VercelRequest): string {
   return new URLSearchParams(search).get('proxy') || '';
 }
 
-function isConfiguredKey(raw: string | undefined): boolean {
-  const key = (raw || '').trim();
-  if (key.length < 10) return false;
-  const lower = key.toLowerCase();
-  return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...');
+function isPrivateIp(ip: string): boolean {
+  if (isIP(ip) === 4) {
+    const [a, b] = ip.split('.').map(Number);
+    return (
+      a === 10 ||
+      a === 127 ||
+      a === 0 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      a >= 224
+    );
+  }
+  const lower = ip.toLowerCase();
+  return (
+    lower === '::' ||
+    lower === '::1' ||
+    lower.startsWith('fc') ||
+    lower.startsWith('fd') ||
+    lower.startsWith('fe80') ||
+    lower.startsWith('::ffff:')
+  );
+}
+
+/** Rejects anything that is not a public https host (SSRF guard). */
+async function assertPublicHttpsUrl(raw: string): Promise<URL> {
+  const url = new URL(raw);
+  if (url.protocol !== 'https:') throw new Error('only https images are allowed');
+  if (url.username || url.password) throw new Error('credentials in URL are not allowed');
+  const host = url.hostname.toLowerCase();
+  if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal') || host.endsWith('.local')) {
+    throw new Error('host not allowed');
+  }
+  if (isIP(host)) {
+    if (isPrivateIp(host)) throw new Error('host not allowed');
+    return url;
+  }
+  const addresses = await lookup(host, { all: true });
+  if (addresses.length === 0 || addresses.some((a) => isPrivateIp(a.address))) {
+    throw new Error('host not allowed');
+  }
+  return url;
+}
+
+async function fetchPublicImage(raw: string): Promise<Response> {
+  let current = raw;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const url = await assertPublicHttpsUrl(current);
+    const res = await fetch(url, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(15_000),
+      headers: { Accept: 'image/*', 'User-Agent': 'GenX-ImageProxy/1.0' },
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get('location');
+      if (!location) throw new Error('redirect without location');
+      current = new URL(location, url).toString();
+      continue;
+    }
+    return res;
+  }
+  throw new Error('too many redirects');
 }
 
 function buildGrokPrompt(visualPrompt: string, overlayText?: string): string {
@@ -40,64 +102,55 @@ function buildGrokPrompt(visualPrompt: string, overlayText?: string): string {
     'The photograph MUST clearly depict the actual business, product or niche described. No generic nature stock unless the business is about nature.',
     visual,
     text
-      ? `Leave a clean dark area in the lower third for a headline. Do not invent extra slogans.`
+      ? 'Leave a clean dark area in the lower third for a headline. Do not invent extra slogans.'
       : 'Clean composition without extra captions or UI chrome.',
     'Crisp details, no watermarks, no UI chrome, no logos of real brands, no celebrity faces.',
   ];
   return parts.join(' ').slice(0, 3900);
 }
 
-// Helper to verify Supabase JWT token
-async function verifySupabaseToken(token: string): Promise<{ userId: string | null; error: string | null }> {
-  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
-  const supabaseKey = (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim();
-  
-  if (!supabaseUrl || !supabaseKey) {
-    return { userId: null, error: 'Supabase configuration missing' };
-  }
-
-  try {
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'apikey': supabaseKey,
-      },
-    });
-
-    if (!response.ok) {
-      return { userId: null, error: 'Invalid or expired token' };
-    }
-
-    const user = await response.json() as { id?: string };
-    if (!user.id) {
-      return { userId: null, error: 'Invalid user data' };
-    }
-
-    return { userId: user.id, error: null };
-  } catch {
-    return { userId: null, error: 'Token verification failed' };
-  }
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // GET requests are for image proxying (public)
+export default async function handler(req: ApiRequest, res: ApiResponse) {
+  // GET: image proxy used by the canvas compositor (CORS). Public but hardened.
   if (req.method === 'GET') {
+    if (!rateLimit(`img-proxy:${clientIp(req)}`, 120, 60_000)) {
+      res.status(429).json({ error: 'Too many requests' });
+      return;
+    }
     const remote = getProxyUrl(req);
-    if (!remote || !/^https:\/\//i.test(remote)) {
-      res.status(400).json({ error: 'URL image invalide' });
+    if (!remote || remote.length > 2048) {
+      res.status(400).json({ error: 'Invalid image URL' });
       return;
     }
-    const remoteRes = await fetch(remote);
-    if (!remoteRes.ok) {
-      res.status(502).json({ error: 'Impossible de charger l image.' });
-      return;
+    try {
+      const remoteRes = await fetchPublicImage(remote);
+      if (!remoteRes.ok) {
+        res.status(502).json({ error: 'Unable to load the image.' });
+        return;
+      }
+      const contentType = (remoteRes.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!contentType.startsWith('image/') || contentType === 'image/svg+xml') {
+        res.status(415).json({ error: 'Not an image' });
+        return;
+      }
+      const declared = Number(remoteRes.headers.get('content-length') || 0);
+      if (declared > MAX_IMAGE_BYTES) {
+        res.status(413).json({ error: 'Image too large' });
+        return;
+      }
+      const buffer = Buffer.from(await remoteRes.arrayBuffer());
+      if (buffer.length > MAX_IMAGE_BYTES) {
+        res.status(413).json({ error: 'Image too large' });
+        return;
+      }
+      res.status(200);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      res.send(buffer);
+    } catch {
+      res.status(400).json({ error: 'Image URL not allowed' });
     }
-    const contentType = remoteRes.headers.get('content-type') || 'image/jpeg';
-    const buffer = Buffer.from(await remoteRes.arrayBuffer());
-    res.status(200);
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=300');
-    res.send(buffer);
     return;
   }
 
@@ -105,87 +158,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
+  res.setHeader('Cache-Control', 'no-store');
 
-  // ✅ SECURITY: Verify authentication for POST requests (AI image generation)
-  const authHeader = req.headers?.authorization;
-  const authString = Array.isArray(authHeader) ? authHeader[0] : authHeader || '';
-  
-  if (!authString.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Authentication required' });
+  if (!rateLimit(`ai-image:${clientIp(req)}`, 30, 60_000)) {
+    res.status(429).json({ error: 'Too many requests' });
     return;
   }
 
-  const token = authString.replace('Bearer ', '').trim();
-  const { userId, error: authError } = await verifySupabaseToken(token);
-  
-  if (authError || !userId) {
-    res.status(401).json({ error: authError || 'Invalid authentication' });
+  const user = await authenticate(req);
+  if (!user) {
+    unauthorized(res);
     return;
   }
 
-  // Check for Grok API key (xAI)
-  const apiKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || process.env.VITE_GROK_API_KEY || '').trim();
+  const apiKey = (process.env.GROK_API_KEY || process.env.XAI_API_KEY || '').trim();
   if (!isConfiguredKey(apiKey)) {
-    res.status(401).json({ error: 'GROK_API_KEY ou XAI_API_KEY absente.' });
+    res.status(503).json({ error: 'Image AI is not enabled on this environment.' });
     return;
   }
 
-  const body =
-    typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, unknown>) : {};
-
-  const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
-  const overlayText = typeof body.overlayText === 'string' ? body.overlayText.trim() : '';
+  const body = jsonBody(req);
+  const prompt = str(body.prompt, 3000).trim();
+  const overlayText = str(body.overlayText, 120).trim();
   if (!prompt) {
-    res.status(400).json({ error: 'prompt requis' });
+    res.status(400).json({ error: 'prompt is required' });
+    return;
+  }
+
+  const quota = await consumeQuota(user.token, 'ai_image');
+  if (!quota.allowed) {
+    quotaExceeded(res, quota, 'ai_image');
     return;
   }
 
   const fullPrompt = buildGrokPrompt(prompt, overlayText || undefined);
 
   try {
-    // Call Grok Image API (xAI)
     const grokRes = await fetch('https://api.x.ai/v1/images/generations', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'grok-imagine-image-quality',
-        prompt: fullPrompt,
-      }),
+      body: JSON.stringify({ model: 'grok-imagine-image-quality', prompt: fullPrompt }),
+      signal: AbortSignal.timeout(55_000),
     });
 
     if (!grokRes.ok) {
-      const errorData = await grokRes.json().catch(() => ({})) as Record<string, unknown>;
-      const errorMsg = 
-        (typeof errorData.error === 'object' && errorData.error !== null && 'message' in errorData.error && typeof errorData.error.message === 'string')
-          ? errorData.error.message
-          : (typeof errorData.message === 'string' ? errorData.message : `Erreur Grok API (${grokRes.status})`);
-      
-      res.status(grokRes.status || 502).json({
-        error: errorMsg,
-        details: errorData,
-      });
+      const errorData = (await grokRes.json().catch(() => ({}))) as Record<string, unknown>;
+      const errorMsg =
+        typeof errorData.error === 'object' &&
+        errorData.error !== null &&
+        'message' in errorData.error &&
+        typeof (errorData.error as { message: unknown }).message === 'string'
+          ? (errorData.error as { message: string }).message
+          : typeof errorData.message === 'string'
+            ? errorData.message
+            : `Image generation failed (${grokRes.status})`;
+      console.error('[ai/image] grok error', grokRes.status, errorMsg);
+      res.status(grokRes.status >= 500 ? 502 : grokRes.status).json({ error: errorMsg });
       return;
     }
 
-    const grokData = await grokRes.json() as {
-      data?: Array<{ url?: string; mime_type?: string }>;
-      error?: { message?: string };
-    };
-
+    const grokData = (await grokRes.json()) as { data?: Array<{ url?: string }> };
     const imageUrl = grokData.data?.[0]?.url;
-    if (!imageUrl) {
-      res.status(502).json({ error: 'Aucune image renvoyée par Grok.' });
+    if (!imageUrl || !/^https:\/\//i.test(imageUrl)) {
+      res.status(502).json({ error: 'No image returned by the image service.' });
       return;
     }
 
     res.status(200).json({ url: imageUrl });
   } catch (error) {
-    res.status(500).json({
-      error: 'Erreur lors de la génération d image avec Grok',
-      details: error instanceof Error ? error.message : String(error),
-    });
+    console.error('[ai/image] error', error);
+    res.status(504).json({ error: 'Image generation timed out. Please retry.' });
   }
 }

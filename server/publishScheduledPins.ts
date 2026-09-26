@@ -172,6 +172,18 @@ async function resolveBoardId(accessToken: string, pin: PinRow, account: Pintere
   return first;
 }
 
+/**
+ * Pinterest fetches `image_url` itself, so inline `data:` images (legacy pins
+ * composed in the browser) must be sent as base64 payloads instead.
+ */
+function mediaSource(imageUrl: string): Record<string, string> {
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(imageUrl);
+  if (match) {
+    return { source_type: 'image_base64', content_type: match[1].toLowerCase(), data: match[2] };
+  }
+  return { source_type: 'image_url', url: imageUrl };
+}
+
 async function createPin(accessToken: string, pin: PinRow, boardId: string): Promise<string> {
   const res = await fetch(`${PINTEREST_API}/pins`, {
     method: 'POST',
@@ -180,13 +192,14 @@ async function createPin(accessToken: string, pin: PinRow, boardId: string): Pro
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      title: pin.title,
-      description: pin.description || undefined,
+      title: pin.title.slice(0, 100),
+      description: pin.description ? pin.description.slice(0, 800) : undefined,
       link: pin.link || undefined,
       board_id: boardId,
-      alt_text: pin.alt_text || pin.title,
-      media_source: { source_type: 'image_url', url: pin.image_url },
+      alt_text: (pin.alt_text || pin.title).slice(0, 500),
+      media_source: mediaSource(pin.image_url),
     }),
+    signal: AbortSignal.timeout(25_000),
   });
   const data = (await res.json()) as { id?: string; message?: string; code?: number };
   if (!res.ok || !data.id) {
@@ -230,8 +243,6 @@ async function publishOne(client: SupabaseClient, pin: PinRow, account: Pinteres
     .eq('id', pin.id);
   if (error) throw new Error(`Pin published on Pinterest (${pinterestPinId}) but DB update failed: ${error.message}`);
 
-  await client.rpc('increment_pin_count', { user_uuid: pin.user_id }).then(() => undefined, () => undefined);
-
   return pinterestPinId;
 }
 
@@ -240,6 +251,26 @@ export interface PublishOptions {
   pinIds?: string[];
   /** 'due' (default): only overdue pins. 'all': every scheduled pin, including future ones. */
   scope?: 'due' | 'all';
+  /** Stop picking new pins once this much wall-clock time has elapsed (serverless limits). */
+  timeBudgetMs?: number;
+}
+
+/**
+ * Atomically claims pins so that concurrent publishers (GitHub cron, Vercel
+ * cron, in-app publisher of every user) never send the same pin twice.
+ */
+async function claimPins(client: SupabaseClient, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const { data, error } = await client.rpc('claim_pins_for_publishing', { p_ids: ids });
+  if (error) throw new Error(`Failed to claim pins: ${error.message}`);
+  const claimed = Array.isArray(data) ? (data as unknown[]) : [];
+  return new Set(
+    claimed.map((row) => (typeof row === 'string' ? row : (row as { id?: string })?.id || '')).filter(Boolean)
+  );
+}
+
+async function releasePin(client: SupabaseClient, id: string): Promise<void> {
+  await client.rpc('release_pin_lock', { p_id: id }).then(() => undefined, () => undefined);
 }
 
 /**
@@ -252,12 +283,13 @@ export async function publishDuePins(
   client: SupabaseClient,
   options: PublishOptions = {}
 ): Promise<PublishResult> {
+  const startedAt = Date.now();
   const now = new Date().toISOString();
   let query = client
     .from('pins')
     .select('id, user_id, title, description, image_url, link, board_id, alt_text, retry_count, scheduled_at')
     .order('scheduled_at', { ascending: true })
-    .limit(50);
+    .limit(options.pinIds?.length ? Math.min(options.pinIds.length, 50) : 25);
 
   if (options.pinIds && options.pinIds.length > 0) {
     // Explicit request: allow re-publishing failed pins too.
@@ -275,7 +307,14 @@ export async function publishDuePins(
   const result: PublishResult = { processed: 0, successful: 0, failed: 0, awaitingAccess: 0, details: [] };
   if (!pins || pins.length === 0) return result;
 
-  const userIds = Array.from(new Set(pins.map((p) => p.user_id)));
+  const claimed = await claimPins(
+    client,
+    (pins as PinRow[]).map((p) => p.id)
+  );
+  const claimedPins = (pins as PinRow[]).filter((p) => claimed.has(p.id));
+  if (claimedPins.length === 0) return result;
+
+  const userIds = Array.from(new Set(claimedPins.map((p) => p.user_id)));
   const { data: accounts, error: accErr } = await client
     .from('pinterest_accounts')
     .select('id, user_id, access_token, refresh_token, token_expires_at, boards, is_active')
@@ -289,7 +328,16 @@ export async function publishDuePins(
     if (!accountByUser.has(acc.user_id)) accountByUser.set(acc.user_id, acc);
   }
 
-  for (const pin of pins as PinRow[]) {
+  const timeBudget = options.timeBudgetMs ?? 45_000;
+
+  for (let index = 0; index < claimedPins.length; index++) {
+    const pin = claimedPins[index];
+    if (index > 0 && Date.now() - startedAt > timeBudget) {
+      // Out of time: unlock the rest so the next run picks them up immediately.
+      await Promise.all(claimedPins.slice(index).map((p) => releasePin(client, p.id)));
+      break;
+    }
+
     result.processed++;
     try {
       const account = accountByUser.get(pin.user_id);
@@ -339,6 +387,8 @@ export async function publishDuePins(
         result.details.push({ pinId: pin.id, status: 'retry', error: message });
       }
       console.error(`[publish] pin ${pin.id} failed:`, message);
+    } finally {
+      await releasePin(client, pin.id);
     }
   }
 

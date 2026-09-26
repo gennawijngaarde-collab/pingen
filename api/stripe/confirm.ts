@@ -1,109 +1,146 @@
-interface VercelRequest {
-  method?: string;
-  body?: unknown;
-}
+import {
+  authenticate,
+  clientIp,
+  jsonBody,
+  rateLimit,
+  str,
+  unauthorized,
+  type ApiRequest,
+  type ApiResponse,
+} from '../../server/http.js';
+import {
+  applySubscriptionState,
+  findSubscriptionForUser,
+  idOf,
+  isPaidPlan,
+  stripeConfigured,
+  stripeErrorMessage,
+  stripeRequest,
+  stripeStatusToLocal,
+  unixToIso,
+} from '../../server/stripe.js';
 
-interface VercelResponse {
-  status: (code: number) => VercelResponse;
-  json: (body: Record<string, unknown>) => void;
-}
-
-type PaidPlan = 'pro' | 'business';
-
-function isPaidPlan(value: unknown): value is PaidPlan {
-  return value === 'pro' || value === 'business';
-}
-
-function isConfiguredKey(raw: string | undefined): boolean {
-  const key = (raw || '').trim();
-  if (key.length < 10) return false;
-  const lower = key.toLowerCase();
-  return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...');
-}
-
-async function stripeGet(
-  secretKey: string,
-  path: string
-): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
-  const res = await fetch(`https://api.stripe.com/v1${path}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${secretKey}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  });
-  const data = (await res.json()) as Record<string, unknown>;
-  return { ok: res.ok, status: res.status, data };
-}
-
-function stripeError(data: Record<string, unknown>): string {
-  const err = data.error;
-  if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
-    return err.message;
-  }
-  return typeof data.message === 'string' ? data.message : '';
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+/**
+ * Billing actions for the signed-in user. Plans are only ever written here and
+ * by the Stripe webhook (service role); browsers cannot edit `profiles.plan`.
+ *
+ *  - `{ sessionId }`        : confirm a Checkout session and activate the plan.
+ *  - `{ action: 'cancel' }` : downgrade to Starter (cancels the Stripe subscription
+ *                             at period end when one exists).
+ */
+export default async function handler(req: ApiRequest, res: ApiResponse) {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-
-  const secretKey = (process.env.STRIPE_SECRET_KEY || process.env.VITE_STRIPE_SECRET_KEY || '').trim();
-  if (!isConfiguredKey(secretKey)) {
-    res.status(400).json({ error: 'Stripe n’est pas configuré.' });
+  if (!rateLimit(`billing:${clientIp(req)}`, 30, 60_000)) {
+    res.status(429).json({ error: 'Too many requests' });
     return;
   }
 
-  const body =
-    typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, unknown>) : {};
-
-  const sessionId = typeof body.sessionId === 'string' ? body.sessionId : '';
-  const userId = typeof body.userId === 'string' ? body.userId : '';
-  if (!sessionId || !userId) {
-    res.status(400).json({ error: 'sessionId et userId requis' });
+  const user = await authenticate(req);
+  if (!user) {
+    unauthorized(res);
     return;
   }
 
-  const result = await stripeGet(secretKey, `/checkout/sessions/${encodeURIComponent(sessionId)}`);
-  if (!result.ok) {
-    res.status(result.status || 400).json({
-      error: stripeError(result.data) || 'Session Stripe introuvable.',
+  const body = jsonBody(req);
+
+  try {
+    if (body.action === 'cancel') {
+      const existing = await findSubscriptionForUser(user.id);
+      if (existing?.subscriptionId && stripeConfigured()) {
+        const params = new URLSearchParams({ cancel_at_period_end: 'true' });
+        const result = await stripeRequest(`/subscriptions/${encodeURIComponent(existing.subscriptionId)}`, params);
+        if (!result.ok && result.status !== 404) {
+          console.error('[stripe/confirm] cancel failed', result.status, stripeErrorMessage(result.data));
+          res.status(502).json({ error: 'Stripe refused the cancellation. Please retry.' });
+          return;
+        }
+        // Access continues until the period ends; the webhook downgrades the plan then.
+        res.status(200).json({ plan: existing.plan || 'starter', scheduledDowngrade: true });
+        return;
+      }
+      await applySubscriptionState({
+        userId: user.id,
+        plan: 'starter',
+        status: 'canceled',
+        customerId: existing?.customerId ?? null,
+        subscriptionId: null,
+      });
+      res.status(200).json({ plan: 'starter', scheduledDowngrade: false });
+      return;
+    }
+
+    if (!stripeConfigured()) {
+      res.status(503).json({ error: 'Stripe is not configured.' });
+      return;
+    }
+
+    const sessionId = str(body.sessionId, 200);
+    if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
+      res.status(400).json({ error: 'sessionId is required' });
+      return;
+    }
+
+    const result = await stripeRequest(
+      `/checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=subscription`
+    );
+    if (!result.ok) {
+      res.status(404).json({ error: 'Stripe session not found.' });
+      return;
+    }
+
+    const session = result.data;
+    const metadata = (session.metadata || {}) as Record<string, unknown>;
+    const sessionUserId =
+      (typeof metadata.user_id === 'string' && metadata.user_id) ||
+      (typeof session.client_reference_id === 'string' ? session.client_reference_id : '');
+    if (sessionUserId !== user.id) {
+      res.status(403).json({ error: 'This Stripe session belongs to another account.' });
+      return;
+    }
+
+    const paid =
+      session.status === 'complete' ||
+      session.payment_status === 'paid' ||
+      session.payment_status === 'no_payment_required';
+    if (!paid) {
+      res.status(400).json({ error: 'The Stripe payment is not complete.' });
+      return;
+    }
+
+    const plan = metadata.plan;
+    if (!isPaidPlan(plan)) {
+      res.status(400).json({ error: 'Invalid plan on the Stripe session.' });
+      return;
+    }
+
+    const subscription =
+      session.subscription && typeof session.subscription === 'object'
+        ? (session.subscription as Record<string, unknown>)
+        : null;
+    const customerId = idOf(session.customer);
+    const subscriptionId = idOf(session.subscription);
+
+    await applySubscriptionState({
+      userId: user.id,
+      plan,
+      status: subscription ? stripeStatusToLocal(subscription.status) : 'active',
+      customerId,
+      subscriptionId,
+      periodStart: subscription ? unixToIso(subscription.current_period_start) : null,
+      periodEnd: subscription ? unixToIso(subscription.current_period_end) : null,
     });
-    return;
-  }
 
-  const metadata = (result.data.metadata || {}) as Record<string, unknown>;
-  const sessionUserId =
-    (typeof metadata.user_id === 'string' && metadata.user_id) ||
-    (typeof result.data.client_reference_id === 'string' ? result.data.client_reference_id : '');
-  const plan = metadata.plan;
-  const paymentStatus = result.data.payment_status;
-  const status = result.data.status;
-
-  if (sessionUserId !== userId) {
-    res.status(403).json({ error: 'Cette session Stripe ne correspond pas à ce compte.' });
-    return;
+    res.status(200).json({
+      plan,
+      customerId: customerId ?? undefined,
+      subscriptionId: subscriptionId ?? undefined,
+    });
+  } catch (error) {
+    console.error('[stripe/confirm] error', error);
+    res.status(500).json({ error: 'Billing update failed. Please retry.' });
   }
-  if (
-    status !== 'complete' &&
-    paymentStatus !== 'paid' &&
-    paymentStatus !== 'no_payment_required'
-  ) {
-    res.status(400).json({ error: 'Le paiement Stripe n’est pas terminé.' });
-    return;
-  }
-  if (!isPaidPlan(plan)) {
-    res.status(400).json({ error: 'Plan Stripe invalide.' });
-    return;
-  }
-
-  res.status(200).json({
-    plan,
-    customerId: typeof result.data.customer === 'string' ? result.data.customer : undefined,
-    subscriptionId:
-      typeof result.data.subscription === 'string' ? result.data.subscription : undefined,
-  });
 }
-

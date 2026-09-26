@@ -2,32 +2,24 @@ import {
   createServiceClient,
   createUserClient,
   getServiceRoleKey,
-  getSupabaseAnonKey,
-  getSupabaseUrl,
   publishDuePins,
   type PublishOptions,
 } from '../../server/publishScheduledPins.js';
-
-interface VercelRequest {
-  method?: string;
-  headers?: Record<string, string | string[] | undefined>;
-  body?: unknown;
-}
+import {
+  authenticate,
+  bearerToken,
+  clientIp,
+  jsonBody,
+  rateLimit,
+  safeEqual,
+  type ApiRequest,
+  type ApiResponse,
+} from '../../server/http.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function parseOptions(req: VercelRequest): PublishOptions {
-  let body: Record<string, unknown> = {};
-  if (typeof req.body === 'string') {
-    try {
-      body = JSON.parse(req.body) as Record<string, unknown>;
-    } catch {
-      body = {};
-    }
-  } else if (typeof req.body === 'object' && req.body !== null) {
-    body = req.body as Record<string, unknown>;
-  }
-
+function parseOptions(req: ApiRequest): PublishOptions {
+  const body = jsonBody(req);
   const rawIds = Array.isArray(body.pinIds)
     ? body.pinIds
     : typeof body.pinId === 'string'
@@ -41,48 +33,19 @@ function parseOptions(req: VercelRequest): PublishOptions {
   };
 }
 
-interface VercelResponse {
-  status: (code: number) => VercelResponse;
-  json: (body: Record<string, unknown>) => void;
-  setHeader: (name: string, value: string) => void;
-}
-
-// Fallback keeps the automated cron working even if CRON_SECRET is not set in Vercel.
-const FALLBACK_CRON_SECRET = 'VcEg+YXh4z1rjMKfQU1TaECWSCIZoxmG0uA/8484Pxw=';
-
-function header(req: VercelRequest, name: string): string {
-  const raw = req.headers?.[name] ?? req.headers?.[name.toLowerCase()];
-  return (Array.isArray(raw) ? raw[0] : raw) || '';
-}
-
-async function resolveUserId(token: string): Promise<string | null> {
-  const url = getSupabaseUrl();
-  const anonKey = getSupabaseAnonKey();
-  if (!url || !anonKey) return null;
-  try {
-    const res = await fetch(`${url}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: anonKey },
-    });
-    if (!res.ok) return null;
-    const user = (await res.json()) as { id?: string };
-    return user.id || null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Publishes every scheduled pin that is due.
  *
  * Two callers are accepted:
- *  - Automation (GitHub Actions / Vercel Cron): `Authorization: Bearer <CRON_SECRET>`
- *    or the `x-vercel-cron` header. Uses the service-role key to cover all users.
+ *  - Automation (GitHub Actions / Vercel Cron): `Authorization: Bearer <CRON_SECRET>`.
+ *    Uses the service-role key to cover all users. CRON_SECRET must be set in
+ *    Vercel; there is deliberately no fallback value in the code.
  *  - A signed-in user (in-app button): `Authorization: Bearer <Supabase JWT>`.
  *    Runs under RLS, so only that user's pins are published. Optional JSON body:
  *    `{ pinId }` / `{ pinIds: [] }` to publish specific pins immediately (even if
  *    scheduled later), or `{ scope: 'all' }` to publish every scheduled pin now.
  */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   res.setHeader('Cache-Control', 'no-store');
 
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -90,11 +53,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const auth = header(req, 'authorization');
-  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-  const cronSecret = (process.env.CRON_SECRET || '').trim() || FALLBACK_CRON_SECRET;
-  const isVercelCron = Boolean(header(req, 'x-vercel-cron'));
-  const isCronCaller = isVercelCron || (token !== '' && token === cronSecret);
+  const token = bearerToken(req);
+  if (!token) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  const cronSecret = (process.env.CRON_SECRET || '').trim();
+  const isCronCaller = cronSecret.length >= 16 && safeEqual(token, cronSecret);
 
   try {
     if (isCronCaller) {
@@ -105,41 +71,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           mode: 'cron',
           error: getServiceRoleKey()
             ? 'SUPABASE_URL missing'
-            : 'SUPABASE_SERVICE_ROLE_KEY is not configured in Vercel. The automated publisher needs it to read all users\u2019 scheduled pins (RLS). Add it in Vercel → Settings → Environment Variables.',
+            : 'SUPABASE_SERVICE_ROLE_KEY is not configured in Vercel. The automated publisher needs it to read all users\u2019 scheduled pins (RLS).',
           timestamp: new Date().toISOString(),
         });
         return;
       }
-      const result = await publishDuePins(client);
+      const result = await publishDuePins(client, { timeBudgetMs: 45_000 });
       console.log('[cron] publish result:', JSON.stringify(result));
       res.status(200).json({ success: true, mode: 'cron', ...result, timestamp: new Date().toISOString() });
       return;
     }
 
-    if (!token) {
-      res.status(401).json({ error: 'Authentication required' });
+    if (!rateLimit(`publish:${clientIp(req)}`, 30, 60_000)) {
+      res.status(429).json({ error: 'Too many requests' });
       return;
     }
-    const userId = await resolveUserId(token);
-    if (!userId) {
+
+    const user = await authenticate(req);
+    if (!user) {
       res.status(401).json({ error: 'Invalid or expired session' });
       return;
     }
-    const client = createUserClient(token);
+    if (!rateLimit(`publish:user:${user.id}`, 20, 60_000)) {
+      res.status(429).json({ error: 'Too many requests' });
+      return;
+    }
+
+    const client = createUserClient(user.token);
     if (!client) {
       res.status(503).json({ error: 'Supabase is not configured on the server' });
       return;
     }
     // Only signed-in users may publish ahead of schedule or target specific pins (RLS scopes them).
-    const options = parseOptions(req);
+    const options = { ...parseOptions(req), timeBudgetMs: 40_000 };
     const result = await publishDuePins(client, options);
-    console.log(`[user ${userId}] publish result (${JSON.stringify(options)}):`, JSON.stringify(result));
+    console.log(`[user ${user.id}] publish result (${JSON.stringify(options)}):`, JSON.stringify(result));
     res.status(200).json({ success: true, mode: 'user', ...result, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('[publish-scheduled-pins] error:', error);
     res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: 'Publication failed. Please retry.',
       timestamp: new Date().toISOString(),
     });
   }

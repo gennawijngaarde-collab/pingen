@@ -1,55 +1,67 @@
-interface VercelRequest {
-  method?: string;
-  body?: unknown;
-}
+import {
+  authenticate,
+  clientIp,
+  isConfiguredKey,
+  jsonBody,
+  rateLimit,
+  str,
+  unauthorized,
+  type ApiRequest,
+  type ApiResponse,
+} from '../../../server/http.js';
+import { allowedPinterestRedirectUris, pinterestAppId, pinterestAppSecret } from '../../../server/pinterestApp.js';
 
-interface VercelResponse {
-  status: (code: number) => VercelResponse;
-  json: (body: Record<string, unknown>) => void;
-}
-
-function isConfiguredKey(raw: string | undefined): boolean {
-  const key = (raw || '').trim();
-  if (key.length < 4) return false;
-  const lower = key.toLowerCase();
-  return !lower.includes('your') && !lower.includes('placeholder') && !lower.includes('...');
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+/**
+ * Exchanges an OAuth code (or refresh token) for Pinterest tokens using the
+ * app secret. Only signed-in GenX users may use it, and only with one of our
+ * registered redirect URIs, so the app credentials cannot be borrowed by
+ * third parties.
+ */
+export default async function handler(req: ApiRequest, res: ApiResponse) {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-
-  const envAppId = (process.env.VITE_PINTEREST_APP_ID || process.env.PINTEREST_APP_ID || '').trim();
-  const appId = envAppId && envAppId !== '1606177' && envAppId !== '1607362' ? envAppId : '1609578';
-  const appSecret = (process.env.PINTEREST_APP_SECRET || process.env.VITE_PINTEREST_APP_SECRET || '').trim();
-  if (!isConfiguredKey(appId) || !isConfiguredKey(appSecret)) {
-    res.status(500).json({
-      error: 'Pinterest App ID / Secret manquants. Configure-les dans les variables Vercel.',
-    });
+  if (!rateLimit(`pin-oauth:${clientIp(req)}`, 20, 60_000)) {
+    res.status(429).json({ error: 'Too many requests' });
     return;
   }
 
-  const body =
-    typeof req.body === 'object' && req.body !== null ? (req.body as Record<string, unknown>) : {};
+  const user = await authenticate(req);
+  if (!user) {
+    unauthorized(res);
+    return;
+  }
 
-  const code = typeof body.code === 'string' ? body.code : '';
-  const redirectUri = typeof body.redirect_uri === 'string' ? body.redirect_uri : '';
-  const grantType = typeof body.grant_type === 'string' ? body.grant_type : 'authorization_code';
-  const refreshToken = typeof body.refresh_token === 'string' ? body.refresh_token : '';
+  const appId = pinterestAppId();
+  const appSecret = pinterestAppSecret();
+  if (!isConfiguredKey(appId, 4) || !isConfiguredKey(appSecret, 4)) {
+    res.status(503).json({ error: 'Pinterest integration is not configured on the server.' });
+    return;
+  }
 
+  const body = jsonBody(req);
+  const grantType = body.grant_type === 'refresh_token' ? 'refresh_token' : 'authorization_code';
   const params = new URLSearchParams();
+
   if (grantType === 'refresh_token') {
+    const refreshToken = str(body.refresh_token, 2048);
     if (!refreshToken) {
-      res.status(400).json({ error: 'refresh_token requis' });
+      res.status(400).json({ error: 'refresh_token is required' });
       return;
     }
     params.set('grant_type', 'refresh_token');
     params.set('refresh_token', refreshToken);
   } else {
+    const code = str(body.code, 2048);
+    const redirectUri = str(body.redirect_uri, 500);
     if (!code || !redirectUri) {
-      res.status(400).json({ error: 'code et redirect_uri requis' });
+      res.status(400).json({ error: 'code and redirect_uri are required' });
+      return;
+    }
+    if (!allowedPinterestRedirectUris().includes(redirectUri)) {
+      res.status(400).json({ error: 'redirect_uri is not registered for this app' });
       return;
     }
     params.set('grant_type', 'authorization_code');
@@ -58,27 +70,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const basic = Buffer.from(`${appId}:${appSecret}`).toString('base64');
-  const tokenRes = await fetch('https://api.pinterest.com/v5/oauth/token', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${basic}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params,
-  });
-
-  const data = (await tokenRes.json()) as Record<string, unknown>;
-  if (!tokenRes.ok) {
-    res.status(tokenRes.status).json({
-      error:
-        (typeof data.message === 'string' && data.message) ||
-        (typeof data.error === 'string' && data.error) ||
-        "Échec de l'échange du token Pinterest",
-      details: data,
+  try {
+    const tokenRes = await fetch('https://api.pinterest.com/v5/oauth/token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${basic}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+      signal: AbortSignal.timeout(20_000),
     });
-    return;
+
+    const data = (await tokenRes.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!tokenRes.ok) {
+      console.error('[pinterest/oauth] exchange failed', tokenRes.status, data.message || data.error);
+      res.status(tokenRes.status === 401 || tokenRes.status === 400 ? 400 : 502).json({
+        error:
+          (typeof data.message === 'string' && data.message) ||
+          (typeof data.error === 'string' && data.error) ||
+          'Pinterest token exchange failed',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_in: data.expires_in,
+      refresh_token_expires_in: data.refresh_token_expires_in,
+      scope: data.scope,
+      token_type: data.token_type,
+    });
+  } catch (error) {
+    console.error('[pinterest/oauth] error', error);
+    res.status(504).json({ error: 'Pinterest did not answer in time. Please retry.' });
   }
-
-  res.status(200).json(data);
 }
-
