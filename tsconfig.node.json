@@ -24,10 +24,7 @@
   },
   "include": [
     "vite.config.ts",
-    "vite.pinterest-plugin.ts",
-    "vite.ai-plugin.ts",
-    "vite.stripe-plugin.ts",
-    "vite.resend-plugin.ts",
+    "vite.api-plugin.ts",
     "api/**/*.ts",
     "server/**/*.ts"
   ]

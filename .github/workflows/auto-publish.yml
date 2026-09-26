@@ -2,31 +2,45 @@ name: Auto-Publish Scheduled Pins
 
 on:
   schedule:
-    # Runs every 5 minutes
+    # Every 5 minutes: publishes every pin whose scheduled time has passed.
     - cron: '*/5 * * * *'
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
+
+concurrency:
+  group: auto-publish
+  cancel-in-progress: false
 
 jobs:
   publish-pins:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 5
     steps:
       - name: Trigger pin publication
+        env:
+          # Repository secret (Settings → Secrets and variables → Actions).
+          # Must equal the CRON_SECRET environment variable configured in Vercel.
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ENDPOINT: https://www.pingenx.io/api/cron/publish-scheduled-pins
         run: |
-          response=$(curl -s -w "\n%{http_code}" \
-            -X POST \
-            -H "Authorization: Bearer VcEg+YXh4z1rjMKfQU1TaECWSCIZoxmG0uA/8484Pxw=" \
-            https://www.pingenx.io/api/cron/publish-scheduled-pins)
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          
-          if [ "$http_code" != "200" ]; then
-            echo "Error: Publication failed"
+          set -euo pipefail
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET secret is not set on this repository. Add it in Settings → Secrets → Actions (same value as in Vercel)."
             exit 1
           fi
-          
-          echo "✅ Pins published successfully"
+
+          response=$(curl -sS -w "\n%{http_code}" \
+            --max-time 90 \
+            -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${ENDPOINT}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $body"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Publication failed (HTTP $http_code)"
+            exit 1
+          fi

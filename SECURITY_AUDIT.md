@@ -1,272 +1,82 @@
-# 🔒 Audit de Sécurité - GenX
+# Audit de sécurité & passage à l'échelle — GenX
 
-**Date**: 22 septembre 2026  
-**Statut**: ⚠️ **VULNÉRABILITÉS CRITIQUES TROUVÉES**
+**Date** : 26 septembre 2026
+**Périmètre** : fonctions Vercel (`api/`, `server/`), base Supabase (schéma, RLS, grants, fonctions), frontend (`src/`), CI/CD, configuration Vercel/Supabase.
+**Statut** : toutes les failles listées ci-dessous sont corrigées dans le code et appliquées en production (migration `supabase/migrations/20260926_security_hardening.sql`), sauf les points de la section « Actions restantes » qui dépendent d'accès que seul le propriétaire possède.
 
 ---
 
-## ✅ POINTS FORTS
+## 1. Failles corrigées
 
-### 1. Row Level Security (RLS) ✅
-**Statut**: EXCELLENT
+| # | Gravité | Faille | Correctif |
+|---|---------|--------|-----------|
+| 1 | **Critique** | `profiles.plan` modifiable par l'utilisateur (RLS `UPDATE` sans restriction de colonnes) → n'importe qui pouvait s'offrir le plan Business depuis la console du navigateur. Le plan était d'ailleurs écrit côté client après Stripe. | Privilèges par colonne : `authenticated` ne peut modifier que `full_name`, `avatar_url`, `updated_at`. Le plan est écrit uniquement côté serveur (`server/stripe.ts` via service role) après vérification Stripe, ou par le webhook Stripe. |
+| 2 | **Critique** | `/api/stripe/portal` acceptait un `customerId` arbitraire sans authentification → ouverture du portail de facturation d'un autre client (factures, annulation, moyen de paiement). | Authentification Supabase obligatoire ; le `customer_id` est résolu côté serveur depuis `subscriptions` de l'utilisateur connecté. |
+| 3 | **Critique** | `CRON_SECRET` codé en dur dans `api/cron/publish-scheduled-pins.ts` et dans le workflow GitHub, dépôt **public**. En-tête `x-vercel-cron` accepté sans vérification. | Secret retiré du code (env obligatoire, comparaison en temps constant), workflow lit `${{ secrets.CRON_SECRET }}`. **Le secret doit être régénéré** (voir actions restantes). |
+| 4 | **Élevée** | Vue `user_dashboard_stats` sans `security_invoker` et accessible à `anon`/`authenticated` → statistiques (plan, volumes) de **tous** les utilisateurs lisibles. | `security_invoker = true`, accès retiré à `anon`. |
+| 5 | **Élevée** | Fonctions SQL `reset_monthly_pin_count`, `increment_pin_count`, `check_pin_limit` exécutables par tout utilisateur → remise à zéro de ses propres quotas. | `REVOKE EXECUTE` pour `anon`/`authenticated` ; compteurs maintenus par triggers `SECURITY DEFINER`. |
+| 6 | **Élevée** | Aucune limite de plan appliquée : le quota de pins (10/100/∞) n'était qu'un affichage. | Trigger `pins_enforce_quota` (BEFORE INSERT) : refuse avec `PIN_LIMIT_REACHED` au-delà du plan ; compteur `pins_created_this_month` recalculé depuis les vraies lignes. Quotas IA journaliers par plan (`consume_quota`, table `api_usage`). |
+| 7 | **Élevée** | `/api/ai/chat` relayait le corps brut vers OpenRouter : modèle, `max_tokens`, etc. choisis par le client → vidage du crédit IA avec des modèles coûteux. | Liste blanche de modèles, `max_tokens` ≤ 1500, ≤ 12 messages / 12 000 caractères, images validées, quota par utilisateur/jour, rate-limit IP. |
+| 8 | **Élevée** | `/api/pinterest/oauth/token` et `/api/pinterest/proxy` sans authentification → utilisation de nos identifiants d'app Pinterest par des tiers, `redirect_uri` libre. | Session Supabase obligatoire ; `redirect_uri` doit être une URI enregistrée ; le token Pinterest passe dans `X-Pinterest-Token`. |
+| 9 | **Élevée** | `/api/stripe/checkout` : `userId`, `email`, `successUrl`, `cancelUrl` fournis par le client → sessions au nom d'un autre compte, redirections ouvertes. | Identité prise dans le JWT ; URLs de retour limitées aux origines de l'app ; réutilisation du client Stripe existant. |
+| 10 | **Moyenne** | Proxy d'images `GET /api/ai/image?proxy=` = SSRF/relais ouvert (toute URL https, tout contenu, pas de limite). | Résolution DNS + blocage des IP privées/link-local, https uniquement, redirections contrôlées, `Content-Type: image/*` (SVG exclu), 15 Mo max, timeout, rate-limit. |
+| 11 | **Moyenne** | `/api/email/notify` public → spam de l'admin via Resend, adresse e-mail personnelle codée en dur. | Envoi uniquement si un compte `auth.users` avec cet e-mail a été créé dans les 15 dernières minutes (`signup_recently_created`, service role), rate-limit 5/10 min/IP, `ADMIN_EMAIL` obligatoire en env. |
+| 12 | **Moyenne** | Secrets lus côté client (`VITE_PINTEREST_APP_SECRET`, `VITE_GROK_API_KEY`, `VITE_OPENROUTER_API_KEY`, `VITE_STRIPE_SECRET_KEY` acceptés côté serveur) : un secret nommé `VITE_*` finit dans le bundle public. | Toute lecture de secret retirée du frontend et des fallbacks serveur ; `vite-env.d.ts` ne déclare plus que des valeurs publiques. |
+| 13 | **Moyenne** | Pas de webhook Stripe : annulation, impayé ou changement via le portail n'étaient jamais répercutés → accès payant conservé sans paiement. | `api/stripe/webhook.ts` (signature HMAC vérifiée, tolérance 5 min) : `checkout.session.completed`, `customer.subscription.*`, `invoice.paid/payment_failed`. Nécessite `STRIPE_WEBHOOK_SECRET`. |
+| 14 | **Moyenne** | Table `subscriptions` : insert/update/delete par le client, pas d'unicité par utilisateur. | Écriture réservée au serveur (service role), index unique `user_id`, index sur `stripe_customer_id`/`stripe_subscription_id`. |
+| 15 | **Moyenne** | Grants Postgres trop larges : `anon` avait INSERT/UPDATE/DELETE/TRUNCATE sur toutes les tables ; `authenticated` avait TRUNCATE/REFERENCES/TRIGGER ; `scheduled_jobs` et `pin_analytics` modifiables. | `REVOKE` global pour `anon`, retrait de TRUNCATE/REFERENCES/TRIGGER, `scheduled_jobs` serveur uniquement, `pin_analytics` lecture seule, `pins` : colonnes `id`/`user_id`/`created_at`/`locked_at` non modifiables. |
+| 16 | **Moyenne** | Changement de mot de passe sans vérification du mot de passe actuel (champ affiché mais ignoré) ; longueur minimale 6. | Ré-authentification `signInWithPassword` avant `updateUser`, minimum 8 caractères, politique Supabase : 8 caractères + lettres + chiffres. |
+| 17 | **Faible** | `state` OAuth Pinterest prévisible (`Date.now()` + `Math.random`). | 128 bits via `crypto.getRandomValues`. |
+| 18 | **Faible** | Aucun en-tête de sécurité HTTP. | `vercel.json` : HSTS (preload), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, CSP `frame-ancestors 'none'`/`object-src 'none'`/`form-action`. |
+| 19 | **Faible** | Messages d'erreur serveur détaillés (stack, réponses brutes des fournisseurs) renvoyés au client. | Messages génériques côté client, détails uniquement dans les logs Vercel. |
 
-Toutes les tables ont RLS activé avec des politiques correctes :
+## 2. Défauts fonctionnels bloquants corrigés
 
-```sql
--- Exemple: profiles table
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+| Problème | Impact | Correctif |
+|----------|--------|-----------|
+| Toutes les images de pins étaient stockées en `data:image/jpeg;base64` (200–330 Ko par ligne) dans `pins.image_url`. Pinterest ne peut pas télécharger une `data:` URL → **aucune publication n'aurait fonctionné même avec l'accès Standard**. | Publication impossible ; base de données gonflée. | Bucket Storage public `pin-images` (5 Mo max, jpeg/png/webp, dossier par utilisateur protégé par RLS). Le client téléverse l'image composée et n'enregistre que l'URL publique (`src/lib/pinStorage.ts`). Les pins existants en `data:` sont envoyés à Pinterest en `image_base64` par le serveur. |
+| Publication concurrente : GitHub cron (5 min), Vercel cron et le publieur intégré de chaque utilisateur pouvaient traiter le même pin en parallèle → doublons sur Pinterest. | Doublons, quotas Pinterest brûlés. | Verrou atomique `claim_pins_for_publishing` (colonne `locked_at`, expiration 3 min) + libération en `finally`. |
+| Fonctions Vercel Hobby limitées à 10 s par défaut ; 50 pins séquentiels dépassaient le délai. | Runs tués à mi-chemin. | `maxDuration: 60` et budget temps interne (45 s) : les pins non traités sont libérés pour le run suivant. |
+| `SchedulerWorker` appelait toutes les minutes une jointure `pinterest_accounts!inner` inexistante (erreur 400 en boucle) et publiait depuis le navigateur avec les tokens Pinterest. | Erreurs continues, tokens exposés au navigateur. | Le worker appelle le moteur serveur (`publishPinsNow`) toutes les 5 min ; code client de publication supprimé. |
+| 4 plugins Vite dupliquaient la logique des API en dev (dérive de sécurité inévitable). | Comportement dev ≠ prod. | `vite.api-plugin.ts` exécute les vrais handlers `api/**.ts` en dev. |
+| `/api/pinterest/credentials` appelé par le client alors que la fonction avait été supprimée. | Code mort / erreurs 404. | Supprimé. |
+| Compteur `pinterest_accounts_connected` écrit par le client. | Incohérences. | Trigger sur `pinterest_accounts`. |
+| Index manquants pour le cron (`status, scheduled_at`) et les quotas (`user_id, created_at`). | Requêtes de plus en plus lentes avec le volume. | Index ajoutés. |
 
-CREATE POLICY "Users can view own profile"
-  ON profiles FOR SELECT
-  USING (auth.uid() = id);
+## 3. Architecture de sécurité (état actuel)
 
-CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE
-  USING (auth.uid() = id);
+```
+Navigateur ──JWT Supabase──▶ /api/*  (auth obligatoire sauf /api/config, GET /api/ai/image?proxy, /api/email/notify, /api/stripe/webhook)
+                              │
+                              ├─ quotas par plan (consume_quota, RLS) + rate-limit IP/utilisateur
+                              ├─ Stripe : identité = JWT ; plan écrit par service role uniquement
+                              └─ Pinterest : secret d'app côté serveur ; redirect_uri contrôlé
+
+GitHub Actions (*/5) ──Bearer CRON_SECRET──▶ /api/cron/publish-scheduled-pins ──service role──▶ tous les pins dus
+Vercel Cron (1/jour, Hobby) ────────────────▶ idem (Vercel envoie automatiquement CRON_SECRET)
+Stripe ──Stripe-Signature──▶ /api/stripe/webhook ──service role──▶ profiles.plan / subscriptions
+
+Postgres : RLS sur toutes les tables + privilèges par colonne + triggers SECURITY DEFINER (quota, compteurs, verrou)
+Storage  : bucket pin-images (lecture publique, écriture dans <user_id>/ uniquement)
 ```
 
-✅ **Tables protégées** :
-- `profiles` - ✅ Utilisateurs ne voient que leur profil
-- `pins` - ✅ Utilisateurs ne voient que leurs pins
-- `pinterest_accounts` - ✅ Utilisateurs ne voient que leurs comptes
-- `subscriptions` - ✅ Utilisateurs ne voient que leur abonnement
-- `pin_analytics` - ✅ Utilisateurs ne voient que leurs analytics
+## 4. Actions restantes (accès propriétaire requis)
 
-### 2. Client-Side Security ✅
-**Statut**: BON
+Les jetons Vercel et GitHub fournis n'ont plus les droits nécessaires ; ces étapes sont à faire depuis les tableaux de bord :
 
-- `useAuth` hook gère correctement les sessions
-- `usePins` hook vérifie `user.id` avant les requêtes
-- `Settings.tsx` utilise `user.id` pour les updates
-- Composants protégés nécessitent authentification
+1. **Régénérer `CRON_SECRET`** (l'ancien est public) : `openssl rand -base64 32`, puis
+   - Vercel → Project → Settings → Environment Variables → `CRON_SECRET` (Production) → Redeploy.
+   - GitHub → repo → Settings → Secrets and variables → Actions → `CRON_SECRET` (même valeur).
+   Sans le secret GitHub, le workflow échoue volontairement (message explicite) ; le cron Vercel quotidien et le publieur intégré continuent de fonctionner.
+2. **Webhook Stripe** : Dashboard Stripe → Developers → Webhooks → endpoint `https://www.pingenx.io/api/stripe/webhook`, événements `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed` → copier le `whsec_…` dans Vercel `STRIPE_WEBHOOK_SECRET`.
+3. **`ADMIN_EMAIL`** dans Vercel si les notifications d'inscription doivent continuer (la valeur par défaut codée en dur a été retirée).
+4. **Supprimer les variables `VITE_*` secrètes** de Vercel si elles existent (`VITE_GROK_API_KEY`, `VITE_OPENROUTER_API_KEY`, `VITE_PINTEREST_APP_SECRET`, `VITE_STRIPE_SECRET_KEY`) et n'utiliser que `GROK_API_KEY`/`XAI_API_KEY`, `OPENROUTER_API_KEY`, `PINTEREST_APP_SECRET`, `STRIPE_SECRET_KEY`.
+5. **Révoquer** le jeton Supabase `sbp_…` et le jeton Vercel communiqués pendant l'intervention.
+6. **Protection contre les mots de passe compromis (HIBP)** : disponible uniquement sur le plan Supabase Pro.
+7. **Accès Standard Pinterest** (app 1609578) : toujours le seul blocage pour voir les pins apparaître sur Pinterest.
 
----
+## 5. Ce qui est volontairement public
 
-## ❌ VULNÉRABILITÉS CRITIQUES
-
-### 1. 🚨 API AI CHAT Non Protégée
-**Fichier**: `api/ai/chat.ts`  
-**Sévérité**: CRITIQUE 🔴
-
-```typescript
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: { message: 'Method not allowed' } });
-    return;
-  }
-
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  // ❌ AUCUNE VÉRIFICATION D'AUTHENTIFICATION !
-  
-  // N'importe qui peut appeler cet endpoint
-  const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    // ...
-  });
-}
-```
-
-**Risques** :
-- ❌ N'importe qui peut consommer vos crédits OpenRouter
-- ❌ Pas de limite de requêtes
-- ❌ Coût illimité pour vous
-
-**Impact financier** : Potentiellement ÉLEVÉ
-
----
-
-### 2. 🚨 API AI IMAGE Non Protégée
-**Fichier**: `api/ai/image.ts`  
-**Sévérité**: CRITIQUE 🔴
-
-```typescript
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    // ...
-  }
-
-  const apiKey = process.env.IDEOGRAM_API_KEY;
-  // ❌ AUCUNE VÉRIFICATION D'AUTHENTIFICATION !
-  
-  // N'importe qui peut générer des images
-  const v3Res = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
-    // ...
-  });
-}
-```
-
-**Risques** :
-- ❌ N'importe qui peut consommer vos crédits Ideogram
-- ❌ Génération d'images illimitée
-- ❌ Coût illimité pour vous
-
-**Impact financier** : Potentiellement TRÈS ÉLEVÉ
-
----
-
-### 3. ⚠️ Validation Partielle dans Updates/Deletes
-**Fichiers**: `src/hooks/usePins.tsx`, `src/lib/supabase.ts`  
-**Sévérité**: MOYENNE 🟡
-
-```typescript
-// usePins.tsx - updatePin
-const updatePin = useCallback(async (pinId: string, updates: Partial<Pin>) => {
-  const { data, error: supabaseError } = await supabase
-    .from('pins')
-    .update(updates)
-    .eq('id', pinId)  // ⚠️ Seul pinId est vérifié
-    // Manque: .eq('user_id', user.id) pour defense-in-depth
-    .select()
-    .single();
-}, []);
-```
-
-**Risques** :
-- ⚠️ Dépend uniquement de RLS (defense-in-depth manquante)
-- ⚠️ Si RLS est désactivé par erreur, vulnérabilité
-
-**Impact** : Faible (car RLS est actif) mais pas idéal
-
----
-
-## 🔧 CORRECTIONS REQUISES
-
-### PRIORITÉ 1 (URGENT) 🚨
-
-#### 1. Protéger `/api/ai/chat.ts`
-
-```typescript
-import { createClient } from '@supabase/supabase-js';
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: { message: 'Method not allowed' } });
-    return;
-  }
-
-  // ✅ AJOUTER: Vérification d'authentification
-  const authHeader = req.headers?.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    res.status(401).json({ error: { message: 'Non authentifié' } });
-    return;
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!
-  );
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  
-  if (error || !user) {
-    res.status(401).json({ error: { message: 'Token invalide' } });
-    return;
-  }
-
-  // ✅ AJOUTER: Vérifier les limites du plan
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('plan, pins_created_this_month')
-    .eq('id', user.id)
-    .single();
-
-  // Limiter les requêtes selon le plan
-  // ...
-
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  // ... reste du code
-}
-```
-
-#### 2. Protéger `/api/ai/image.ts`
-
-Appliquer la même protection d'authentification.
-
----
-
-### PRIORITÉ 2 (RECOMMANDÉ) ⚠️
-
-#### 3. Ajouter defense-in-depth aux updates/deletes
-
-```typescript
-// usePins.tsx
-const updatePin = useCallback(async (pinId: string, updates: Partial<Pin>) => {
-  if (!user) return null;
-  
-  const { data, error } = await supabase
-    .from('pins')
-    .update(updates)
-    .eq('id', pinId)
-    .eq('user_id', user.id)  // ✅ AJOUTER cette ligne
-    .select()
-    .single();
-    
-  // ...
-}, [user]);
-
-const deletePin = useCallback(async (pinId: string) => {
-  if (!user) return;
-  
-  const { error } = await supabase
-    .from('pins')
-    .delete()
-    .eq('id', pinId)
-    .eq('user_id', user.id)  // ✅ AJOUTER cette ligne
-    
-  // ...
-}, [user]);
-```
-
----
-
-## 📊 RÉSUMÉ
-
-| Élément | Statut | Priorité |
-|---------|--------|----------|
-| RLS activé sur toutes les tables | ✅ EXCELLENT | - |
-| Politiques RLS correctes | ✅ EXCELLENT | - |
-| Client-side authentication | ✅ BON | - |
-| API AI Chat | ❌ VULNÉRABLE | 🚨 URGENT |
-| API AI Image | ❌ VULNÉRABLE | 🚨 URGENT |
-| Defense-in-depth | ⚠️ PARTIEL | ⚠️ Recommandé |
-
----
-
-## ✅ CHECKLIST DE CONFORMITÉ
-
-### Bonnes Pratiques Supabase
-
-- [x] RLS activé sur toutes les tables
-- [x] Politiques utilisant `auth.uid()`
-- [x] Index sur `user_id` pour performance
-- [x] Trigger pour création auto de profil
-- [x] Client-side utilise session Supabase
-- [ ] **API routes protégées par auth** ⚠️
-- [x] Queries filtrent par `user_id`
-- [x] Updates vérifient ownership (via RLS)
-
-### Sécurité Générale
-
-- [x] Utilisateurs voient leurs propres données uniquement ✅
-- [x] Utilisateurs modifient leur propre profil uniquement ✅
-- [x] Protection contre accès non autorisés (RLS) ✅
-- [ ] **API endpoints publics protégés** ❌
-
----
-
-## 🎯 PLAN D'ACTION
-
-1. **IMMÉDIAT** : Protéger `/api/ai/chat.ts` et `/api/ai/image.ts`
-2. **CETTE SEMAINE** : Ajouter defense-in-depth aux updates/deletes
-3. **AUDIT** : Vérifier tous les autres endpoints API
-4. **MONITORING** : Ajouter logging des accès API
-
----
-
-## 📝 NOTES
-
-- **RLS est votre première ligne de défense** : ✅ Excellent
-- **API routes sont exposées** : ❌ Problématique
-- **Correction estimée** : 2-3 heures de développement
-
-**Recommandation** : Corriger les vulnérabilités API AVANT de lancer en production.
+- `/api/config` : uniquement des booléens « intégration activée » et des identifiants publics (App ID Pinterest, clé publishable Stripe).
+- `GET /api/ai/image?proxy=` : nécessaire au canvas (CORS) ; durci contre le SSRF et limité aux images.
+- Bucket `pin-images` en lecture : Pinterest doit pouvoir télécharger les images ; les chemins contiennent un UUID aléatoire et l'écriture est restreinte au dossier de l'utilisateur.

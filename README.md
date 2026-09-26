@@ -101,9 +101,9 @@ OPENROUTER_API_KEY=sk-or-v1-your-key
 # Grok Image (xAI - images de Pins)
 GROK_API_KEY=your-grok-key
 
-# Pinterest API
+# Pinterest API (le secret reste côté serveur, jamais en VITE_)
 VITE_PINTEREST_APP_ID=your-app-id
-VITE_PINTEREST_APP_SECRET=your-app-secret
+PINTEREST_APP_SECRET=your-app-secret
 
 # Stripe (pour les paiements)
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your-key
