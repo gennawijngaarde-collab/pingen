@@ -162,6 +162,193 @@ export function unixToIso(value: unknown): string | null {
   return typeof value === 'number' && Number.isFinite(value) ? new Date(value * 1000).toISOString() : null;
 }
 
+export function stripeMode(): 'live' | 'test' | 'none' {
+  const key = stripeSecretKey();
+  if (!key) return 'none';
+  return key.startsWith('sk_live_') || key.startsWith('rk_live_') ? 'live' : 'test';
+}
+
+type StripeObject = Record<string, unknown>;
+
+export function planFromSubscription(sub: StripeObject): PaidPlan | null {
+  const metadata = (sub.metadata || {}) as StripeObject;
+  if (isPaidPlan(metadata.plan)) return metadata.plan;
+  const items = (sub.items as { data?: Array<{ price?: { id?: string; unit_amount?: number } }> } | undefined)?.data || [];
+  const price = items[0]?.price;
+  const priceId = price?.id || '';
+  if (priceId && priceId === (process.env.STRIPE_PRICE_BUSINESS || '').trim()) return 'business';
+  if (priceId && priceId === (process.env.STRIPE_PRICE_PRO || '').trim()) return 'pro';
+  if (price?.unit_amount === PLAN_AMOUNTS.business) return 'business';
+  if (price?.unit_amount === PLAN_AMOUNTS.pro) return 'pro';
+  return null;
+}
+
+async function resolveUserId(sub: StripeObject): Promise<string | null> {
+  const metadata = (sub.metadata || {}) as StripeObject;
+  if (typeof metadata.user_id === 'string' && metadata.user_id) return metadata.user_id;
+  const customerId = idOf(sub.customer);
+  return customerId ? findUserIdByCustomer(customerId) : null;
+}
+
+/** Writes the local billing state for a Stripe subscription object. */
+export async function syncSubscription(sub: StripeObject, forceCanceled = false): Promise<boolean> {
+  const userId = await resolveUserId(sub);
+  if (!userId) {
+    console.warn('[stripe] subscription without resolvable user', idOf(sub.id));
+    return false;
+  }
+  await applySubscriptionState({
+    userId,
+    plan: planFromSubscription(sub) || 'pro',
+    status: forceCanceled ? 'canceled' : stripeStatusToLocal(sub.status),
+    customerId: idOf(sub.customer),
+    subscriptionId: idOf(sub.id),
+    periodStart: unixToIso(sub.current_period_start),
+    periodEnd: unixToIso(sub.current_period_end),
+  });
+  return true;
+}
+
+/**
+ * Re-reads a subscription from Stripe (the authoritative state) and syncs it.
+ * Optional hints (user id / plan) come from the Checkout session metadata when
+ * the subscription itself has none.
+ */
+export async function syncSubscriptionById(
+  subscriptionId: string,
+  hints: { userId?: string | null; plan?: string | null } = {}
+): Promise<boolean> {
+  const result = await stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
+  if (result.status === 404) {
+    const userId = hints.userId || null;
+    if (!userId) return false;
+    const existing = await findSubscriptionForUser(userId);
+    const previousPlan = existing?.plan;
+    await applySubscriptionState({
+      userId,
+      plan: isPaidPlan(previousPlan) ? previousPlan : 'starter',
+      status: 'canceled',
+      customerId: existing?.customerId ?? null,
+      subscriptionId: null,
+    });
+    return true;
+  }
+  if (!result.ok) throw new Error(`Stripe subscription fetch failed (${result.status}): ${stripeErrorMessage(result.data)}`);
+
+  const metadata = { ...((result.data.metadata as StripeObject) || {}) };
+  if (hints.userId && !metadata.user_id) metadata.user_id = hints.userId;
+  if (isPaidPlan(hints.plan) && !metadata.plan) metadata.plan = hints.plan;
+  return syncSubscription({ ...result.data, metadata });
+}
+
+export const STRIPE_WEBHOOK_EVENTS = [
+  'checkout.session.completed',
+  'customer.subscription.created',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+  'invoice.paid',
+  'invoice.payment_failed',
+] as const;
+
+export interface WebhookEnsureResult {
+  mode: 'live' | 'test' | 'none';
+  url: string;
+  action: 'exists' | 'created' | 'skipped' | 'error';
+  endpointId?: string;
+  error?: string;
+}
+
+let webhookCheck: { url: string; mode: string; at: number; endpointId: string } | null = null;
+const WEBHOOK_CHECK_TTL_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Makes sure a webhook endpoint pointing at `url` exists in the Stripe account
+ * for the configured key (test or live). Idempotent; cached per process.
+ * The signing secret is not needed: the handler re-fetches every event from Stripe.
+ */
+export async function ensureStripeWebhook(url: string): Promise<WebhookEnsureResult> {
+  const mode = stripeMode();
+  if (mode === 'none') return { mode, url, action: 'skipped', error: 'STRIPE_SECRET_KEY not configured' };
+  if (webhookCheck && webhookCheck.url === url && webhookCheck.mode === mode && Date.now() - webhookCheck.at < WEBHOOK_CHECK_TTL_MS) {
+    return { mode, url, action: 'exists', endpointId: webhookCheck.endpointId };
+  }
+
+  try {
+    let startingAfter = '';
+    for (let page = 0; page < 5; page++) {
+      const query = `/webhook_endpoints?limit=100${startingAfter ? `&starting_after=${encodeURIComponent(startingAfter)}` : ''}`;
+      const list = await stripeRequest(query);
+      if (!list.ok) return { mode, url, action: 'error', error: stripeErrorMessage(list.data) || `HTTP ${list.status}` };
+      const data = (list.data.data as Array<{ id: string; url: string; status: string }> | undefined) || [];
+      const existing = data.find((ep) => ep.url === url && ep.status === 'enabled');
+      if (existing) {
+        webhookCheck = { url, mode, at: Date.now(), endpointId: existing.id };
+        return { mode, url, action: 'exists', endpointId: existing.id };
+      }
+      if (!list.data.has_more || data.length === 0) break;
+      startingAfter = data[data.length - 1].id;
+    }
+
+    const params = new URLSearchParams({ url, description: 'GenX billing sync (auto-provisioned)' });
+    STRIPE_WEBHOOK_EVENTS.forEach((event, i) => params.set(`enabled_events[${i}]`, event));
+    const created = await stripeRequest('/webhook_endpoints', params);
+    if (!created.ok) return { mode, url, action: 'error', error: stripeErrorMessage(created.data) || `HTTP ${created.status}` };
+    const endpointId = String(created.data.id || '');
+    webhookCheck = { url, mode, at: Date.now(), endpointId };
+    console.log(`[stripe] webhook endpoint created (${mode}) ${endpointId} → ${url}`);
+    return { mode, url, action: 'created', endpointId };
+  } catch (error) {
+    return { mode, url, action: 'error', error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+export interface ReconcileResult {
+  checked: number;
+  updated: number;
+  errors: number;
+}
+
+/**
+ * Safety net for missed webhooks: re-syncs subscriptions not refreshed for a
+ * day, a few at a time. `applySubscriptionState` bumps `updated_at`, so each
+ * row is naturally revisited about once per day without any extra state.
+ */
+export async function reconcileSubscriptions(limit: number, deadlineMs: number): Promise<ReconcileResult> {
+  const result: ReconcileResult = { checked: 0, updated: 0, errors: 0 };
+  if (!stripeConfigured()) return result;
+  const client = createServiceClient();
+  if (!client) return result;
+
+  const staleBefore = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await client
+    .from('subscriptions')
+    .select('user_id, stripe_subscription_id, plan')
+    .not('stripe_subscription_id', 'is', null)
+    .lt('updated_at', staleBefore)
+    .order('updated_at', { ascending: true })
+    .limit(limit);
+  if (error || !data) return result;
+
+  for (const row of data as Array<{ user_id: string; stripe_subscription_id: string; plan: string | null }>) {
+    if (Date.now() > deadlineMs) break;
+    result.checked++;
+    try {
+      if (await syncSubscriptionById(row.stripe_subscription_id, { userId: row.user_id, plan: row.plan })) result.updated++;
+    } catch (err) {
+      result.errors++;
+      console.error('[stripe] reconcile failed for', row.stripe_subscription_id, err);
+    }
+  }
+  return result;
+}
+
+/** Fetches an event from Stripe; the authoritative copy of what a webhook delivered. */
+export async function fetchStripeEvent(eventId: string): Promise<StripeObject | null> {
+  if (!/^evt_[A-Za-z0-9]+$/.test(eventId)) return null;
+  const result = await stripeRequest(`/events/${encodeURIComponent(eventId)}`);
+  return result.ok ? result.data : null;
+}
+
 /**
  * Verifies a `Stripe-Signature` header (v1 scheme) against the raw payload.
  * Implemented locally to avoid pulling the Stripe SDK into the functions bundle.

@@ -10,6 +10,12 @@ concurrency:
   group: auto-publish
   cancel-in-progress: false
 
+permissions:
+  # Lets the job request a GitHub OIDC token; the API verifies it is signed by
+  # GitHub for this repository on `main`, so no shared secret is needed.
+  id-token: write
+  contents: read
+
 jobs:
   publish-pins:
     runs-on: ubuntu-latest
@@ -17,21 +23,32 @@ jobs:
     steps:
       - name: Trigger pin publication
         env:
-          # Repository secret (Settings → Secrets and variables → Actions).
-          # Must equal the CRON_SECRET environment variable configured in Vercel.
+          # Optional override: when a CRON_SECRET repository secret exists it is
+          # used as-is (must match the Vercel CRON_SECRET). Otherwise OIDC.
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           ENDPOINT: https://www.pingenx.io/api/cron/publish-scheduled-pins
+          OIDC_AUDIENCE: pingenx-cron
         run: |
           set -euo pipefail
-          if [ -z "${CRON_SECRET}" ]; then
-            echo "::error::CRON_SECRET secret is not set on this repository. Add it in Settings → Secrets → Actions (same value as in Vercel)."
-            exit 1
+
+          if [ -n "${CRON_SECRET}" ]; then
+            token="${CRON_SECRET}"
+            echo "Auth: repository secret"
+          else
+            token=$(curl -sS --max-time 20 \
+              -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | jq -r '.value // empty')
+            if [ -z "${token}" ]; then
+              echo "::error::Could not obtain a GitHub OIDC token (is 'permissions: id-token: write' set?)."
+              exit 1
+            fi
+            echo "Auth: GitHub OIDC"
           fi
 
           response=$(curl -sS -w "\n%{http_code}" \
             --max-time 90 \
             -X POST \
-            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Authorization: Bearer ${token}" \
             "${ENDPOINT}")
 
           http_code=$(echo "$response" | tail -n1)

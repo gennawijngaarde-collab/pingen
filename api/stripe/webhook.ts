@@ -1,12 +1,12 @@
-import { header, type ApiRequest, type ApiResponse } from '../../server/http.js';
+import { clientIp, header, rateLimit, type ApiRequest, type ApiResponse } from '../../server/http.js';
 import {
-  applySubscriptionState,
-  findUserIdByCustomer,
+  fetchStripeEvent,
   idOf,
   isPaidPlan,
+  stripeConfigured,
   stripeRequest,
-  stripeStatusToLocal,
-  unixToIso,
+  syncSubscription,
+  syncSubscriptionById,
   verifyStripeSignature,
 } from '../../server/stripe.js';
 
@@ -38,60 +38,28 @@ interface StripeEvent {
   data?: { object?: Record<string, unknown> };
 }
 
-function planFromSubscription(sub: Record<string, unknown>): 'pro' | 'business' | null {
-  const metadata = (sub.metadata || {}) as Record<string, unknown>;
-  if (isPaidPlan(metadata.plan)) return metadata.plan;
-  const items = (sub.items as { data?: Array<{ price?: { id?: string } }> } | undefined)?.data || [];
-  const priceId = items[0]?.price?.id || '';
-  if (priceId && priceId === (process.env.STRIPE_PRICE_BUSINESS || '').trim()) return 'business';
-  if (priceId && priceId === (process.env.STRIPE_PRICE_PRO || '').trim()) return 'pro';
-  return null;
-}
-
-async function resolveUserId(sub: Record<string, unknown>): Promise<string | null> {
-  const metadata = (sub.metadata || {}) as Record<string, unknown>;
-  if (typeof metadata.user_id === 'string' && metadata.user_id) return metadata.user_id;
-  const customerId = idOf(sub.customer);
-  return customerId ? findUserIdByCustomer(customerId) : null;
-}
-
-async function syncSubscription(sub: Record<string, unknown>, forceCanceled = false): Promise<void> {
-  const userId = await resolveUserId(sub);
-  if (!userId) {
-    console.warn('[stripe/webhook] subscription without resolvable user', idOf(sub.id));
-    return;
-  }
-  const plan = planFromSubscription(sub) || 'pro';
-  const status = forceCanceled ? 'canceled' : stripeStatusToLocal(sub.status);
-  await applySubscriptionState({
-    userId,
-    plan,
-    status,
-    customerId: idOf(sub.customer),
-    subscriptionId: idOf(sub.id),
-    periodStart: unixToIso(sub.current_period_start),
-    periodEnd: unixToIso(sub.current_period_end),
-  });
-}
-
 /**
- * Stripe webhook: the source of truth for plan changes after checkout
- * (renewals, payment failures, cancellations, portal changes).
- * Configure the endpoint in Stripe → Developers → Webhooks with events:
- *   checkout.session.completed, customer.subscription.created/updated/deleted,
- *   invoice.payment_failed, invoice.paid
- * and set STRIPE_WEBHOOK_SECRET in Vercel.
+ * Stripe webhook: keeps plans in sync after checkout (renewals, payment
+ * failures, cancellations, portal changes).
+ *
+ * The endpoint is provisioned automatically by the daily maintenance task
+ * (see server/stripe.ts#ensureStripeWebhook). Trust model:
+ *  - when STRIPE_WEBHOOK_SECRET is set, the signature is verified first;
+ *  - in every case the delivered payload is only used for its event id: the
+ *    event is re-fetched from the Stripe API, and subscription state is read
+ *    live, so a forged or replayed body cannot change any plan.
  */
 export default async function handler(req: RawRequest, res: ApiResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
-
-  const secret = (process.env.STRIPE_WEBHOOK_SECRET || '').trim();
-  if (!secret) {
-    console.error('[stripe/webhook] STRIPE_WEBHOOK_SECRET is not configured');
-    res.status(503).json({ error: 'Webhook not configured' });
+  if (!stripeConfigured()) {
+    res.status(503).json({ error: 'Stripe not configured' });
+    return;
+  }
+  if (!rateLimit(`stripe-webhook:${clientIp(req)}`, 240, 60_000)) {
+    res.status(429).json({ error: 'Too many requests' });
     return;
   }
 
@@ -103,16 +71,27 @@ export default async function handler(req: RawRequest, res: ApiResponse) {
     return;
   }
 
-  if (!verifyStripeSignature(rawBody, header(req, 'stripe-signature'), secret)) {
+  const secret = (process.env.STRIPE_WEBHOOK_SECRET || '').trim();
+  if (secret && !verifyStripeSignature(rawBody, header(req, 'stripe-signature'), secret)) {
     res.status(400).json({ error: 'Invalid signature' });
     return;
   }
 
-  let event: StripeEvent;
+  let delivered: StripeEvent;
   try {
-    event = JSON.parse(rawBody) as StripeEvent;
+    delivered = JSON.parse(rawBody) as StripeEvent;
   } catch {
     res.status(400).json({ error: 'Invalid JSON' });
+    return;
+  }
+  if (typeof delivered.id !== 'string') {
+    res.status(400).json({ error: 'Missing event id' });
+    return;
+  }
+
+  const event = (await fetchStripeEvent(delivered.id)) as StripeEvent | null;
+  if (!event) {
+    res.status(400).json({ error: 'Unknown event' });
     return;
   }
 
@@ -121,33 +100,34 @@ export default async function handler(req: RawRequest, res: ApiResponse) {
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
-        const subscriptionId = idOf(object.subscription);
+        const sessionId = idOf(object.id);
+        if (!sessionId) break;
+        const session = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}`);
+        if (!session.ok) throw new Error(`session fetch failed (${session.status})`);
+        const metadata = (session.data.metadata || {}) as Record<string, unknown>;
+        const subscriptionId = idOf(session.data.subscription);
         if (subscriptionId) {
-          const sub = await stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
-          if (sub.ok) {
-            const metadata = (object.metadata || {}) as Record<string, unknown>;
-            const subMeta = { ...((sub.data.metadata as Record<string, unknown>) || {}) };
-            if (typeof metadata.user_id === 'string' && !subMeta.user_id) subMeta.user_id = metadata.user_id;
-            if (isPaidPlan(metadata.plan) && !subMeta.plan) subMeta.plan = metadata.plan;
-            await syncSubscription({ ...sub.data, metadata: subMeta });
-          }
+          await syncSubscriptionById(subscriptionId, {
+            userId: typeof metadata.user_id === 'string' ? metadata.user_id : null,
+            plan: isPaidPlan(metadata.plan) ? metadata.plan : null,
+          });
         }
         break;
       }
       case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-        await syncSubscription(object);
+      case 'customer.subscription.updated': {
+        const subscriptionId = idOf(object.id);
+        if (subscriptionId) await syncSubscriptionById(subscriptionId);
         break;
+      }
       case 'customer.subscription.deleted':
+        // The live object may already be gone; the fetched event is authoritative here.
         await syncSubscription(object, true);
         break;
       case 'invoice.paid':
       case 'invoice.payment_failed': {
         const subscriptionId = idOf(object.subscription);
-        if (subscriptionId) {
-          const sub = await stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
-          if (sub.ok) await syncSubscription(sub.data);
-        }
+        if (subscriptionId) await syncSubscriptionById(subscriptionId);
         break;
       }
       default:

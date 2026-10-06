@@ -15,6 +15,8 @@ import {
   type ApiRequest,
   type ApiResponse,
 } from '../../server/http.js';
+import { looksLikeJwt, verifyGitHubOidcToken } from '../../server/githubOidc.js';
+import { runMaintenance } from '../../server/maintenance.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -36,10 +38,13 @@ function parseOptions(req: ApiRequest): PublishOptions {
 /**
  * Publishes every scheduled pin that is due.
  *
- * Two callers are accepted:
- *  - Automation (GitHub Actions / Vercel Cron): `Authorization: Bearer <CRON_SECRET>`.
- *    Uses the service-role key to cover all users. CRON_SECRET must be set in
- *    Vercel; there is deliberately no fallback value in the code.
+ * Two kinds of callers are accepted:
+ *  - Automation, using the service-role key to cover all users:
+ *      • Vercel Cron: `Authorization: Bearer <CRON_SECRET>` (no fallback value in code);
+ *      • GitHub Actions: `Authorization: Bearer <GitHub OIDC id token>` — signed by
+ *        GitHub for this repository's `main` branch, no shared secret required.
+ *    Automation runs also perform housekeeping (Stripe webhook provisioning,
+ *    subscription reconciliation).
  *  - A signed-in user (in-app button): `Authorization: Bearer <Supabase JWT>`.
  *    Runs under RLS, so only that user's pins are published. Optional JSON body:
  *    `{ pinId }` / `{ pinIds: [] }` to publish specific pins immediately (even if
@@ -60,10 +65,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const cronSecret = (process.env.CRON_SECRET || '').trim();
-  const isCronCaller = cronSecret.length >= 16 && safeEqual(token, cronSecret);
+  let automation: string | null = cronSecret.length >= 16 && safeEqual(token, cronSecret) ? 'cron-secret' : null;
+  if (!automation && looksLikeJwt(token)) {
+    const github = await verifyGitHubOidcToken(token).catch(() => null);
+    if (github) automation = `github:${github.event}:${github.runId}`;
+  }
 
   try {
-    if (isCronCaller) {
+    if (automation) {
+      if (!rateLimit(`publish:automation:${clientIp(req)}`, 12, 60_000)) {
+        res.status(429).json({ error: 'Too many requests' });
+        return;
+      }
       const client = createServiceClient();
       if (!client) {
         res.status(503).json({
@@ -76,9 +89,22 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         });
         return;
       }
-      const result = await publishDuePins(client, { timeBudgetMs: 45_000 });
-      console.log('[cron] publish result:', JSON.stringify(result));
-      res.status(200).json({ success: true, mode: 'cron', ...result, timestamp: new Date().toISOString() });
+      const startedAt = Date.now();
+      const result = await publishDuePins(client, { timeBudgetMs: 40_000 });
+      console.log(`[cron ${automation}] publish result:`, JSON.stringify(result));
+      // Housekeeping (Stripe webhook provisioning, subscription reconciliation) in the remaining budget.
+      const maintenance = await runMaintenance(startedAt + 52_000).catch((error) => {
+        console.error('[cron] maintenance failed:', error);
+        return null;
+      });
+      res.status(200).json({
+        success: true,
+        mode: 'cron',
+        caller: automation.split(':')[0],
+        ...result,
+        maintenance,
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
 

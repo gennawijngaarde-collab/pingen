@@ -1,4 +1,5 @@
 import { createServiceClient } from '../../server/publishScheduledPins.js';
+import { resolveAdminEmail } from '../../server/maintenance.js';
 import {
   clientIp,
   isConfiguredKey,
@@ -37,8 +38,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const apiKey = (process.env.RESEND_API_KEY || '').trim();
   const from = (process.env.RESEND_FROM || 'GenX <contact@pingenx.io>').trim();
-  const adminEmail = (process.env.ADMIN_EMAIL || '').trim();
-  if (!isConfiguredKey(apiKey, 8) || !adminEmail) {
+  const adminEmail = isConfiguredKey(apiKey, 8) ? await resolveAdminEmail().catch(() => null) : null;
+  if (!adminEmail) {
     res.status(200).json({ ok: false, skipped: true });
     return;
   }
