@@ -1,4 +1,4 @@
-import { supabase, type Pin } from './supabase';
+import { supabase, isDemoMode, type Pin } from './supabase';
 import { generateBusinessPin } from './ai';
 import { persistPinImage } from './pinStorage';
 
@@ -39,50 +39,104 @@ export const DEFAULT_AUTOPILOT: AutopilotSettings = {
   totalGenerated: 0,
 };
 
+/**
+ * Persistence model: the account's settings live in Supabase Auth
+ * `user_metadata.autopilot` so every device/browser sees the same on/off state.
+ * localStorage is only a per-device cache (and the store in demo mode).
+ */
+const METADATA_KEY = 'autopilot';
+
 function storageKey(userId: string): string {
   return `pingen_autopilot_${userId}`;
 }
 
-export function getAutopilotSettings(userId: string): AutopilotSettings {
+function normalizeSettings(parsed: Partial<AutopilotSettings> | null | undefined): AutopilotSettings {
+  const source = parsed && typeof parsed === 'object' ? parsed : {};
+  const hours = Array.isArray(source.postingHours)
+    ? [...new Set(source.postingHours.map((h) => Number(h)))]
+        .filter((h) => Number.isInteger(h) && h >= 0 && h <= 23)
+        .sort((a, b) => a - b)
+        .slice(0, 8)
+    : [];
+  const str = (value: unknown, max = 500) => (typeof value === 'string' ? value.trim().slice(0, max) : '');
+  const num = (value: unknown, fallback: number) => (typeof value === 'number' && Number.isFinite(value) ? value : fallback);
+  return {
+    enabled: source.enabled === true,
+    business: str(source.business, 1000),
+    websiteUrl: str(source.websiteUrl),
+    productOrOffer: str(source.productOrOffer),
+    audience: str(source.audience),
+    niche: str(source.niche, 100),
+    tone: str(source.tone, 50) || DEFAULT_AUTOPILOT.tone,
+    postsPerDay: Math.min(5, Math.max(1, Math.round(num(source.postsPerDay, DEFAULT_AUTOPILOT.postsPerDay)))),
+    postingHours: hours.length > 0 ? hours : [...DEFAULT_POSTING_HOURS],
+    lookAheadDays: Math.min(14, Math.max(1, Math.round(num(source.lookAheadDays, DEFAULT_AUTOPILOT.lookAheadDays)))),
+    lastRunAt: typeof source.lastRunAt === 'string' ? source.lastRunAt : null,
+    lastGeneratedAt: typeof source.lastGeneratedAt === 'string' ? source.lastGeneratedAt : null,
+    totalGenerated: Math.max(0, Math.round(num(source.totalGenerated, 0))),
+  };
+}
+
+function readLocal(userId: string): AutopilotSettings | null {
   try {
     const raw = localStorage.getItem(storageKey(userId));
-    if (!raw) return { ...DEFAULT_AUTOPILOT };
-    const parsed = JSON.parse(raw) as Partial<AutopilotSettings>;
-    return {
-      ...DEFAULT_AUTOPILOT,
-      ...parsed,
-      postingHours:
-        Array.isArray(parsed.postingHours) && parsed.postingHours.length > 0
-          ? parsed.postingHours.map((h) => Number(h)).filter((h) => h >= 0 && h <= 23)
-          : [...DEFAULT_POSTING_HOURS],
-    };
+    return raw ? normalizeSettings(JSON.parse(raw) as Partial<AutopilotSettings>) : null;
   } catch {
-    return { ...DEFAULT_AUTOPILOT };
+    return null;
   }
 }
 
-export function saveAutopilotSettings(
+function writeLocal(userId: string, settings: AutopilotSettings): void {
+  try {
+    localStorage.setItem(storageKey(userId), JSON.stringify(settings));
+  } catch {
+    // Storage full or disabled: the server copy is the source of truth anyway.
+  }
+}
+
+async function writeRemote(settings: AutopilotSettings): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ data: { [METADATA_KEY]: settings } });
+  if (error) throw new Error(error.message || 'Unable to save autopilot settings');
+}
+
+/** Cached copy for synchronous UI (banner); prefer `loadAutopilotSettings`. */
+export function getAutopilotSettings(userId: string): AutopilotSettings {
+  return readLocal(userId) ?? { ...DEFAULT_AUTOPILOT };
+}
+
+/**
+ * Loads the account's settings from the server (falls back to the device cache
+ * offline). A pre-existing device-only configuration is promoted to the account
+ * the first time no server copy exists.
+ */
+export async function loadAutopilotSettings(userId: string): Promise<AutopilotSettings> {
+  const local = readLocal(userId);
+  if (isDemoMode) return local ?? { ...DEFAULT_AUTOPILOT };
+
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user || data.user.id !== userId) {
+    return local ?? { ...DEFAULT_AUTOPILOT };
+  }
+  const remote = (data.user.user_metadata as Record<string, unknown> | undefined)?.[METADATA_KEY];
+  if (remote && typeof remote === 'object') {
+    const settings = normalizeSettings(remote as Partial<AutopilotSettings>);
+    writeLocal(userId, settings);
+    return settings;
+  }
+  if (local) {
+    await writeRemote(local).catch(() => undefined);
+    return local;
+  }
+  return { ...DEFAULT_AUTOPILOT };
+}
+
+export async function saveAutopilotSettings(
   userId: string,
   settings: AutopilotSettings
-): AutopilotSettings {
-  const normalized: AutopilotSettings = {
-    ...settings,
-    business: settings.business.trim(),
-    websiteUrl: settings.websiteUrl.trim(),
-    productOrOffer: settings.productOrOffer.trim(),
-    audience: settings.audience.trim(),
-    niche: settings.niche.trim(),
-    postsPerDay: Math.min(5, Math.max(1, settings.postsPerDay || 1)),
-    lookAheadDays: Math.min(14, Math.max(1, settings.lookAheadDays || 7)),
-    postingHours: [...new Set(settings.postingHours)]
-      .filter((h) => h >= 0 && h <= 23)
-      .sort((a, b) => a - b)
-      .slice(0, 8),
-  };
-  if (normalized.postingHours.length === 0) {
-    normalized.postingHours = [...DEFAULT_POSTING_HOURS];
-  }
-  localStorage.setItem(storageKey(userId), JSON.stringify(normalized));
+): Promise<AutopilotSettings> {
+  const normalized = normalizeSettings(settings);
+  if (!isDemoMode) await writeRemote(normalized);
+  writeLocal(userId, normalized);
   return normalized;
 }
 
@@ -144,11 +198,13 @@ export interface AutopilotRunResult {
  */
 export async function processAutopilot(
   userId: string,
-  maxToGenerate = 1
+  maxToGenerate = 1,
+  options: { force?: boolean } = {}
 ): Promise<AutopilotRunResult> {
-  const settings = getAutopilotSettings(userId);
+  const settings = await loadAutopilotSettings(userId);
 
-  if (!settings.enabled) {
+  // `force` = explicit "generate now" click; it never switches the autopilot on.
+  if (!settings.enabled && !options.force) {
     return { skipped: true, reason: 'disabled', generated: 0, nextSlot: null };
   }
 
@@ -179,10 +235,8 @@ export async function processAutopilot(
   );
 
   if (missingSlots.length === 0) {
-    saveAutopilotSettings(userId, {
-      ...settings,
-      lastRunAt: new Date().toISOString(),
-    });
+    // Run timestamps are device-local; only generation stats go to the account.
+    writeLocal(userId, { ...settings, lastRunAt: new Date().toISOString() });
     return { skipped: true, reason: 'calendar_full', generated: 0, nextSlot: null };
   }
 
@@ -220,12 +274,14 @@ export async function processAutopilot(
     generated++;
   }
 
-  const updated = saveAutopilotSettings(userId, {
-    ...settings,
+  // Re-read before writing stats so a toggle made meanwhile on another device is not undone.
+  const latest = await loadAutopilotSettings(userId);
+  const updated = await saveAutopilotSettings(userId, {
+    ...latest,
     lastRunAt: new Date().toISOString(),
     lastGeneratedAt: new Date().toISOString(),
-    totalGenerated: settings.totalGenerated + generated,
-  });
+    totalGenerated: latest.totalGenerated + generated,
+  }).catch(() => ({ ...settings, totalGenerated: settings.totalGenerated + generated }));
 
   const remaining = getUpcomingAutopilotSlots(updated).filter((slot) => {
     // Approximate: after insert we don't re-fetch; next slot is first missing after filled

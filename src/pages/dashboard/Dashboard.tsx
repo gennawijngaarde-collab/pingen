@@ -10,7 +10,7 @@ import type { DashboardHomeDictionary } from '@/i18n/sections/dashboardHome';
 import { useAuth } from '@/hooks/useAuth';
 import { usePins } from '@/hooks/usePins';
 import { getUserAnalytics } from '@/lib/supabase';
-import { getAutopilotStatusSummary } from '@/lib/autopilot';
+import { getAutopilotStatusSummary, loadAutopilotSettings } from '@/lib/autopilot';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -63,7 +63,16 @@ function pctChange(current: number, previous: number): number {
 }
 
 function AutopilotBanner({ userId, d }: { userId: string; d: DashboardHomeDictionary }) {
-  const summary = getAutopilotStatusSummary(userId);
+  const [summary, setSummary] = useState(() => getAutopilotStatusSummary(userId));
+  useEffect(() => {
+    let cancelled = false;
+    void loadAutopilotSettings(userId).then(() => {
+      if (!cancelled) setSummary(getAutopilotStatusSummary(userId));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   return (
     <Card className={summary.enabled ? 'border-primary/30 bg-primary/5' : ''}>

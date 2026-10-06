@@ -16,6 +16,7 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000;
  */
 export function SchedulerWorker() {
   const { user } = useAuth();
+  const userId = user?.id;
   const { toast } = useToast();
   const { t } = useI18n();
   const tw = t.autopilot.worker;
@@ -23,7 +24,7 @@ export function SchedulerWorker() {
   const lastRunAt = useRef(0);
 
   const processPins = useCallback(async () => {
-    if (!user || isProcessing.current) return;
+    if (!userId || isProcessing.current) return;
     if (Date.now() - lastRunAt.current < 60_000) return;
 
     isProcessing.current = true;
@@ -52,10 +53,10 @@ export function SchedulerWorker() {
     } finally {
       isProcessing.current = false;
     }
-  }, [user, toast, tw]);
+  }, [userId, toast, tw]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     const boot = setTimeout(() => void processPins(), 8000);
     const interval = setInterval(() => void processPins(), CHECK_INTERVAL_MS);
@@ -70,7 +71,7 @@ export function SchedulerWorker() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user, processPins]);
+  }, [userId, processPins]);
 
   return null;
 }

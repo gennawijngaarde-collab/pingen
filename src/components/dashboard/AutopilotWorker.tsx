@@ -11,10 +11,12 @@ import { fmt } from '@/i18n/fmt';
  * Remplit automatiquement le calendrier de pins selon le business
  * et les horaires définis dans l'autopilote.
  *
- * En production, préférer un cron serveur (Vercel Cron, worker, etc.).
+ * L'état actif/inactif est lu depuis le compte (Supabase Auth user_metadata)
+ * à chaque exécution : désactiver l'autopilote sur un appareil l'arrête partout.
  */
 export function AutopilotWorker() {
   const { user } = useAuth();
+  const userId = user?.id;
   const { toast } = useToast();
   const { t } = useI18n();
   const tw = t.autopilot.worker;
@@ -22,11 +24,11 @@ export function AutopilotWorker() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const run = useCallback(async () => {
-    if (!user || isRunning.current) return;
+    if (!userId || isRunning.current) return;
     isRunning.current = true;
 
     try {
-      const result = await processAutopilot(user.id, 1);
+      const result = await processAutopilot(userId, 1);
       if (!result.skipped && result.generated > 0) {
         toast({
           title: tw.generatedTitle,
@@ -43,10 +45,10 @@ export function AutopilotWorker() {
     } finally {
       isRunning.current = false;
     }
-  }, [user, toast, tw]);
+  }, [userId, toast, tw]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     // Petit délai au chargement pour ne pas bloquer l'UI
     const boot = setTimeout(() => {
@@ -70,7 +72,7 @@ export function AutopilotWorker() {
       if (intervalRef.current) clearInterval(intervalRef.current);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [user, run]);
+  }, [userId, run]);
 
   return null;
 }

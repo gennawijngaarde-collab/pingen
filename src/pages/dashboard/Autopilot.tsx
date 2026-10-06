@@ -20,6 +20,7 @@ import {
   formatHourLabel,
   getAutopilotSettings,
   getUpcomingAutopilotSlots,
+  loadAutopilotSettings,
   processAutopilot,
   saveAutopilotSettings,
   validateAutopilotForEnable,
@@ -88,12 +89,22 @@ export function AutopilotPage() {
     setUpcoming(getUpcomingAutopilotSlots(s).slice(0, 8));
   }, []);
 
+  const userId = user?.id;
   useEffect(() => {
-    if (!user) return;
-    const loaded = getAutopilotSettings(user.id);
-    setSettings(loaded);
-    refreshUpcoming(loaded);
-  }, [user, refreshUpcoming]);
+    if (!userId) return;
+    let cancelled = false;
+    const cached = getAutopilotSettings(userId);
+    setSettings(cached);
+    refreshUpcoming(cached);
+    void loadAutopilotSettings(userId).then((loaded) => {
+      if (cancelled) return;
+      setSettings(loaded);
+      refreshUpcoming(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, refreshUpcoming]);
 
   const update = <K extends keyof AutopilotSettings>(key: K, value: AutopilotSettings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -131,7 +142,7 @@ export function AutopilotPage() {
 
     setIsSaving(true);
     try {
-      const saved = saveAutopilotSettings(user.id, next);
+      const saved = await saveAutopilotSettings(user.id, next);
       setSettings(saved);
       refreshUpcoming(saved);
       toast({
@@ -142,6 +153,12 @@ export function AutopilotPage() {
               hours: saved.postingHours.map(formatHourLabel).join(', '),
             })
           : ta.savedDesc,
+      });
+    } catch (err) {
+      toast({
+        title: ta.errorTitle,
+        description: err instanceof Error ? err.message : ta.generationFailed,
+        variant: 'destructive',
       });
     } finally {
       setIsSaving(false);
@@ -160,19 +177,20 @@ export function AutopilotPage() {
       return;
     }
 
-    // Force enabled for this run path by saving current config first
-    const saved = saveAutopilotSettings(user.id, { ...settings, enabled: true });
-    setSettings(saved);
-
     setIsGeneratingNow(true);
     try {
-      const result = await processAutopilot(user.id, 1);
+      // Persist the current form (keeping the on/off state as it is) and run once.
+      const saved = await saveAutopilotSettings(user.id, settings);
+      setSettings(saved);
+      const result = await processAutopilot(user.id, 1, { force: true });
       if (result.generated > 0) {
         toast({
           title: ta.generatedTitle,
           description: ta.generatedDesc,
         });
-        refreshUpcoming(getAutopilotSettings(user.id));
+        const latest = await loadAutopilotSettings(user.id);
+        setSettings(latest);
+        refreshUpcoming(latest);
         window.dispatchEvent(
           new CustomEvent('pingen:pins-changed', {
             detail: { source: 'autopilot-manual' },
