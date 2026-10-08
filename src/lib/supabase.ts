@@ -51,6 +51,8 @@ export type Pin = {
   alt_text: string | null;
   retry_count: number;
   error_message: string | null;
+  /** Origin of the pin; autopilot pins are refused by the DB when the autopilot is off. */
+  source?: 'manual' | 'autopilot' | 'autopilot_manual' | 'bulk';
   created_at: string;
   // Métriques de performance (renseignées après publication)
   impressions?: number;

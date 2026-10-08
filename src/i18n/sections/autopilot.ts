@@ -82,6 +82,14 @@ export interface AutopilotDictionary {
   errorTitle: string;
   generationFailed: string;
 
+  /** Shown after switching the autopilot off while generated pins are still scheduled. `{count}` is interpolated. */
+  pendingTitle: string;
+  pendingDesc: string;
+  pendingDelete: string;
+  pendingDeletedTitle: string;
+  /** `{count}` is interpolated. */
+  pendingDeletedDesc: string;
+
   bulk: {
     trigger: string;
     /** `{count}` is interpolated. */
@@ -214,6 +222,11 @@ export const autopilot: Record<AppLocale, AutopilotDictionary> = {
     nothingToGenerate: 'Rien à générer pour le moment.',
     errorTitle: 'Erreur autopilote',
     generationFailed: 'Génération impossible',
+    pendingTitle: "Pins de l'autopilote encore planifiés",
+    pendingDesc: "L'autopilote est désactivé, mais {count} pin(s) qu'il a créé(s) restent planifiés et seront publiés à l'heure prévue.",
+    pendingDelete: 'Supprimer ces pins',
+    pendingDeletedTitle: 'Pins supprimés',
+    pendingDeletedDesc: "{count} pin(s) de l'autopilote retiré(s) du calendrier.",
 
     bulk: {
       trigger: 'Planification en masse',
@@ -338,6 +351,11 @@ export const autopilot: Record<AppLocale, AutopilotDictionary> = {
     nothingToGenerate: 'Nothing to generate right now.',
     errorTitle: 'Autopilot error',
     generationFailed: 'Generation failed',
+    pendingTitle: 'Autopilot pins still scheduled',
+    pendingDesc: 'Autopilot is off, but {count} pin(s) it created are still scheduled and will be published at their planned time.',
+    pendingDelete: 'Delete these pins',
+    pendingDeletedTitle: 'Pins deleted',
+    pendingDeletedDesc: '{count} autopilot pin(s) removed from the calendar.',
 
     bulk: {
       trigger: 'Bulk scheduling',
@@ -463,6 +481,11 @@ export const autopilot: Record<AppLocale, AutopilotDictionary> = {
     nothingToGenerate: 'Nada que generar por ahora.',
     errorTitle: 'Error del autopiloto',
     generationFailed: 'No se pudo generar',
+    pendingTitle: 'Pines del autopiloto aún programados',
+    pendingDesc: 'El autopiloto está desactivado, pero {count} pin(es) que creó siguen programados y se publicarán a la hora prevista.',
+    pendingDelete: 'Eliminar estos pines',
+    pendingDeletedTitle: 'Pines eliminados',
+    pendingDeletedDesc: '{count} pin(es) del autopiloto eliminado(s) del calendario.',
 
     bulk: {
       trigger: 'Programación masiva',
@@ -588,6 +611,11 @@ export const autopilot: Record<AppLocale, AutopilotDictionary> = {
     nothingToGenerate: 'Derzeit nichts zu erstellen.',
     errorTitle: 'Autopilot-Fehler',
     generationFailed: 'Erstellung fehlgeschlagen',
+    pendingTitle: 'Autopilot-Pins noch geplant',
+    pendingDesc: 'Der Autopilot ist aus, aber {count} von ihm erstellte Pin(s) sind weiterhin geplant und werden zur vorgesehenen Zeit veröffentlicht.',
+    pendingDelete: 'Diese Pins löschen',
+    pendingDeletedTitle: 'Pins gelöscht',
+    pendingDeletedDesc: '{count} Autopilot-Pin(s) aus dem Kalender entfernt.',
 
     bulk: {
       trigger: 'Massenplanung',

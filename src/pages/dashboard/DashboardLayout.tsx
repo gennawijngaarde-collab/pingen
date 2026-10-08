@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { SchedulerWorker } from '@/components/dashboard/SchedulerWorker';
 import { AutopilotWorker } from '@/components/dashboard/AutopilotWorker';
+import { VersionWatcher } from '@/components/shared/VersionWatcher';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { useI18n } from '@/i18n/I18nProvider';
 import {
@@ -210,6 +211,7 @@ export function DashboardLayout() {
         </header>
 
         {/* Background Scheduler Worker */}
+        <VersionWatcher />
         <SchedulerWorker />
         <AutopilotWorker />
 

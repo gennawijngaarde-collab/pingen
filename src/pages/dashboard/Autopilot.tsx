@@ -13,12 +13,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import {
   DEFAULT_AUTOPILOT,
   DEFAULT_POSTING_HOURS,
   formatHourLabel,
   getAutopilotSettings,
+  countPendingAutopilotPins,
+  deletePendingAutopilotPins,
   getUpcomingAutopilotSlots,
   loadAutopilotSettings,
   processAutopilot,
@@ -84,6 +87,16 @@ export function AutopilotPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingNow, setIsGeneratingNow] = useState(false);
   const [upcoming, setUpcoming] = useState<Date[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isDeletingPending, setIsDeletingPending] = useState(false);
+
+  const refreshPending = useCallback(async (uid: string, enabled: boolean) => {
+    if (enabled) {
+      setPendingCount(0);
+      return;
+    }
+    setPendingCount(await countPendingAutopilotPins(uid).catch(() => 0));
+  }, []);
 
   const refreshUpcoming = useCallback((s: AutopilotSettings) => {
     setUpcoming(getUpcomingAutopilotSlots(s).slice(0, 8));
@@ -100,11 +113,31 @@ export function AutopilotPage() {
       if (cancelled) return;
       setSettings(loaded);
       refreshUpcoming(loaded);
+      void refreshPending(userId, loaded.enabled);
     });
     return () => {
       cancelled = true;
     };
-  }, [userId, refreshUpcoming]);
+  }, [userId, refreshUpcoming, refreshPending]);
+
+  const handleDeletePending = async () => {
+    if (!user) return;
+    setIsDeletingPending(true);
+    try {
+      const removed = await deletePendingAutopilotPins(user.id);
+      setPendingCount(0);
+      toast({ title: ta.pendingDeletedTitle, description: fmt(ta.pendingDeletedDesc, { count: removed }) });
+      window.dispatchEvent(new CustomEvent('pingen:pins-changed', { detail: { source: 'autopilot-cleanup' } }));
+    } catch (err) {
+      toast({
+        title: ta.errorTitle,
+        description: err instanceof Error ? err.message : ta.generationFailed,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingPending(false);
+    }
+  };
 
   const update = <K extends keyof AutopilotSettings>(key: K, value: AutopilotSettings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -145,6 +178,7 @@ export function AutopilotPage() {
       const saved = await saveAutopilotSettings(user.id, next);
       setSettings(saved);
       refreshUpcoming(saved);
+      void refreshPending(user.id, saved.enabled);
       toast({
         title: saved.enabled ? ta.enabledTitle : ta.savedTitle,
         description: saved.enabled
@@ -239,6 +273,18 @@ export function AutopilotPage() {
           />
         </div>
       </div>
+
+      {!settings.enabled && pendingCount > 0 && (
+        <Alert>
+          <AlertTitle>{ta.pendingTitle}</AlertTitle>
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <span>{fmt(ta.pendingDesc, { count: pendingCount })}</span>
+            <Button variant="outline" size="sm" onClick={() => void handleDeletePending()} disabled={isDeletingPending}>
+              {ta.pendingDelete}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 min-w-0">
