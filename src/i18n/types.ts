@@ -237,6 +237,55 @@ export interface Dictionary {
     terms: string;
     privacy: string;
     and: string;
+    successTitle: string;
+    successDesc: string;
+    /** `{email}` is interpolated. */
+    emailSent: string;
+    goToLogin: string;
+    errorAcceptTerms: string;
+    errorPasswordMismatch: string;
+    errorPasswordWeak: string;
+    errorSignupFailed: string;
+    errorLoginFailed: string;
+    errorSessionMissing: string;
+    errorOAuthFailed: string;
+  };
+  pages: {
+    notFoundLabel: string;
+    notFoundTitle: string;
+    notFoundDesc: string;
+    backHome: string;
+    dashboard: string;
+    comingSoonLabel: string;
+    comingSoonTitle: string;
+    comingSoonDesc: string;
+    home: string;
+    createAccount: string;
+  };
+  /** Fallback texts when the AI is unavailable, in the user's language. */
+  ai: {
+    fallbackTitle: string;
+    fallbackDescription: string;
+    fallbackAltText: string;
+    fallbackHashtags: string[];
+    /** `{topic}` is interpolated. */
+    ideaTemplates: string[];
+    /** `{business}` is interpolated. */
+    businessDescription: string;
+    boardGeneral: string;
+    /** `{title}`, `{status}` and `{date}` are interpolated. */
+    duplicateExact: string;
+    duplicateSimilar: string;
+    errors: {
+      modelUnavailable: string;
+      unreachable: string;
+      insufficientCredit: string;
+      notEnabled: string;
+      saturated: string;
+      rejected: string;
+      forbidden: string;
+      unknown: string;
+    };
   };
 }
 

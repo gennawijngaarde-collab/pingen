@@ -43,7 +43,7 @@ export function Login() {
     try {
       await signIn(email.trim(), password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec de la connexion');
+      setError(err instanceof Error ? err.message : t.auth.errorLoginFailed);
       setIsLoading(false);
     }
   };
@@ -56,7 +56,7 @@ export function Login() {
     try {
       await signIn(DEMO_EMAIL, DEMO_PASSWORD);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec de la connexion');
+      setError(err instanceof Error ? err.message : t.auth.errorLoginFailed);
       setIsLoading(false);
     }
   };
@@ -69,7 +69,7 @@ export function Login() {
     try {
       await signInWithOAuth(provider);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Échec de la connexion');
+      setError(err instanceof Error ? err.message : t.auth.errorLoginFailed);
       setIsLoading(false);
     }
   };
@@ -143,7 +143,7 @@ export function Login() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="vous@exemple.com"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"

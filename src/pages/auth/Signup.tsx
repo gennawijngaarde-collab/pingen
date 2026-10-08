@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { isDemoMode } from '@/lib/supabase';
 import { useI18n } from '@/i18n/I18nProvider';
+import { fmt } from '@/i18n/fmt';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Check } from 'lucide-react';
 
@@ -52,19 +53,19 @@ export function Signup() {
     setError(null);
 
     if (!acceptedTerms) {
-      setError("Veuillez accepter les Conditions d'utilisation et la Politique de confidentialité.");
+      setError(t.auth.errorAcceptTerms);
       setIsLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
+      setError(t.auth.errorPasswordMismatch);
       setIsLoading(false);
       return;
     }
 
     if (!allChecksPassed) {
-      setError('Le mot de passe ne respecte pas les critères de sécurité');
+      setError(t.auth.errorPasswordWeak);
       setIsLoading(false);
       return;
     }
@@ -78,7 +79,7 @@ export function Signup() {
       }
       // Si Supabase a créé une session (ou en mode démo), la redirection vers le dashboard se fait via le useEffect.
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'inscription");
+      setError(err instanceof Error ? err.message : t.auth.errorSignupFailed);
       setIsLoading(false);
     }
   };
@@ -91,7 +92,7 @@ export function Signup() {
     try {
       await signInWithOAuth(provider);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'inscription");
+      setError(err instanceof Error ? err.message : t.auth.errorSignupFailed);
       setIsLoading(false);
     }
   };
@@ -112,18 +113,13 @@ export function Signup() {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check className="w-8 h-8 text-green-600" />
             </div>
-            <CardTitle className="text-2xl">Inscription réussie !</CardTitle>
-            <CardDescription>
-              Vérifiez votre email pour confirmer votre compte.
-            </CardDescription>
+            <CardTitle className="text-2xl">{t.auth.successTitle}</CardTitle>
+            <CardDescription>{t.auth.successDesc}</CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <p className="text-muted-foreground mb-4">
-              Un email de confirmation a été envoyé à <strong>{email}</strong>.
-              Cliquez sur le lien pour activer votre compte.
-            </p>
+            <p className="text-muted-foreground mb-4">{fmt(t.auth.emailSent, { email })}</p>
             <Button onClick={() => navigate('/login')} className="w-full">
-              Aller à la connexion
+              {t.auth.goToLogin}
             </Button>
           </CardContent>
         </Card>
@@ -170,7 +166,7 @@ export function Signup() {
                   <Input
                     id="fullName"
                     type="text"
-                    placeholder="Jean Dupont"
+                    placeholder="Alex Martin"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="pl-10"
@@ -187,7 +183,7 @@ export function Signup() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="vous@exemple.com"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
@@ -269,7 +265,7 @@ export function Signup() {
                   />
                 </div>
                 {confirmPassword && password !== confirmPassword && (
-                  <p className="text-xs text-red-500">Les mots de passe ne correspondent pas</p>
+                  <p className="text-xs text-red-500">{t.auth.errorPasswordMismatch}</p>
                 )}
               </div>
 

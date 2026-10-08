@@ -1,5 +1,17 @@
 import { supabase } from './supabase';
 import { fetchRuntimeConfig } from './api';
+import { currentDictionary, currentLocale, LANGUAGE_NAMES, dictionaries } from '@/i18n/current';
+import { fmt } from '@/i18n/fmt';
+import type { AppLocale } from '@/i18n/types';
+
+/** Language of the generated texts; defaults to the UI language. */
+function languageName(locale?: AppLocale): string {
+  return LANGUAGE_NAMES[locale ?? currentLocale()];
+}
+
+function aiDict(locale?: AppLocale) {
+  return (locale ? dictionaries[locale] : currentDictionary()).ai;
+}
 
 const TEXT_MODEL = 'google/gemini-2.5-flash';
 
@@ -11,7 +23,7 @@ function firstPhrase(text: string): string {
 
 function shortBusinessHook(business: string): string {
   const words = firstPhrase(business).split(/\s+/).filter(Boolean).slice(0, 4);
-  return words.length ? words.join(' ') : 'Votre business';
+  return words.length ? words.join(' ') : 'Pinterest';
 }
 
 /** Titre Pinterest court — jamais la description complète du business. */
@@ -132,34 +144,18 @@ export function formatAiError(error: unknown): string {
   // Keep quota codes intact so the UI can translate them (see lib/errors.ts).
   if (message.includes('QUOTA_EXCEEDED')) return message;
 
+  const e = currentDictionary().ai.errors;
   const lower = message.toLowerCase();
-  if (lower.includes('no endpoints found') || lower.includes('not a valid model')) {
-    return "Le modèle IA n'est plus disponible. Réessayez dans un instant.";
+  if (lower.includes('no endpoints found') || lower.includes('not a valid model')) return e.modelUnavailable;
+  if (status === 404 || lower.includes('not_found') || lower.includes('the page could not be found')) return e.unreachable;
+  if (status === 402 || lower.includes('credit') || lower.includes('payment required') || lower.includes('insufficient')) {
+    return e.insufficientCredit;
   }
-  if (status === 404 || lower.includes('not_found') || lower.includes('the page could not be found')) {
-    return "Le service IA n'est pas joignable. Réessayez dans un instant.";
-  }
-  if (
-    status === 402 ||
-    lower.includes('credit') ||
-    lower.includes('payment required') ||
-    lower.includes('insufficient')
-  ) {
-    return 'Crédit IA insuffisant. Rechargez OpenRouter (texte) ou Grok (images) pour générer de vrais Pins.';
-  }
-  if (status === 401) {
-    return "Le service IA n'est pas encore activé sur cet environnement.";
-  }
-  if (status === 429) {
-    return "Le service IA est temporairement saturé. Réessayez dans un instant.";
-  }
-  if (status === 400) {
-    return message || 'La demande a été refusée par le service IA. Modifiez votre contenu puis réessayez.';
-  }
-  if (status === 403) {
-    return "Accès refusé par le service IA. Réessayez plus tard ou contactez le support.";
-  }
-  return message || 'Erreur inconnue pendant la génération.';
+  if (status === 401) return e.notEnabled;
+  if (status === 429) return e.saturated;
+  if (status === 400) return message || e.rejected;
+  if (status === 403) return e.forbidden;
+  return message || e.unknown;
 }
 
 export interface GeneratedPinContent {
@@ -179,6 +175,9 @@ export interface BusinessPinInput {
   tone?: string;
   productOrOffer?: string;
   audience?: string;
+  websiteUrl?: string;
+  /** Language of the generated texts (defaults to the UI language). */
+  language?: AppLocale;
 }
 
 export interface GeneratedBusinessPin extends GeneratedPinContent {
@@ -199,38 +198,28 @@ export interface PinConcept {
 export async function generatePinContent(
   imageUrl: string,
   niche?: string,
-  tone?: string
+  tone?: string,
+  language?: AppLocale
 ): Promise<GeneratedPinContent> {
+  const lang = languageName(language);
   try {
     const content = await openRouterChatJson(
       [
         {
           role: 'system',
-          content: `Tu es un expert en marketing Pinterest. Tu crées des Pins optimisés pour maximiser l'engagement.
-          
-Règles pour les titres:
-- Maximum 100 caractères
-- Accrocheur et engageant
-- Utilise des chiffres et des mots puissants
-- Pose une question ou crée de la curiosité
+          content: `You are a Pinterest marketing expert creating Pins optimised for engagement.
+Write ALL output text (title, description, hashtags, altText) in ${lang}.
 
-Règles pour les descriptions:
-- 2-3 phrases maximum
-- Inclut des mots-clés pertinents
-- Appel à l'action subtil
-- Maximum 500 caractères
+Title rules: max 100 characters, catchy, uses numbers or power words, sparks curiosity.
+Description rules: 2-3 sentences max, relevant keywords, subtle call to action, max 500 characters.
+Hashtag rules: 3-5 relevant hashtags in ${lang}, mix of popular and niche, format #keyword, no spaces.
 
-Règles pour les hashtags:
-- 3-5 hashtags pertinents
-- Mélange de hashtags populaires et de niche
-- Format: #motclé
-
-Réponds en JSON avec cette structure:
+Respond in JSON with this structure:
 {
-  "title": "Titre accrocheur",
-  "description": "Description optimisée SEO",
-  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"],
-  "altText": "Texte alternatif descriptif"
+  "title": "...",
+  "description": "...",
+  "hashtags": ["#...", "#...", "#..."],
+  "altText": "..."
 }`,
         },
         {
@@ -238,9 +227,9 @@ Réponds en JSON avec cette structure:
           content: [
             {
               type: 'text',
-              text: `Analyse cette image et génère du contenu Pinterest optimisé.${
+              text: `Analyse this image and generate optimised Pinterest content in ${lang}.${
                 niche ? ` Niche: ${niche}.` : ''
-              }${tone ? ` Ton: ${tone}.` : ''}`,
+              }${tone ? ` Tone: ${tone}.` : ''}`,
             },
             {
               type: 'image_url',
@@ -253,47 +242,44 @@ Réponds en JSON avec cette structure:
     );
 
     const parsed = JSON.parse(content);
-    
+    const d = aiDict(language);
     return {
-      title: parsed.title || 'Nouveau Pin',
+      title: parsed.title || d.fallbackTitle,
       description: parsed.description || '',
       hashtags: parsed.hashtags || [],
-      altText: parsed.altText || parsed.title || 'Pin image',
+      altText: parsed.altText || parsed.title || d.fallbackAltText,
     };
   } catch (error) {
     console.error('Error generating pin content:', error);
-    // Return fallback content
+    const d = aiDict(language);
     return {
-      title: 'Découvrez cette idée inspirante',
-      description: 'Une idée géniale à essayer dès maintenant. Parfait pour votre prochain projet!',
-      hashtags: ['#inspiration', '#idée', '#créatif'],
-      altText: 'Image inspirante pour Pinterest',
+      title: d.fallbackTitle,
+      description: d.fallbackDescription,
+      hashtags: [...d.fallbackHashtags],
+      altText: d.fallbackAltText,
     };
   }
 }
 
 // Generate pin ideas from topic
-export async function generatePinIdeas(topic: string, count: number = 5): Promise<PinIdeas> {
+export async function generatePinIdeas(topic: string, count: number = 5, language?: AppLocale): Promise<PinIdeas> {
+  const lang = languageName(language);
   try {
     const content = await openRouterChatJson(
       [
         {
           role: 'system',
-          content: `Tu es un expert en contenu Pinterest. Génère des idées de Pins créatives et engageantes.
-          
-Pour chaque idée, donne:
-- Un titre accrocheur
-- Une brève description du visuel suggéré
-- L'angle ou le hook principal
+          content: `You are a Pinterest content expert. Generate creative, engaging Pin ideas written in ${lang}.
+Each idea is one catchy line (title + angle).
 
-Réponds en JSON avec cette structure:
+Respond in JSON with this structure:
 {
-  "ideas": ["Idée 1", "Idée 2", "Idée 3"]
+  "ideas": ["Idea 1", "Idea 2", "Idea 3"]
 }`,
         },
         {
           role: 'user',
-          content: `Génère ${count} idées de Pins pour le sujet: "${topic}"`,
+          content: `Generate ${count} Pin ideas in ${lang} for the topic: "${topic}"`,
         },
       ],
       { responseFormat: 'json_object', maxTokens: 500 }
@@ -303,38 +289,30 @@ Réponds en JSON avec cette structure:
     return { ideas: parsed.ideas || [] };
   } catch (error) {
     console.error('Error generating pin ideas:', error);
-    return {
-      ideas: [
-        `10 conseils pour ${topic}`,
-        `Comment réussir en ${topic}`,
-        `Les erreurs à éviter en ${topic}`,
-        `Guide complet: ${topic}`,
-        `Inspiration ${topic} du jour`,
-      ],
-    };
+    return { ideas: aiDict(language).ideaTemplates.map((tpl) => fmt(tpl, { topic })) };
   }
 }
 
 // Generate optimized hashtags
-export async function generateHashtags(keywords: string[]): Promise<string[]> {
+export async function generateHashtags(keywords: string[], language?: AppLocale): Promise<string[]> {
+  const lang = languageName(language);
   try {
     const content = await openRouterChatJson(
       [
         {
           role: 'system',
-          content: `Génère des hashtags Pinterest optimisés basés sur les mots-clés fournis.
-          
-Règles:
-- 5-10 hashtags pertinents
-- Mélange de hashtags populaires (1M+ posts) et de niche
-- Format: #motclé en minuscules
-- Pas d'espaces dans les hashtags
+          content: `Generate optimised Pinterest hashtags in ${lang} from the provided keywords.
 
-Réponds uniquement avec un tableau JSON de strings.`,
+Rules:
+- 5-10 relevant hashtags
+- Mix of popular (1M+ posts) and niche hashtags
+- Format: #keyword in lowercase, no spaces, no accents in the hashtag itself
+
+Respond in JSON: { "hashtags": ["#...", "#..."] }`,
         },
         {
           role: 'user',
-          content: `Mots-clés: ${keywords.join(', ')}`,
+          content: `Keywords: ${keywords.join(', ')}`,
         },
       ],
       { responseFormat: 'json_object', maxTokens: 200 }
@@ -344,38 +322,40 @@ Réponds uniquement avec un tableau JSON de strings.`,
     return parsed.hashtags || parsed;
   } catch (error) {
     console.error('Error generating hashtags:', error);
-    return ['#pinterest', '#inspiration', '#idée', '#créatif', '#diy'];
+    return ['#pinterest', ...aiDict(language).fallbackHashtags];
   }
 }
 
 // Optimize existing pin content
 export async function optimizePinContent(
   title: string,
-  description: string
+  description: string,
+  language?: AppLocale
 ): Promise<GeneratedPinContent> {
+  const lang = languageName(language);
   try {
     const content = await openRouterChatJson(
       [
         {
           role: 'system',
-          content: `Optimise ce contenu Pinterest pour maximiser l'engagement.
-          
-Règles:
-- Titre: maximum 100 caractères, accrocheur
-- Description: 2-3 phrases, SEO-friendly, CTA
-- Hashtags: 3-5 pertinents
+          content: `Optimise this Pinterest content for maximum engagement. Write everything in ${lang}.
 
-Réponds en JSON:
+Rules:
+- Title: max 100 characters, catchy
+- Description: 2-3 sentences, SEO-friendly, call to action
+- Hashtags: 3-5 relevant, in ${lang}
+
+Respond in JSON:
 {
-  "title": "Titre optimisé",
-  "description": "Description optimisée",
+  "title": "...",
+  "description": "...",
   "hashtags": ["#tag1", "#tag2"],
-  "altText": "Texte alternatif"
+  "altText": "..."
 }`,
         },
         {
           role: 'user',
-          content: `Titre actuel: "${title}"\nDescription actuelle: "${description}"`,
+          content: `Current title: "${title}"\nCurrent description: "${description}"`,
         },
       ],
       { responseFormat: 'json_object', maxTokens: 400 }
@@ -393,39 +373,42 @@ Réponds en JSON:
     return {
       title,
       description,
-      hashtags: ['#pinterest', '#inspiration'],
+      hashtags: ['#pinterest', ...aiDict(language).fallbackHashtags.slice(0, 1)],
       altText: title,
     };
   }
 }
 
 export async function generatePinConcept(input: BusinessPinInput): Promise<PinConcept> {
+  const lang = languageName(input.language);
   const content = await openRouterChatJson(
     [
       {
         role: 'system',
-        content: `Tu es un expert Pinterest et design marketing. À partir d'un business, tu conçois un Pin complet.
+        content: `You are a Pinterest and marketing design expert. From a business description you design a complete Pin.
 
-Règles image (imagePrompt, en anglais pour Grok):
-- Format vertical Pinterest, photo marketing nette
-- Le visuel DOIT montrer clairement le produit / le métier / la niche (ex. sneakers si c'est une boutique de sneakers). Interdit : photo nature générique sans rapport
-- Décrit le sujet, les objets, l'ambiance, les couleurs et la composition
-- Pas de logos de marques, pas de visages réalistes de célébrités
-- Variation visuelle forte à chaque génération
-- Laisse le tiers inférieur assez simple : un titre sera ajouté ensuite
+Image rules (imagePrompt, ALWAYS in English for the image model):
+- Vertical Pinterest format, sharp marketing photo
+- The visual MUST clearly show the product / trade / niche (e.g. sneakers for a sneaker shop). Generic nature photos unrelated to the business are forbidden
+- Describe subject, objects, mood, colours and composition
+- No brand logos, no realistic celebrity faces
+- Strong visual variation on every generation
+- Keep the lower third simple: a title will be overlaid later
 
-Règles overlayText:
-- 3 à 7 mots maximum, en français, parfaitement orthographiés
-- Accroche Pinterest (chiffre, promesse, curiosité)
-- C'est le texte QUI APPARAÎT DANS l'image
+overlayText rules:
+- 3 to 7 words max, written in ${lang}, perfectly spelled
+- Pinterest hook (number, promise, curiosity)
+- This is the text THAT APPEARS INSIDE the image
 
-Règles texte (en français):
-- title: accroche Pinterest de 4 à 10 mots, max 80 caractères. INTERDIT de recopier la description du business
-- description: 2-3 phrases, SEO, CTA subtil, max 500 caractères
-- hashtags: 3-5 pertinents au business
-- altText: descriptif SEO, pas la description brute du business
+Text rules (title, description, hashtags, altText: ALL in ${lang}):
+- title: Pinterest hook of 4 to 10 words, max 80 characters. NEVER copy the business description
+- description: 2-3 sentences, SEO, subtle CTA, max 500 characters${
+          input.websiteUrl ? `, ending with a short invitation to visit ${input.websiteUrl}` : ''
+        }
+- hashtags: 3-5 relevant to the business, in ${lang}
+- altText: SEO description of the image, not the raw business description
 
-Réponds en JSON:
+Respond in JSON:
 {
   "imagePrompt": "...",
   "overlayText": "...",
@@ -438,12 +421,13 @@ Réponds en JSON:
       {
         role: 'user',
         content: `Business: ${input.business}
-${input.productOrOffer ? `Offre / produit: ${input.productOrOffer}` : ''}
+${input.productOrOffer ? `Offer / product: ${input.productOrOffer}` : ''}
 ${input.audience ? `Audience: ${input.audience}` : ''}
 ${input.niche ? `Niche: ${input.niche}` : ''}
-${input.tone ? `Ton: ${input.tone}` : ''}
+${input.tone ? `Tone: ${input.tone}` : ''}
+Output language: ${lang}
 
-Génère un Pin unique et différent à chaque fois. L'image doit être visuellement reconnaissable comme ce business, pas une image stock générique.`,
+Generate a unique, different Pin every time. The image must be visually recognisable as this business, not generic stock imagery.`,
       },
     ],
     { responseFormat: 'json_object', maxTokens: 700 }
@@ -451,16 +435,15 @@ Génère un Pin unique et différent à chaque fois. L'image doit être visuelle
 
   const parsed = JSON.parse(content) as Partial<PinConcept>;
   const title = sanitizePinTitle(parsed.title, input.business);
+  const d = aiDict(input.language);
   return {
     imagePrompt:
       parsed.imagePrompt ||
       `Vertical Pinterest-style lifestyle photo related to ${shortBusinessHook(input.business)}, bright lighting, professional marketing aesthetic`,
     overlayText: sanitizeOverlayText(parsed.overlayText, title),
     title,
-    description:
-      parsed.description ||
-      `Une idée inspirante pour ${shortBusinessHook(input.business)}. Parfait pour votre audience.`,
-    hashtags: parsed.hashtags || ['#pinterest', '#business', '#inspiration'],
+    description: parsed.description || fmt(d.businessDescription, { business: shortBusinessHook(input.business) }),
+    hashtags: parsed.hashtags || ['#pinterest', ...d.fallbackHashtags.slice(0, 2)],
     altText: parsed.altText || title,
   };
 }

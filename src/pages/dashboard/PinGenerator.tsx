@@ -317,7 +317,7 @@ export function PinGenerator() {
     image_url: selectedImage!,
     link: null,
     board_id: null,
-    board_name: selectedNiche || 'Général',
+    board_name: selectedNiche || t.ai.boardGeneral,
     status,
     scheduled_at: scheduledAt,
     published_at: null,

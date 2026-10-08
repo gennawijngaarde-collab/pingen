@@ -1,3 +1,4 @@
+import { currentDictionary } from '@/i18n/current';
 import {
   createContext,
   useCallback,
@@ -173,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       const nextUser = data.session?.user ?? data.user ?? null;
       if (!nextUser) {
-        throw new Error('Connexion réussie mais session introuvable. Réessaie.');
+        throw new Error(currentDictionary().auth.errorSessionMissing);
       }
       applySessionSync(nextUser);
       setIsLoading(false);
@@ -199,7 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error('Connexion OAuth échouée. Réessaie.');
+      if (!session?.user) throw new Error(currentDictionary().auth.errorOAuthFailed);
       applySessionSync(session.user);
       setIsLoading(false);
       await fetchProfile(session.user);

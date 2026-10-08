@@ -1,6 +1,8 @@
 import { supabase, isDemoMode, type Pin } from './supabase';
 import { generateBusinessPin } from './ai';
 import { persistPinImage } from './pinStorage';
+import { currentLocale, isAppLocale } from '@/i18n/current';
+import type { AppLocale } from '@/i18n/types';
 
 export interface AutopilotSettings {
   enabled: boolean;
@@ -16,6 +18,8 @@ export interface AutopilotSettings {
   postingHours: number[];
   /** Remplir le calendrier sur N jours à l'avance */
   lookAheadDays: number;
+  /** Language of generated texts; the UI language at the time of saving. */
+  language?: AppLocale;
   lastRunAt: string | null;
   lastGeneratedAt: string | null;
   totalGenerated: number;
@@ -71,6 +75,7 @@ function normalizeSettings(parsed: Partial<AutopilotSettings> | null | undefined
     postsPerDay: Math.min(5, Math.max(1, Math.round(num(source.postsPerDay, DEFAULT_AUTOPILOT.postsPerDay)))),
     postingHours: hours.length > 0 ? hours : [...DEFAULT_POSTING_HOURS],
     lookAheadDays: Math.min(14, Math.max(1, Math.round(num(source.lookAheadDays, DEFAULT_AUTOPILOT.lookAheadDays)))),
+    language: isAppLocale(source.language) ? source.language : undefined,
     lastRunAt: typeof source.lastRunAt === 'string' ? source.lastRunAt : null,
     lastGeneratedAt: typeof source.lastGeneratedAt === 'string' ? source.lastGeneratedAt : null,
     totalGenerated: Math.max(0, Math.round(num(source.totalGenerated, 0))),
@@ -183,7 +188,7 @@ export async function saveAutopilotSettings(
   userId: string,
   settings: AutopilotSettings
 ): Promise<AutopilotSettings> {
-  const normalized = normalizeSettings(settings);
+  const normalized = normalizeSettings({ ...settings, language: settings.language ?? currentLocale() });
   if (!isDemoMode) await writeRemote(normalized);
   writeLocal(userId, normalized);
   return normalized;
@@ -191,10 +196,10 @@ export async function saveAutopilotSettings(
 
 export function validateAutopilotForEnable(settings: AutopilotSettings): string | null {
   if (!settings.business.trim()) {
-    return 'Décrivez votre business pour activer l\'autopilote.';
+    return 'BUSINESS_REQUIRED';
   }
   if (settings.postingHours.length === 0) {
-    return 'Choisissez au moins une heure de publication.';
+    return 'HOURS_REQUIRED';
   }
   return null;
 }
@@ -376,10 +381,9 @@ async function createAutopilotPinContent(settings: AutopilotSettings) {
     audience: settings.audience || undefined,
     niche: settings.niche || undefined,
     tone: settings.tone || undefined,
+    websiteUrl: settings.websiteUrl || undefined,
+    language: settings.language ?? currentLocale(),
   });
-  if (settings.websiteUrl) {
-    pin.description = `${pin.description} Découvrez plus sur ${settings.websiteUrl}`;
-  }
   return pin;
 }
 

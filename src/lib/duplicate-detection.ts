@@ -1,4 +1,6 @@
 import type { Pin } from './supabase';
+import { currentLocale, dictionaries, LOCALE_TAGS } from '@/i18n/current';
+import { fmt } from '@/i18n/fmt';
 
 /**
  * Normalise un texte pour la comparaison (supprime ponctuation, espaces, lowercase)
@@ -109,21 +111,18 @@ export function formatDuplicateWarning(
   similarPin: Pin,
   similarity: 'exact' | 'similar'
 ): string {
-  const date = new Date(similarPin.created_at).toLocaleDateString('fr-FR');
+  const locale = currentLocale();
+  const t = dictionaries[locale];
+  const date = new Date(similarPin.created_at).toLocaleDateString(LOCALE_TAGS[locale]);
   const statusLabel: Record<string, string> = {
-    draft: 'Brouillon',
-    scheduled: 'Planifié',
-    published: 'Publié',
-    failed: 'Échec',
+    draft: t.schedule.draft,
+    scheduled: t.schedule.scheduled,
+    published: t.schedule.published,
+    failed: t.schedule.failed,
   };
-
   const status = statusLabel[similarPin.status] || similarPin.status;
-
-  if (similarity === 'exact') {
-    return `Un pin identique existe déjà : "${similarPin.title}" (${status}, créé le ${date})`;
-  }
-
-  return `Un pin très similaire existe déjà : "${similarPin.title}" (${status}, créé le ${date})`;
+  const template = similarity === 'exact' ? t.ai.duplicateExact : t.ai.duplicateSimilar;
+  return fmt(template, { title: similarPin.title, status, date });
 }
 
 /**
