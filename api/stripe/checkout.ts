@@ -16,6 +16,7 @@ import {
   findSubscriptionForUser,
   isPaidPlan,
   stripeConfigured,
+  isMissingResource,
   stripeErrorMessage,
   stripeRequest,
 } from '../../server/stripe.js';
@@ -80,18 +81,33 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
 
   const priceId = (plan === 'pro' ? process.env.STRIPE_PRICE_PRO : process.env.STRIPE_PRICE_BUSINESS)?.trim() || '';
-  if (isConfiguredKey(priceId)) {
-    params.set('line_items[0][price]', priceId);
-    params.set('line_items[0][quantity]', '1');
-  } else {
+  const setInlinePrice = () => {
+    params.delete('line_items[0][price]');
     params.set('line_items[0][quantity]', '1');
     params.set('line_items[0][price_data][currency]', 'eur');
     params.set('line_items[0][price_data][unit_amount]', String(PLAN_AMOUNTS[plan]));
     params.set('line_items[0][price_data][recurring][interval]', 'month');
     params.set('line_items[0][price_data][product_data][name]', plan === 'pro' ? 'GenX Pro' : 'GenX Business');
+  };
+  if (isConfiguredKey(priceId)) {
+    params.set('line_items[0][price]', priceId);
+    params.set('line_items[0][quantity]', '1');
+  } else {
+    setInlinePrice();
   }
 
-  const result = await stripeRequest('/checkout/sessions', params);
+  let result = await stripeRequest('/checkout/sessions', params);
+  if (!result.ok && isMissingResource(result.data)) {
+    // Price / customer ids created in test mode do not exist once the key is
+    // switched to live (or vice versa): fall back to inline pricing and a fresh customer.
+    console.warn('[stripe/checkout] stale Stripe ids for current mode, retrying:', stripeErrorMessage(result.data));
+    setInlinePrice();
+    if (params.has('customer')) {
+      params.delete('customer');
+      if (user.email) params.set('customer_email', user.email);
+    }
+    result = await stripeRequest('/checkout/sessions', params);
+  }
   const checkoutUrl = typeof result.data.url === 'string' ? result.data.url : '';
   if (!result.ok || !checkoutUrl) {
     console.error('[stripe/checkout] failed', result.status, stripeErrorMessage(result.data));

@@ -43,6 +43,12 @@ export async function stripeRequest(
   return { ok: res.ok, status: res.status, data };
 }
 
+/** True for Stripe `resource_missing` errors (e.g. test-mode ids used with a live key). */
+export function isMissingResource(data: Record<string, unknown>): boolean {
+  const err = data.error;
+  return !!err && typeof err === 'object' && (err as { code?: unknown }).code === 'resource_missing';
+}
+
 export function stripeErrorMessage(data: Record<string, unknown>): string {
   const err = data.error;
   if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {

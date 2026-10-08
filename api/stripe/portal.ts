@@ -10,7 +10,13 @@ import {
   type ApiRequest,
   type ApiResponse,
 } from '../../server/http.js';
-import { findSubscriptionForUser, stripeConfigured, stripeErrorMessage, stripeRequest } from '../../server/stripe.js';
+import {
+  findSubscriptionForUser,
+  isMissingResource,
+  stripeConfigured,
+  stripeErrorMessage,
+  stripeRequest,
+} from '../../server/stripe.js';
 
 /**
  * Opens the Stripe customer portal for the signed-in user's own customer.
@@ -51,6 +57,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
   const result = await stripeRequest('/billing_portal/sessions', params);
   const portalUrl = typeof result.data.url === 'string' ? result.data.url : '';
+  if (!result.ok && isMissingResource(result.data)) {
+    // Customer created in the other Stripe mode (test vs live): nothing to manage yet.
+    res.status(404).json({ error: 'No Stripe customer is linked to this account yet.' });
+    return;
+  }
   if (!result.ok || !portalUrl) {
     console.error('[stripe/portal] failed', result.status, stripeErrorMessage(result.data));
     res.status(502).json({ error: 'Unable to open the Stripe customer portal.' });
