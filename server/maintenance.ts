@@ -17,14 +17,9 @@ export async function resolveAdminEmail(): Promise<string | null> {
 
   const client = createServiceClient();
   if (!client) return null;
-  const { data } = await client
-    .from('profiles')
-    .select('email')
-    .not('email', 'is', null)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  const email = (data as { email?: string } | null)?.email?.trim() || null;
+  const { data, error } = await client.rpc('workspace_owner_email');
+  if (error) console.error('[maintenance] workspace_owner_email failed:', error.message);
+  const email = typeof data === 'string' && data.trim() ? data.trim() : null;
   adminEmailCache = { value: email, at: Date.now() };
   return email;
 }
