@@ -1,5 +1,6 @@
 'use client';
 
+import { track } from '@/lib/monitoring';
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
@@ -72,6 +73,7 @@ export function Signup() {
 
     try {
       const result = await signUp(email.trim(), password, fullName.trim());
+      track('signup_completed', { method: 'email' });
       if (!isDemoMode && result.needsEmailConfirmation) {
         setIsSuccess(true);
         setIsLoading(false);

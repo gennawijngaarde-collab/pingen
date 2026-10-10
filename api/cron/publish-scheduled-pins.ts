@@ -1,3 +1,4 @@
+import { reportError } from '../../server/sentry.js';
 import {
   createServiceClient,
   createUserClient,
@@ -95,6 +96,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       // Housekeeping (Stripe webhook provisioning, subscription reconciliation) in the remaining budget.
       const maintenance = await runMaintenance(startedAt + 52_000).catch((error) => {
         console.error('[cron] maintenance failed:', error);
+        void reportError(error, { route: 'cron/maintenance' });
         return null;
       });
       res.status(200).json({
@@ -135,6 +137,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.status(200).json({ success: true, mode: 'user', ...result, timestamp: new Date().toISOString() });
   } catch (error) {
     console.error('[publish-scheduled-pins] error:', error);
+    await reportError(error, { route: 'cron/publish-scheduled-pins' });
     res.status(500).json({
       success: false,
       error: 'Publication failed. Please retry.',

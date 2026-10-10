@@ -1,3 +1,4 @@
+import { track } from '@/lib/monitoring';
 import {
   createContext,
   useCallback,
@@ -39,6 +40,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<AppLocale>(() => detectLocale());
 
   const setLocale = useCallback((next: AppLocale) => {
+    track('language_changed', { locale: next });
     setLocaleState(next);
     persistLocale(next);
   }, []);

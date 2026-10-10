@@ -1,3 +1,4 @@
+import { identifyUser, resetUser } from '@/lib/monitoring';
 import { currentDictionary } from '@/i18n/current';
 import {
   createContext,
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq('id', authUser.id);
         }
         setProfile(profileRow);
+        identifyUser({ id: authUser.id, plan: profileRow.plan });
         return;
       }
 
@@ -209,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    resetUser();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     applySessionSync(null);

@@ -1,3 +1,4 @@
+import { reportError } from '../../../server/sentry.js';
 import {
   authenticate,
   clientIp,
@@ -103,6 +104,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   } catch (error) {
     console.error('[pinterest/oauth] error', error);
+    await reportError(error, { route: 'pinterest/oauth/token' });
     res.status(504).json({ error: 'Pinterest did not answer in time. Please retry.' });
   }
 }

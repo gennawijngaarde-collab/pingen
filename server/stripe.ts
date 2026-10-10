@@ -1,3 +1,4 @@
+import { reportError } from './sentry.js';
 import { createHmac } from 'node:crypto';
 import { createServiceClient } from './publishScheduledPins.js';
 import { isConfiguredKey, safeEqual } from './http.js';
@@ -343,6 +344,7 @@ export async function reconcileSubscriptions(limit: number, deadlineMs: number):
     } catch (err) {
       result.errors++;
       console.error('[stripe] reconcile failed for', row.stripe_subscription_id, err);
+      void reportError(err, { route: 'stripe/reconcile', userId: row.user_id });
     }
   }
   return result;

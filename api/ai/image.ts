@@ -1,3 +1,4 @@
+import { reportError } from '../../server/sentry.js';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import {
@@ -230,6 +231,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.status(200).json({ url: imageUrl });
   } catch (error) {
     console.error('[ai/image] error', error);
+    await reportError(error, { route: 'ai/image' });
     res.status(504).json({ error: 'Image generation timed out. Please retry.' });
   }
 }

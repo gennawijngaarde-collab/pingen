@@ -1,3 +1,4 @@
+import { reportError } from './sentry.js';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
@@ -387,6 +388,7 @@ export async function publishDuePins(
         result.details.push({ pinId: pin.id, status: 'retry', error: message });
       }
       console.error(`[publish] pin ${pin.id} failed:`, message);
+      void reportError(err, { route: 'publish', userId: pin.user_id, extra: { pinId: pin.id, retryCount } });
     } finally {
       await releasePin(client, pin.id);
     }

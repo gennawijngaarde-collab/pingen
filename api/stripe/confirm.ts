@@ -1,3 +1,4 @@
+import { reportError } from '../../server/sentry.js';
 import {
   authenticate,
   clientIp,
@@ -141,6 +142,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   } catch (error) {
     console.error('[stripe/confirm] error', error);
+    await reportError(error, { route: 'stripe/confirm', userId: user.id });
     res.status(500).json({ error: 'Billing update failed. Please retry.' });
   }
 }

@@ -1,3 +1,4 @@
+import { reportError } from '../../server/sentry.js';
 import {
   authenticate,
   bearerToken,
@@ -68,6 +69,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.status(200).json(data);
   } catch (error) {
     console.error('[pinterest/proxy] error', error);
+    await reportError(error, { route: 'pinterest/proxy' });
     res.status(504).json({ error: 'Pinterest did not answer in time. Please retry.' });
   }
 }

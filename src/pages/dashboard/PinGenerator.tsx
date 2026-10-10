@@ -1,5 +1,6 @@
 'use client';
 
+import { track } from '@/lib/monitoring';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTES } from '@/lib/routes';
@@ -172,6 +173,7 @@ export function PinGenerator() {
         : mockGeneratePinContent();
 
       setGeneratedContent(content);
+      track('pin_generated');
       toast({
         title: g.contentGeneratedTitle,
         description: hasTextAi ? g.contentGeneratedAi : g.contentGeneratedDemo,
@@ -226,6 +228,7 @@ export function PinGenerator() {
         altText: concept.altText,
       };
       setGeneratedContent(content);
+      track('pin_generated');
 
       // Vérifier les doublons
       const duplicateCheck = checkForDuplicates(
@@ -267,6 +270,7 @@ export function PinGenerator() {
 
       setSelectedImage(pinImageUrl);
       setGeneratedContent(content);
+      track('pin_generated');
 
       if (!imageFailedMessage) {
         setStatusMessage(g.statusSuccess);
@@ -351,6 +355,7 @@ export function PinGenerator() {
     setIsSaving(true);
     try {
       const pin = await createPin(buildPinPayload('draft', null));
+      track('pin_saved', { status: 'draft' });
       if (!pin) throw new Error(g.savePinFailed);
       setDuplicateWarning(null);
       toast({
@@ -395,6 +400,7 @@ export function PinGenerator() {
     const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     try {
       const pin = await createPin(buildPinPayload('scheduled', scheduledAt));
+      track('pin_saved', { status: 'scheduled' });
       if (!pin) throw new Error(g.schedulePinFailed);
       setDuplicateWarning(null);
       toast({

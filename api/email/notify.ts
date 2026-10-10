@@ -1,3 +1,4 @@
+import { reportError } from '../../server/sentry.js';
 import { createServiceClient } from '../../server/publishScheduledPins.js';
 import { resolveAdminEmail } from '../../server/maintenance.js';
 import {
@@ -83,6 +84,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.status(200).json({ ok: true });
   } catch (error) {
     console.error('[email/notify] error', error);
+    await reportError(error, { route: 'email/notify' });
     res.status(202).json({ ok: false });
   }
 }

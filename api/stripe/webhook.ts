@@ -1,3 +1,4 @@
+import { reportError } from '../../server/sentry.js';
 import { clientIp, header, rateLimit, type ApiRequest, type ApiResponse } from '../../server/http.js';
 import {
   fetchStripeEvent,
@@ -135,6 +136,7 @@ export default async function handler(req: RawRequest, res: ApiResponse) {
     }
   } catch (error) {
     console.error(`[stripe/webhook] ${event.type} failed`, error);
+    await reportError(error, { route: 'stripe/webhook', tags: { eventType: String(event.type) } });
     // 500 makes Stripe retry with backoff.
     res.status(500).json({ received: false });
     return;

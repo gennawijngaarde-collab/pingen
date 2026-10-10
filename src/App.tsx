@@ -1,4 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { initMonitoring, trackPageview } from '@/lib/monitoring';
 import { AuthProvider } from './hooks/useAuth';
 import { I18nProvider } from '@/i18n/I18nProvider';
 import { Toaster } from '@/components/ui/sonner';
@@ -30,6 +32,14 @@ function ProtectedDashboard() {
   );
 }
 
+function PageviewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    trackPageview(location.pathname);
+  }, [location.pathname]);
+  return null;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -59,12 +69,15 @@ function AppRoutes() {
   );
 }
 
+initMonitoring();
+
 function App() {
   return (
     <I18nProvider>
       <AuthProvider>
         <div className="min-h-screen w-full overflow-x-hidden">
           <BrowserRouter>
+            <PageviewTracker />
             <AppRoutes />
             <Toaster position="top-right" />
           </BrowserRouter>

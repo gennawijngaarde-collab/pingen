@@ -10,6 +10,13 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY?: string;
   readonly VITE_PINTEREST_APP_ID?: string;
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
+  /** Monitoring (public keys) */
+  readonly VITE_SENTRY_DSN?: string;
+  readonly VITE_POSTHOG_KEY?: string;
+  readonly VITE_POSTHOG_HOST?: string;
+  /** Injected by Vercel when system env vars are exposed */
+  readonly VITE_VERCEL_GIT_COMMIT_SHA?: string;
+  readonly VITE_VERCEL_ENV?: string;
 }
 
 interface ImportMeta {

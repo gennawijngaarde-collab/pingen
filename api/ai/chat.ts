@@ -1,3 +1,4 @@
+import { reportError } from '../../server/sentry.js';
 import {
   authenticate,
   canonicalAppUrl,
@@ -141,6 +142,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.send(text);
   } catch (error) {
     console.error('[ai/chat] upstream error', error);
+    await reportError(error, { route: 'ai/chat' });
     res.status(504).json({ error: { message: 'The AI service did not answer in time. Please retry.' } });
   }
 }
