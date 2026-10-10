@@ -26,6 +26,11 @@ const en: Dictionary = {
     errors: {
       pinLimitReached: 'Monthly pin limit reached for your plan ({limit}). Upgrade to keep creating.',
       quotaExceeded: 'Daily AI quota reached for your plan ({limit}/day). Try again tomorrow or upgrade.',
+      quotaExceededMonth: 'Monthly AI quota reached for your plan ({limit}/month). Upgrade to keep going.',
+      aiCapacity: 'The AI service is at capacity for today. Please try again a little later.',
+      autopilotDisabled: 'Autopilot is switched off for this account.',
+      autopilotRequiresPro: 'Autopilot is available on the Pro and Business plans.',
+      autopilotDailyLimit: 'Daily autopilot limit reached ({limit} Pins/day on your plan).',
       sessionExpired: 'Your session has expired. Please sign in again.',
       tooManyRequests: 'Too many requests. Wait a moment and try again.',
       imageUploadFailed: 'The pin image could not be saved. Please retry.',
@@ -224,11 +229,11 @@ const en: Dictionary = {
         name: 'Starter',
         description: 'Perfect to get started',
         features: [
-          '10 Pins per month',
+          '5 Pins per month',
+          '5 AI images per month',
+          '20 AI texts per month',
           '1 Pinterest account',
-          'Basic templates',
           'Manual scheduling',
-          'Basic analytics',
         ],
         cta: 'Start for free',
       },
@@ -237,29 +242,26 @@ const en: Dictionary = {
         description: 'For serious creators',
         features: [
           '100 Pins per month',
-          '3 Pinterest accounts',
-          'Premium templates',
+          '100 AI images per month',
+          '300 AI texts per month',
+          'Autopilot: up to 3 Pins / day',
           'Automatic scheduling',
-          'Advanced analytics',
-          'AI Pin generation',
           'Priority support',
         ],
-        cta: 'Start free trial',
+        cta: 'Upgrade to Pro',
       },
       {
         name: 'Business',
         description: 'For teams and agencies',
         features: [
-          'Unlimited Pins',
-          '10 Pinterest accounts',
-          'Custom templates',
-          'Automation API',
-          'Real-time analytics',
-          'Advanced AI generation',
-          '24/7 dedicated support',
-          'Team collaboration',
+          '300 Pins per month',
+          '300 AI images per month',
+          '1,000 AI texts per month',
+          'Autopilot: up to 5 Pins / day',
+          'Automatic scheduling',
+          'Dedicated support',
         ],
-        cta: 'Contact sales',
+        cta: 'Upgrade to Business',
       },
     ],
   },
@@ -326,12 +328,12 @@ const en: Dictionary = {
       {
         question: 'Can I use PinGen with multiple Pinterest accounts?',
         answer:
-          'Yes! Depending on your plan, you can connect up to 10 Pinterest accounts. Pro allows 3 accounts, and Business offers up to 10 with team collaboration features.',
+          'Each workspace is linked to one Pinterest account. Multi-account support is coming soon; in the meantime you can create one workspace per account.',
       },
       {
         question: 'Is there a limit to how many Pins I can create?',
         answer:
-          'Limits depend on your plan: Starter (10 Pins/month), Pro (100 Pins/month), Business (unlimited). You can upgrade anytime if you hit your limit.',
+          'Limits depend on your plan: Starter (5 Pins and 5 AI images/month), Pro (100 Pins and 100 AI images/month), Business (300 Pins and 300 AI images/month). You can upgrade anytime if you hit your limit.',
       },
       {
         question: 'Can I cancel my subscription anytime?',
@@ -346,7 +348,7 @@ const en: Dictionary = {
       {
         question: 'Do you offer a free trial?',
         answer:
-          'Yes! Our Starter plan is free forever with up to 10 Pins per month. To try Pro features, we offer a 14-day trial.',
+          'Yes! Our Starter plan is free forever: up to 5 Pins and 5 AI images per month, no credit card required. Upgrade to Pro or Business whenever you like, and cancel anytime.',
       },
       {
         question: 'Is my data secure?',

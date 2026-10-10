@@ -71,21 +71,21 @@ export interface SettingsDictionary {
   includedInPlan: string;
   features: {
     starterPins: string;
+    starterImages: string;
+    starterTexts: string;
     starterAccounts: string;
-    basicTemplates: string;
-    basicAnalytics: string;
+    manualScheduling: string;
     proPins: string;
-    proAccounts: string;
-    premiumTemplates: string;
-    aiGeneration: string;
-    advancedAnalytics: string;
+    proImages: string;
+    proTexts: string;
+    proAutopilot: string;
+    autoScheduling: string;
     prioritySupport: string;
-    unlimitedPins: string;
-    businessAccounts: string;
-    automationApi: string;
-    advancedAi: string;
+    businessPins: string;
+    businessImages: string;
+    businessTexts: string;
+    businessAutopilot: string;
     dedicatedSupport: string;
-    teamCollaboration: string;
   };
   switchToBusiness: string;
   switchToPro: string;
@@ -219,22 +219,22 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     upgrade: 'Upgrader',
     includedInPlan: 'Inclus dans votre plan:',
     features: {
-      starterPins: '10 Pins par mois',
+      starterPins: '5 Pins par mois',
+      starterImages: '5 images IA par mois',
+      starterTexts: '20 textes IA par mois',
       starterAccounts: '1 compte Pinterest',
-      basicTemplates: 'Templates de base',
-      basicAnalytics: 'Analytics basiques',
+      manualScheduling: 'Planification manuelle',
       proPins: '100 Pins par mois',
-      proAccounts: '3 comptes Pinterest',
-      premiumTemplates: 'Templates premium',
-      aiGeneration: 'Génération IA',
-      advancedAnalytics: 'Analytics avancés',
+      proImages: '100 images IA par mois',
+      proTexts: '300 textes IA par mois',
+      proAutopilot: "Autopilote : jusqu'à 3 Pins / jour",
+      autoScheduling: 'Planification automatique',
       prioritySupport: 'Support prioritaire',
-      unlimitedPins: 'Pins illimités',
-      businessAccounts: '10 comptes Pinterest',
-      automationApi: "API d'automatisation",
-      advancedAi: 'Génération IA avancée',
-      dedicatedSupport: 'Support dédié 24/7',
-      teamCollaboration: "Collaboration d'équipe",
+      businessPins: '300 Pins par mois',
+      businessImages: '300 images IA par mois',
+      businessTexts: '1 000 textes IA par mois',
+      businessAutopilot: "Autopilote : jusqu'à 5 Pins / jour",
+      dedicatedSupport: 'Support dédié',
     },
     switchToBusiness: 'Passer à Business',
     switchToPro: 'Passer à Pro',
@@ -364,22 +364,22 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     upgrade: 'Upgrade',
     includedInPlan: 'Included in your plan:',
     features: {
-      starterPins: '10 Pins per month',
+      starterPins: '5 Pins per month',
+      starterImages: '5 AI images per month',
+      starterTexts: '20 AI texts per month',
       starterAccounts: '1 Pinterest account',
-      basicTemplates: 'Basic templates',
-      basicAnalytics: 'Basic analytics',
+      manualScheduling: 'Manual scheduling',
       proPins: '100 Pins per month',
-      proAccounts: '3 Pinterest accounts',
-      premiumTemplates: 'Premium templates',
-      aiGeneration: 'AI generation',
-      advancedAnalytics: 'Advanced analytics',
+      proImages: '100 AI images per month',
+      proTexts: '300 AI texts per month',
+      proAutopilot: 'Autopilot: up to 3 Pins / day',
+      autoScheduling: 'Automatic scheduling',
       prioritySupport: 'Priority support',
-      unlimitedPins: 'Unlimited Pins',
-      businessAccounts: '10 Pinterest accounts',
-      automationApi: 'Automation API',
-      advancedAi: 'Advanced AI generation',
-      dedicatedSupport: 'Dedicated 24/7 support',
-      teamCollaboration: 'Team collaboration',
+      businessPins: '300 Pins per month',
+      businessImages: '300 AI images per month',
+      businessTexts: '1,000 AI texts per month',
+      businessAutopilot: 'Autopilot: up to 5 Pins / day',
+      dedicatedSupport: 'Dedicated support',
     },
     switchToBusiness: 'Switch to Business',
     switchToPro: 'Switch to Pro',
@@ -508,22 +508,22 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     upgrade: 'Mejorar plan',
     includedInPlan: 'Incluido en tu plan:',
     features: {
-      starterPins: '10 Pines al mes',
+      starterPins: '5 Pines al mes',
+      starterImages: '5 imágenes IA al mes',
+      starterTexts: '20 textos IA al mes',
       starterAccounts: '1 cuenta de Pinterest',
-      basicTemplates: 'Plantillas básicas',
-      basicAnalytics: 'Analíticas básicas',
+      manualScheduling: 'Planificación manual',
       proPins: '100 Pines al mes',
-      proAccounts: '3 cuentas de Pinterest',
-      premiumTemplates: 'Plantillas premium',
-      aiGeneration: 'Generación con IA',
-      advancedAnalytics: 'Analíticas avanzadas',
+      proImages: '100 imágenes IA al mes',
+      proTexts: '300 textos IA al mes',
+      proAutopilot: 'Autopiloto: hasta 3 Pines / día',
+      autoScheduling: 'Planificación automática',
       prioritySupport: 'Soporte prioritario',
-      unlimitedPins: 'Pines ilimitados',
-      businessAccounts: '10 cuentas de Pinterest',
-      automationApi: 'API de automatización',
-      advancedAi: 'Generación con IA avanzada',
-      dedicatedSupport: 'Soporte dedicado 24/7',
-      teamCollaboration: 'Colaboración en equipo',
+      businessPins: '300 Pines al mes',
+      businessImages: '300 imágenes IA al mes',
+      businessTexts: '1.000 textos IA al mes',
+      businessAutopilot: 'Autopiloto: hasta 5 Pines / día',
+      dedicatedSupport: 'Soporte dedicado',
     },
     switchToBusiness: 'Pasar a Business',
     switchToPro: 'Pasar a Pro',
@@ -652,22 +652,22 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     upgrade: 'Upgraden',
     includedInPlan: 'In deinem Plan enthalten:',
     features: {
-      starterPins: '10 Pins pro Monat',
+      starterPins: '5 Pins pro Monat',
+      starterImages: '5 KI-Bilder pro Monat',
+      starterTexts: '20 KI-Texte pro Monat',
       starterAccounts: '1 Pinterest-Konto',
-      basicTemplates: 'Basis-Vorlagen',
-      basicAnalytics: 'Basis-Analytics',
+      manualScheduling: 'Manuelle Planung',
       proPins: '100 Pins pro Monat',
-      proAccounts: '3 Pinterest-Konten',
-      premiumTemplates: 'Premium-Vorlagen',
-      aiGeneration: 'KI-Generierung',
-      advancedAnalytics: 'Erweiterte Analytics',
+      proImages: '100 KI-Bilder pro Monat',
+      proTexts: '300 KI-Texte pro Monat',
+      proAutopilot: 'Autopilot: bis zu 3 Pins / Tag',
+      autoScheduling: 'Automatische Planung',
       prioritySupport: 'Prioritäts-Support',
-      unlimitedPins: 'Unbegrenzte Pins',
-      businessAccounts: '10 Pinterest-Konten',
-      automationApi: 'Automatisierungs-API',
-      advancedAi: 'Erweiterte KI-Generierung',
-      dedicatedSupport: 'Dedizierter 24/7-Support',
-      teamCollaboration: 'Team-Zusammenarbeit',
+      businessPins: '300 Pins pro Monat',
+      businessImages: '300 KI-Bilder pro Monat',
+      businessTexts: '1.000 KI-Texte pro Monat',
+      businessAutopilot: 'Autopilot: bis zu 5 Pins / Tag',
+      dedicatedSupport: 'Dedizierter Support',
     },
     switchToBusiness: 'Zu Business wechseln',
     switchToPro: 'Zu Pro wechseln',

@@ -89,6 +89,13 @@ export interface AutopilotDictionary {
   pendingDeletedTitle: string;
   /** `{count}` is interpolated. */
   pendingDeletedDesc: string;
+  /** Shown to Starter users: the autopilot requires a paid plan. */
+  upgradeTitle: string;
+  upgradeDesc: string;
+  upgradeCta: string;
+  /** `{limit}` is interpolated: daily autopilot cap for the plan. */
+  dailyLimitReached: string;
+  requiresPro: string;
 
   bulk: {
     trigger: string;
@@ -227,6 +234,11 @@ export const autopilot: Record<AppLocale, AutopilotDictionary> = {
     pendingDelete: 'Supprimer ces pins',
     pendingDeletedTitle: 'Pins supprimés',
     pendingDeletedDesc: "{count} pin(s) de l'autopilote retiré(s) du calendrier.",
+    upgradeTitle: 'Autopilote réservé aux plans Pro et Business',
+    upgradeDesc: "Passez en Pro (jusqu'à 3 Pins/jour) ou Business (jusqu'à 5 Pins/jour) pour laisser GenX remplir votre calendrier automatiquement.",
+    upgradeCta: 'Voir les plans',
+    dailyLimitReached: "Limite quotidienne de l'autopilote atteinte ({limit} Pins/jour). La génération reprendra demain.",
+    requiresPro: "L'autopilote est réservé aux plans Pro et Business.",
 
     bulk: {
       trigger: 'Planification en masse',
@@ -356,6 +368,11 @@ export const autopilot: Record<AppLocale, AutopilotDictionary> = {
     pendingDelete: 'Delete these pins',
     pendingDeletedTitle: 'Pins deleted',
     pendingDeletedDesc: '{count} autopilot pin(s) removed from the calendar.',
+    upgradeTitle: 'Autopilot is available on Pro and Business',
+    upgradeDesc: 'Upgrade to Pro (up to 3 Pins/day) or Business (up to 5 Pins/day) to let GenX fill your calendar automatically.',
+    upgradeCta: 'See plans',
+    dailyLimitReached: 'Daily autopilot limit reached ({limit} Pins/day). Generation resumes tomorrow.',
+    requiresPro: 'Autopilot is available on the Pro and Business plans.',
 
     bulk: {
       trigger: 'Bulk scheduling',
@@ -486,6 +503,11 @@ export const autopilot: Record<AppLocale, AutopilotDictionary> = {
     pendingDelete: 'Eliminar estos pines',
     pendingDeletedTitle: 'Pines eliminados',
     pendingDeletedDesc: '{count} pin(es) del autopiloto eliminado(s) del calendario.',
+    upgradeTitle: 'Autopiloto disponible en Pro y Business',
+    upgradeDesc: 'Pasa a Pro (hasta 3 Pines/día) o Business (hasta 5 Pines/día) para que GenX llene tu calendario automáticamente.',
+    upgradeCta: 'Ver planes',
+    dailyLimitReached: 'Límite diario del autopiloto alcanzado ({limit} Pines/día). La generación se reanuda mañana.',
+    requiresPro: 'El autopiloto está disponible en los planes Pro y Business.',
 
     bulk: {
       trigger: 'Programación masiva',
@@ -616,6 +638,11 @@ export const autopilot: Record<AppLocale, AutopilotDictionary> = {
     pendingDelete: 'Diese Pins löschen',
     pendingDeletedTitle: 'Pins gelöscht',
     pendingDeletedDesc: '{count} Autopilot-Pin(s) aus dem Kalender entfernt.',
+    upgradeTitle: 'Autopilot in Pro und Business verfügbar',
+    upgradeDesc: 'Upgrade auf Pro (bis zu 3 Pins/Tag) oder Business (bis zu 5 Pins/Tag), damit GenX deinen Kalender automatisch füllt.',
+    upgradeCta: 'Pläne ansehen',
+    dailyLimitReached: 'Tägliches Autopilot-Limit erreicht ({limit} Pins/Tag). Die Generierung wird morgen fortgesetzt.',
+    requiresPro: 'Der Autopilot ist in den Plänen Pro und Business verfügbar.',
 
     bulk: {
       trigger: 'Massenplanung',

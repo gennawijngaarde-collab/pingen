@@ -1,5 +1,6 @@
 'use client';
 
+import { track } from '@/lib/monitoring';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -65,25 +66,26 @@ type PlanKey = 'starter' | 'pro' | 'business';
 const getPlanFeatures = (s: SettingsDictionary): Record<PlanKey, string[]> => ({
   starter: [
     s.features.starterPins,
+    s.features.starterImages,
+    s.features.starterTexts,
     s.features.starterAccounts,
-    s.features.basicTemplates,
-    s.features.basicAnalytics,
+    s.features.manualScheduling,
   ],
   pro: [
     s.features.proPins,
-    s.features.proAccounts,
-    s.features.premiumTemplates,
-    s.features.aiGeneration,
-    s.features.advancedAnalytics,
+    s.features.proImages,
+    s.features.proTexts,
+    s.features.proAutopilot,
+    s.features.autoScheduling,
     s.features.prioritySupport,
   ],
   business: [
-    s.features.unlimitedPins,
-    s.features.businessAccounts,
-    s.features.automationApi,
-    s.features.advancedAi,
+    s.features.businessPins,
+    s.features.businessImages,
+    s.features.businessTexts,
+    s.features.businessAutopilot,
+    s.features.autoScheduling,
     s.features.dedicatedSupport,
-    s.features.teamCollaboration,
   ],
 });
 
@@ -256,6 +258,7 @@ export function Settings() {
         await refreshProfile();
 
         sessionStorage.setItem(lockKey, 'done');
+        track('pinterest_connected');
         toast({
           title: s.pinterestConnectedTitle,
           description: fmt(s.pinterestConnectedDesc, {
@@ -535,6 +538,7 @@ export function Settings() {
       try {
         // The server verifies the payment with Stripe and activates the plan itself.
         const confirmed = await confirmStripeCheckout(sessionId);
+        track('plan_activated', { plan: confirmed.plan });
         if (confirmed.customerId) setStripeCustomerId(confirmed.customerId);
 
         await refreshProfile();
@@ -582,6 +586,7 @@ export function Settings() {
       }
       setIsSaving(true);
       try {
+        track('checkout_started', { plan });
         await startStripeCheckout(plan as PaidPlan);
       } catch (error) {
         setIsSaving(false);
@@ -612,6 +617,7 @@ export function Settings() {
     // Downgrade without a Stripe customer: handled server-side (plans are never written by the browser).
     setIsSaving(true);
     try {
+      track('subscription_cancelled');
       await cancelSubscription();
       await refreshProfile();
       toast({ title: s.subscriptionCanceledTitle, description: s.subscriptionUpdatedDesc });

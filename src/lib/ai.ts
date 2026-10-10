@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { fetchRuntimeConfig } from './api';
+import { hasKnownErrorCode } from './errors';
 import { currentDictionary, currentLocale, LANGUAGE_NAMES, dictionaries } from '@/i18n/current';
 import { fmt } from '@/i18n/fmt';
 import type { AppLocale } from '@/i18n/types';
@@ -141,8 +142,8 @@ export function formatAiError(error: unknown): string {
   const message =
     error instanceof Error ? error.message : typeof error === 'string' ? error : '';
 
-  // Keep quota codes intact so the UI can translate them (see lib/errors.ts).
-  if (message.includes('QUOTA_EXCEEDED')) return message;
+  // Keep quota/capacity codes intact so the UI can translate them (see lib/errors.ts).
+  if (hasKnownErrorCode(message)) return message;
 
   const e = currentDictionary().ai.errors;
   const lower = message.toLowerCase();

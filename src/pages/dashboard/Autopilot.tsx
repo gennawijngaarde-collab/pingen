@@ -1,8 +1,12 @@
 'use client';
 
+import { track } from '@/lib/monitoring';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { ROUTES } from '@/lib/routes';
+import { PLAN_AUTOPILOT_DAILY } from '@/lib/quota';
 import { useI18n } from '@/i18n/I18nProvider';
 import { fmt } from '@/i18n/fmt';
 import type { AutopilotDictionary } from '@/i18n/sections/autopilot';
@@ -70,10 +74,13 @@ function getValidationMessage(settings: AutopilotSettings, ta: AutopilotDictiona
 }
 
 export function AutopilotPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const { t, dateLocale } = useI18n();
   const ta = t.autopilot;
+  const plan = profile?.plan || 'starter';
+  const autopilotDailyCap = PLAN_AUTOPILOT_DAILY[plan];
+  const planAllowsAutopilot = autopilotDailyCap > 0;
 
   const tones = useMemo(
     () => TONE_VALUES.map((value) => ({ value, label: ta.tones[value] })),
@@ -161,6 +168,11 @@ export function AutopilotPage() {
       enabled: enable ?? settings.enabled,
     };
 
+    if (next.enabled && !planAllowsAutopilot) {
+      toast({ title: ta.upgradeTitle, description: ta.requiresPro, variant: 'destructive' });
+      return;
+    }
+
     if (next.enabled) {
       const error = validateAutopilotForEnable(next);
       if (error) {
@@ -179,6 +191,7 @@ export function AutopilotPage() {
       setSettings(saved);
       refreshUpcoming(saved);
       void refreshPending(user.id, saved.enabled);
+      track('autopilot_toggled', { enabled: saved.enabled, postsPerDay: saved.postsPerDay });
       toast({
         title: saved.enabled ? ta.enabledTitle : ta.savedTitle,
         description: saved.enabled
@@ -216,6 +229,7 @@ export function AutopilotPage() {
       // Persist the current form (keeping the on/off state as it is) and run once.
       const saved = await saveAutopilotSettings(user.id, settings);
       setSettings(saved);
+      track('autopilot_generate_now');
       const result = await processAutopilot(user.id, 1, { force: true });
       if (result.generated > 0) {
         toast({
@@ -231,10 +245,18 @@ export function AutopilotPage() {
           })
         );
       } else {
+        const limited = result.reason === 'daily_limit' || result.reason === 'requires_pro';
         toast({
-          title: ta.upToDateTitle,
+          title: limited ? ta.errorTitle : ta.upToDateTitle,
           description:
-            result.reason === 'calendar_full' ? ta.calendarFull : ta.nothingToGenerate,
+            result.reason === 'daily_limit'
+              ? fmt(ta.dailyLimitReached, { limit: autopilotDailyCap })
+              : result.reason === 'requires_pro'
+                ? ta.requiresPro
+                : result.reason === 'calendar_full'
+                  ? ta.calendarFull
+                  : ta.nothingToGenerate,
+          variant: limited ? 'destructive' : undefined,
         });
       }
     } catch (err) {
@@ -267,12 +289,25 @@ export function AutopilotPage() {
           </div>
           <Switch
             checked={settings.enabled}
+            disabled={!planAllowsAutopilot && !settings.enabled}
             onCheckedChange={(checked) => {
               void handleSave(checked);
             }}
           />
         </div>
       </div>
+
+      {!planAllowsAutopilot && (
+        <Alert>
+          <AlertTitle>{ta.upgradeTitle}</AlertTitle>
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <span>{ta.upgradeDesc}</span>
+            <Button size="sm" asChild>
+              <Link to={ROUTES.settingsBilling}>{ta.upgradeCta}</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {!settings.enabled && pendingCount > 0 && (
         <Alert>

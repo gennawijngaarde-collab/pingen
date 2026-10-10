@@ -26,6 +26,11 @@ const fr: Dictionary = {
     errors: {
       pinLimitReached: 'Limite mensuelle de pins atteinte pour votre plan ({limit}). Passez à un plan supérieur pour continuer.',
       quotaExceeded: 'Quota IA journalier atteint pour votre plan ({limit}/jour). Réessayez demain ou passez à un plan supérieur.',
+      quotaExceededMonth: 'Quota IA mensuel atteint pour votre plan ({limit}/mois). Passez à un plan supérieur pour continuer.',
+      aiCapacity: 'Le service IA est saturé pour aujourd\'hui. Réessayez un peu plus tard.',
+      autopilotDisabled: 'L\'autopilote est désactivé sur ce compte.',
+      autopilotRequiresPro: 'L\'autopilote est réservé aux plans Pro et Business.',
+      autopilotDailyLimit: 'Limite quotidienne de l\'autopilote atteinte ({limit} Pins/jour pour votre plan).',
       sessionExpired: 'Votre session a expiré. Reconnectez-vous.',
       tooManyRequests: 'Trop de requêtes. Patientez un instant puis réessayez.',
       imageUploadFailed: "L'image du pin n'a pas pu être enregistrée. Réessayez.",
@@ -224,11 +229,11 @@ const fr: Dictionary = {
         name: 'Starter',
         description: 'Parfait pour débuter',
         features: [
-          '10 Pins par mois',
+          '5 Pins par mois',
+          '5 images IA par mois',
+          '20 textes IA par mois',
           '1 compte Pinterest',
-          'Templates de base',
           'Planification manuelle',
-          'Analytics basiques',
         ],
         cta: 'Commencer gratuitement',
       },
@@ -237,29 +242,26 @@ const fr: Dictionary = {
         description: 'Pour les créateurs sérieux',
         features: [
           '100 Pins par mois',
-          '3 comptes Pinterest',
-          'Templates premium',
+          '100 images IA par mois',
+          '300 textes IA par mois',
+          "Autopilote : jusqu'à 3 Pins / jour",
           'Planification automatique',
-          'Analytics avancés',
-          'Génération IA de Pins',
           'Support prioritaire',
         ],
-        cta: "Commencer l'essai gratuit",
+        cta: 'Passer en Pro',
       },
       {
         name: 'Business',
         description: 'Pour les équipes et agences',
         features: [
-          'Pins illimités',
-          '10 comptes Pinterest',
-          'Templates personnalisables',
-          "API d'automatisation",
-          'Analytics en temps réel',
-          'Génération IA avancée',
-          'Support dédié 24/7',
-          "Collaboration d'équipe",
+          '300 Pins par mois',
+          '300 images IA par mois',
+          '1 000 textes IA par mois',
+          "Autopilote : jusqu'à 5 Pins / jour",
+          'Planification automatique',
+          'Support dédié',
         ],
-        cta: 'Contacter les ventes',
+        cta: 'Passer en Business',
       },
     ],
   },
@@ -326,12 +328,12 @@ const fr: Dictionary = {
       {
         question: 'Puis-je utiliser PinGen avec plusieurs comptes Pinterest ?',
         answer:
-          "Oui ! Selon votre plan, vous pouvez connecter jusqu'à 10 comptes Pinterest. Le plan Pro permet 3 comptes, et le plan Business offre jusqu'à 10 comptes avec des fonctionnalités de collaboration d'équipe.",
+          'Chaque espace de travail est relié à un compte Pinterest. Le multi-comptes arrive prochainement ; en attendant, vous pouvez créer un espace par compte.',
       },
       {
         question: 'Y a-t-il une limite au nombre de Pins que je peux créer ?',
         answer:
-          'Les limites dépendent de votre plan : Starter (10 Pins/mois), Pro (100 Pins/mois), Business (illimité). Vous pouvez upgrader à tout moment si vous atteignez votre limite.',
+          'Les limites dépendent de votre plan : Starter (5 Pins et 5 images IA/mois), Pro (100 Pins et 100 images IA/mois), Business (300 Pins et 300 images IA/mois). Vous pouvez upgrader à tout moment si vous atteignez votre limite.',
       },
       {
         question: 'Puis-je annuler mon abonnement à tout moment ?',
@@ -346,7 +348,7 @@ const fr: Dictionary = {
       {
         question: 'Proposez-vous un essai gratuit ?',
         answer:
-          "Oui ! Notre plan Starter est gratuit à vie et vous permet de créer jusqu'à 10 Pins par mois. Pour tester les fonctionnalités Pro, nous offrons une période d'essai de 14 jours.",
+          "Oui ! Notre plan Starter est gratuit à vie : jusqu'à 5 Pins et 5 images IA par mois, sans carte bancaire. Passez en Pro ou Business quand vous le souhaitez, et annulez à tout moment.",
       },
       {
         question: 'Mes données sont-elles sécurisées ?',

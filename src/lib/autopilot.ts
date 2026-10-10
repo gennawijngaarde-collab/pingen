@@ -346,6 +346,13 @@ async function runAutopilot(
         writeLocal(userId, { ...settings, enabled: false });
         return { skipped: true, reason: 'disabled', generated, nextSlot: null };
       }
+      // Plan guards (see block_disabled_autopilot_pins in the database).
+      if (insertError.message?.includes('AUTOPILOT_REQUIRES_PRO')) {
+        return { skipped: true, reason: 'requires_pro', generated, nextSlot: null };
+      }
+      if (insertError.message?.includes('AUTOPILOT_DAILY_LIMIT')) {
+        return { skipped: true, reason: 'daily_limit', generated, nextSlot: null };
+      }
       throw new Error(insertError.message || 'Impossible de créer le pin autopilote');
     }
 

@@ -36,6 +36,8 @@ export interface DashboardHomeDictionary {
   scheduledDateFormat: string;
   planUsageTitle: string;
   pinsThisMonth: string;
+  aiImagesThisMonth: string;
+  aiTextsThisMonth: string;
   pinterestAccounts: string;
   currentPlan: string;
   upgradeToPro: string;
@@ -80,6 +82,8 @@ export const dashboardHome: Record<AppLocale, DashboardHomeDictionary> = {
     scheduledDateFormat: 'd MMM p',
     planUsageTitle: 'Utilisation du plan',
     pinsThisMonth: 'Pins ce mois',
+    aiImagesThisMonth: 'Images IA ce mois',
+    aiTextsThisMonth: 'Textes IA ce mois',
     pinterestAccounts: 'Comptes Pinterest',
     currentPlan: 'Plan actuel:',
     upgradeToPro: 'Passer à Pro',
@@ -122,6 +126,8 @@ export const dashboardHome: Record<AppLocale, DashboardHomeDictionary> = {
     scheduledDateFormat: 'MMM d, p',
     planUsageTitle: 'Plan usage',
     pinsThisMonth: 'Pins this month',
+    aiImagesThisMonth: 'AI images this month',
+    aiTextsThisMonth: 'AI texts this month',
     pinterestAccounts: 'Pinterest accounts',
     currentPlan: 'Current plan:',
     upgradeToPro: 'Upgrade to Pro',
@@ -164,6 +170,8 @@ export const dashboardHome: Record<AppLocale, DashboardHomeDictionary> = {
     scheduledDateFormat: 'd MMM p',
     planUsageTitle: 'Uso del plan',
     pinsThisMonth: 'Pins este mes',
+    aiImagesThisMonth: 'Imágenes IA este mes',
+    aiTextsThisMonth: 'Textos IA este mes',
     pinterestAccounts: 'Cuentas de Pinterest',
     currentPlan: 'Plan actual:',
     upgradeToPro: 'Pasar a Pro',
@@ -206,6 +214,8 @@ export const dashboardHome: Record<AppLocale, DashboardHomeDictionary> = {
     scheduledDateFormat: 'd. MMM p',
     planUsageTitle: 'Plan-Nutzung',
     pinsThisMonth: 'Pins diesen Monat',
+    aiImagesThisMonth: 'KI-Bilder diesen Monat',
+    aiTextsThisMonth: 'KI-Texte diesen Monat',
     pinterestAccounts: 'Pinterest-Konten',
     currentPlan: 'Aktueller Plan:',
     upgradeToPro: 'Auf Pro upgraden',

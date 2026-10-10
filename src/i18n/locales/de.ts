@@ -26,6 +26,11 @@ const de: Dictionary = {
     errors: {
       pinLimitReached: 'Monatliches Pin-Limit Ihres Plans erreicht ({limit}). Upgraden Sie, um weiterzumachen.',
       quotaExceeded: 'Tägliches KI-Kontingent Ihres Plans erreicht ({limit}/Tag). Versuchen Sie es morgen erneut oder upgraden Sie.',
+      quotaExceededMonth: 'Monatliches KI-Kontingent Ihres Plans erreicht ({limit}/Monat). Upgraden Sie, um fortzufahren.',
+      aiCapacity: 'Der KI-Dienst ist für heute ausgelastet. Bitte versuchen Sie es etwas später erneut.',
+      autopilotDisabled: 'Der Autopilot ist für dieses Konto deaktiviert.',
+      autopilotRequiresPro: 'Der Autopilot ist in den Plänen Pro und Business verfügbar.',
+      autopilotDailyLimit: 'Tägliches Autopilot-Limit erreicht ({limit} Pins/Tag in Ihrem Plan).',
       sessionExpired: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
       tooManyRequests: 'Zu viele Anfragen. Bitte warten Sie kurz und versuchen Sie es erneut.',
       imageUploadFailed: 'Das Pin-Bild konnte nicht gespeichert werden. Bitte erneut versuchen.',
@@ -224,11 +229,11 @@ const de: Dictionary = {
         name: 'Starter',
         description: 'Perfekt zum Einstieg',
         features: [
-          '10 Pins pro Monat',
+          '5 Pins pro Monat',
+          '5 KI-Bilder pro Monat',
+          '20 KI-Texte pro Monat',
           '1 Pinterest-Konto',
-          'Basis-Templates',
           'Manuelle Planung',
-          'Basis-Analytics',
         ],
         cta: 'Kostenlos starten',
       },
@@ -237,29 +242,26 @@ const de: Dictionary = {
         description: 'Für ernsthafte Creator',
         features: [
           '100 Pins pro Monat',
-          '3 Pinterest-Konten',
-          'Premium-Templates',
+          '100 KI-Bilder pro Monat',
+          '300 KI-Texte pro Monat',
+          'Autopilot: bis zu 3 Pins / Tag',
           'Automatische Planung',
-          'Erweiterte Analytics',
-          'KI-Generierung von Pins',
           'Prioritäts-Support',
         ],
-        cta: 'Kostenlose Testphase',
+        cta: 'Auf Pro upgraden',
       },
       {
         name: 'Business',
         description: 'Für Teams und Agenturen',
         features: [
-          'Unbegrenzte Pins',
-          '10 Pinterest-Konten',
-          'Anpassbare Templates',
-          'Automatisierungs-API',
-          'Echtzeit-Analytics',
-          'Erweiterte KI-Generierung',
-          '24/7 Dedicated Support',
-          'Team-Zusammenarbeit',
+          '300 Pins pro Monat',
+          '300 KI-Bilder pro Monat',
+          '1.000 KI-Texte pro Monat',
+          'Autopilot: bis zu 5 Pins / Tag',
+          'Automatische Planung',
+          'Dedizierter Support',
         ],
-        cta: 'Vertrieb kontaktieren',
+        cta: 'Auf Business upgraden',
       },
     ],
   },
@@ -326,12 +328,12 @@ const de: Dictionary = {
       {
         question: 'Kann ich PinGen mit mehreren Pinterest-Konten nutzen?',
         answer:
-          'Ja! Je nach Plan kannst du bis zu 10 Pinterest-Konten verbinden. Pro erlaubt 3 Konten, Business bis zu 10 mit Team-Funktionen.',
+          'Jeder Workspace ist mit einem Pinterest-Konto verknüpft. Mehrere Konten kommen bald; bis dahin kannst du pro Konto einen Workspace anlegen.',
       },
       {
         question: 'Gibt es ein Limit, wie viele Pins ich erstellen kann?',
         answer:
-          'Limits hängen vom Plan ab: Starter (10 Pins/Monat), Pro (100 Pins/Monat), Business (unbegrenzt). Du kannst jederzeit upgraden.',
+          'Limits hängen vom Plan ab: Starter (5 Pins und 5 KI-Bilder/Monat), Pro (100 Pins und 100 KI-Bilder/Monat), Business (300 Pins und 300 KI-Bilder/Monat). Du kannst jederzeit upgraden.',
       },
       {
         question: 'Kann ich mein Abo jederzeit kündigen?',
@@ -346,7 +348,7 @@ const de: Dictionary = {
       {
         question: 'Gibt es eine kostenlose Testphase?',
         answer:
-          'Ja! Der Starter-Plan ist für immer kostenlos mit bis zu 10 Pins pro Monat. Für Pro-Funktionen gibt es 14 Tage Test.',
+          'Ja! Der Starter-Plan ist für immer kostenlos: bis zu 5 Pins und 5 KI-Bilder pro Monat, ohne Kreditkarte. Upgrade jederzeit auf Pro oder Business und kündige, wann du willst.',
       },
       {
         question: 'Sind meine Daten sicher?',

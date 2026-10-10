@@ -82,7 +82,8 @@ Les jetons Vercel/GitHub fournis n'ayant plus les droits nécessaires, la config
 3. **Supprimer les variables `VITE_*` secrètes** de Vercel si elles existent (`VITE_GROK_API_KEY`, `VITE_OPENROUTER_API_KEY`, `VITE_PINTEREST_APP_SECRET`, `VITE_STRIPE_SECRET_KEY`) et n'utiliser que `GROK_API_KEY`/`XAI_API_KEY`, `OPENROUTER_API_KEY`, `PINTEREST_APP_SECRET`, `STRIPE_SECRET_KEY`.
 4. **Révoquer** le jeton Vercel communiqué pendant l'intervention (le jeton Supabase `sbp_…` l'a déjà été).
 5. **Protection contre les mots de passe compromis (HIBP)** : disponible uniquement sur le plan Supabase Pro.
-6. **Accès Standard Pinterest** (app 1609578) : toujours le seul blocage pour voir les pins apparaître sur Pinterest.
+6. ~~Accès Standard Pinterest~~ : obtenu, publication vérifiée.
+7. **Monitoring et CDN** : créer les comptes Sentry / PostHog et renseigner `SENTRY_DSN`, `VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY` dans Vercel ; basculer le DNS vers Cloudflare. Procédure complète et grille tarifaire v2 (plafonds de coûts) dans [`INFRA.md`](./INFRA.md).
 
 ## 6. Ce qui est volontairement public
 

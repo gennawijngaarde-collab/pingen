@@ -27,6 +27,11 @@ export interface Dictionary {
     errors: {
       pinLimitReached: string;
       quotaExceeded: string;
+      quotaExceededMonth: string;
+      aiCapacity: string;
+      autopilotDisabled: string;
+      autopilotRequiresPro: string;
+      autopilotDailyLimit: string;
       sessionExpired: string;
       tooManyRequests: string;
       imageUploadFailed: string;

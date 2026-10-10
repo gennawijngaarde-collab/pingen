@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePins } from '@/hooks/usePins';
 import { getUserAnalytics } from '@/lib/supabase';
 import { getAutopilotStatusSummary, loadAutopilotSettings } from '@/lib/autopilot';
+import { fallbackQuotaUsage, fetchQuotaUsage, quotaPercent, type QuotaUsage } from '@/lib/quota';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -119,6 +120,20 @@ export function Dashboard() {
   const { pins, fetchPins } = usePins();
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
+  const [quota, setQuota] = useState<QuotaUsage | null>(null);
+
+  const plan = profile?.plan || 'starter';
+  const pinsCreated = profile?.pins_created_this_month || 0;
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void fetchQuotaUsage(plan, pinsCreated).then((value) => {
+      if (!cancelled) setQuota(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, plan, pinsCreated]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -215,9 +230,7 @@ export function Dashboard() {
     return num.toString();
   };
 
-  const pinsThisMonth = profile?.pins_created_this_month || 0;
-  const pinLimit = profile?.plan === 'starter' ? 10 : profile?.plan === 'pro' ? 100 : Infinity;
-  const pinProgress = pinLimit === Infinity ? 0 : (pinsThisMonth / pinLimit) * 100;
+  const usage = quota ?? fallbackQuotaUsage(plan, pinsCreated);
 
   return (
     <div className="space-y-8">
@@ -439,31 +452,29 @@ export function Dashboard() {
               <CardTitle className="text-lg">{d.planUsageTitle}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">{d.pinsThisMonth}</span>
-                  <span className="font-medium">
-                    {pinsThisMonth} / {pinLimit === Infinity ? '∞' : pinLimit}
-                  </span>
+              {(
+                [
+                  { label: d.pinsThisMonth, counter: usage.pins },
+                  { label: d.aiImagesThisMonth, counter: usage.aiImage },
+                  { label: d.aiTextsThisMonth, counter: usage.aiText },
+                ] as const
+              ).map(({ label, counter }) => (
+                <div key={label}>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="font-medium">
+                      {counter.used} / {counter.limit}
+                    </span>
+                  </div>
+                  <Progress value={quotaPercent(counter)} className="h-2" />
                 </div>
-                <Progress value={pinProgress} className="h-2" />
-              </div>
+              ))}
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-muted-foreground">{d.pinterestAccounts}</span>
-                  <span className="font-medium">
-                    {profile?.pinterest_accounts_connected || 0} /{' '}
-                    {profile?.plan === 'starter' ? 1 : profile?.plan === 'pro' ? 3 : 10}
-                  </span>
+                  <span className="font-medium">{profile?.pinterest_accounts_connected || 0} / 1</span>
                 </div>
-                <Progress
-                  value={
-                    ((profile?.pinterest_accounts_connected || 0) /
-                      (profile?.plan === 'starter' ? 1 : profile?.plan === 'pro' ? 3 : 10)) *
-                    100
-                  }
-                  className="h-2"
-                />
+                <Progress value={(profile?.pinterest_accounts_connected || 0) * 100} className="h-2" />
               </div>
               <div className="pt-2">
                 <p className="text-sm text-muted-foreground">

@@ -143,7 +143,13 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
   return bucket.count <= limit;
 }
 
+/**
+ * Real client IP. Behind Cloudflare the trustworthy value is `cf-connecting-ip`
+ * (x-forwarded-for then starts with the visitor IP followed by Cloudflare's).
+ */
 export function clientIp(req: ApiRequest): string {
+  const cloudflare = header(req, 'cf-connecting-ip');
+  if (cloudflare) return cloudflare;
   const forwarded = header(req, 'x-forwarded-for');
   return forwarded.split(',')[0]?.trim() || header(req, 'x-real-ip') || 'unknown';
 }
@@ -155,6 +161,7 @@ export interface QuotaResult {
   used: number;
   limit: number;
   plan: string;
+  scope?: 'day' | 'month' | 'global';
 }
 
 /**
@@ -187,6 +194,7 @@ export async function consumeQuota(userToken: string, kind: QuotaKind): Promise<
       used: Number(data.used) || 0,
       limit: Number(data.limit) || 0,
       plan: typeof data.plan === 'string' ? data.plan : 'unknown',
+      scope: data.scope === 'global' || data.scope === 'month' ? data.scope : 'day',
     };
   } catch (error) {
     console.error('[quota] rpc error', error);
@@ -195,11 +203,19 @@ export async function consumeQuota(userToken: string, kind: QuotaKind): Promise<
 }
 
 export function quotaExceeded(res: ApiResponse, quota: QuotaResult, kind: QuotaKind): void {
-  res.setHeader('Retry-After', '3600');
+  if (quota.scope === 'global') {
+    // Platform-wide AI budget reached for today: not the user's fault, retry later.
+    res.setHeader('Retry-After', '3600');
+    res.status(503).json({ error: 'AI_CAPACITY: the AI service is at capacity today, please retry later', code: 'AI_CAPACITY' });
+    return;
+  }
+  const period = quota.scope === 'month' ? 'monthly' : 'daily';
+  res.setHeader('Retry-After', quota.scope === 'month' ? '86400' : '3600');
   res.status(429).json({
-    error: `QUOTA_EXCEEDED: daily ${kind} limit (${quota.limit}) reached for plan ${quota.plan}`,
+    error: `QUOTA_EXCEEDED: ${period} ${kind} limit (${quota.limit}) reached for plan ${quota.plan}`,
     code: 'QUOTA_EXCEEDED',
     kind,
+    period,
     limit: quota.limit,
     plan: quota.plan,
   });
