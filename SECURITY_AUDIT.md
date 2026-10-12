@@ -77,7 +77,7 @@ Les jetons Vercel/GitHub fournis n'ayant plus les droits nécessaires, la config
 
 ## 5. Actions restantes (accès propriétaire requis)
 
-1. **Régénérer `CRON_SECRET`** dans Vercel (l'ancien est dans l'historique public) : `openssl rand -base64 32` → Vercel → Settings → Environment Variables → `CRON_SECRET` → Redeploy. Il ne sert plus qu'au cron Vercel quotidien ; son exposition permet seulement de déclencher une publication des pins déjà dus (rate-limit 12/min).
+1. ~~Régénérer `CRON_SECRET`~~ : fait le 12/10 (valeur 48 caractères, stockée uniquement dans Vercel et Supabase Vault `genx_cron_secret`). Il sert au cron Vercel quotidien et aux jobs pg_cron ; son exposition permettrait seulement de déclencher une publication/génération déjà due (rate-limit 12/min).
 2. **Passer Stripe en mode live** : remplacer `STRIPE_SECRET_KEY` (et la clé publishable) par les clés `live` dans Vercel ; le webhook live sera créé automatiquement à l'exécution suivante du cron.
 3. **Supprimer les variables `VITE_*` secrètes** de Vercel si elles existent (`VITE_GROK_API_KEY`, `VITE_OPENROUTER_API_KEY`, `VITE_PINTEREST_APP_SECRET`, `VITE_STRIPE_SECRET_KEY`) et n'utiliser que `GROK_API_KEY`/`XAI_API_KEY`, `OPENROUTER_API_KEY`, `PINTEREST_APP_SECRET`, `STRIPE_SECRET_KEY`.
 4. **Révoquer** le jeton Vercel communiqué pendant l'intervention (le jeton Supabase `sbp_…` l'a déjà été).

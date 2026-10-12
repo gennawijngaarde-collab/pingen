@@ -11,9 +11,15 @@ vue : fermer l'onglet ne change rien à la publication ni à la génération.
 
 | Tâche | Déclencheur | Code |
 | --- | --- | --- |
-| Publier les pins dont l'heure est passée | GitHub Actions toutes les 5 min (`.github/workflows/auto-publish.yml`, auth OIDC) + Vercel Cron quotidien 06:00 UTC | `api/cron/publish-scheduled-pins.ts` → `server/publishScheduledPins.ts` |
-| Générer les pins de l'autopilote (texte + image IA, planification aux heures choisies) | même workflow, 2ᵉ étape `?task=autopilot` | `server/autopilot.ts` |
+| Publier les pins dont l'heure est passée | **Supabase pg_cron** toutes les 5 min (`:00, :05, …`, `supabase/migrations/20261012_pg_cron_trigger.sql`) ; secours : GitHub Actions (`.github/workflows/auto-publish.yml`, OIDC, en pratique quelques fois par jour) et Vercel Cron quotidien 06:00 UTC | `api/cron/publish-scheduled-pins.ts` → `server/publishScheduledPins.ts` |
+| Générer les pins de l'autopilote (texte + image IA, planification aux heures choisies) | pg_cron toutes les 5 min décalé (`:02, :07, …`) avec `?task=autopilot` ; secours : 2ᵉ étape du workflow GitHub | `server/autopilot.ts` |
 | Entretien (webhook Stripe, réconciliation abonnements) | à la suite de la publication | `server/maintenance.ts` |
+
+Pourquoi pg_cron : GitHub Actions `schedule: */5` n'a tourné en réalité qu'une fois toutes les 3 à 7 h
+(observé sur 10 jours de runs), et Vercel Hobby n'autorise qu'un cron par jour. pg_cron + pg_net
+appellent l'API depuis la base elle-même, à la minute près, sans coût. Le jeton (`CRON_SECRET`
+côté Vercel) est lu dans Supabase Vault (`genx_cron_secret`) à chaque exécution. Suivi :
+`select * from cron.job_run_details order by start_time desc` et `select * from net._http_response order by created desc`.
 
 Fonctionnement de l'autopilote serveur :
 
