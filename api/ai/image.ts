@@ -1,4 +1,5 @@
 import { reportError } from '../../server/sentry.js';
+import { buildGrokPrompt } from '../../server/pinConcept.js';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import {
@@ -93,21 +94,6 @@ async function fetchPublicImage(raw: string): Promise<Response> {
     return res;
   }
   throw new Error('too many redirects');
-}
-
-function buildGrokPrompt(visualPrompt: string, overlayText?: string): string {
-  const text = overlayText?.trim();
-  const visual = visualPrompt.trim();
-  const parts = [
-    'Professional vertical Pinterest pin, 2:3 portrait composition, high-end marketing graphic.',
-    'The photograph MUST clearly depict the actual business, product or niche described. No generic nature stock unless the business is about nature.',
-    visual,
-    text
-      ? 'Leave a clean dark area in the lower third for a headline. Do not invent extra slogans.'
-      : 'Clean composition without extra captions or UI chrome.',
-    'Crisp details, no watermarks, no UI chrome, no logos of real brands, no celebrity faces.',
-  ];
-  return parts.join(' ').slice(0, 3900);
 }
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {

@@ -20,6 +20,8 @@ export interface AutopilotSettings {
   lookAheadDays: number;
   /** Language of generated texts; the UI language at the time of saving. */
   language?: AppLocale;
+  /** IANA time zone of the posting hours (saved from the browser; used by the server-side autopilot). */
+  timezone?: string;
   lastRunAt: string | null;
   lastGeneratedAt: string | null;
   totalGenerated: number;
@@ -76,6 +78,7 @@ function normalizeSettings(parsed: Partial<AutopilotSettings> | null | undefined
     postingHours: hours.length > 0 ? hours : [...DEFAULT_POSTING_HOURS],
     lookAheadDays: Math.min(14, Math.max(1, Math.round(num(source.lookAheadDays, DEFAULT_AUTOPILOT.lookAheadDays)))),
     language: isAppLocale(source.language) ? source.language : undefined,
+    timezone: str(source.timezone, 64) || undefined,
     lastRunAt: typeof source.lastRunAt === 'string' ? source.lastRunAt : null,
     lastGeneratedAt: typeof source.lastGeneratedAt === 'string' ? source.lastGeneratedAt : null,
     totalGenerated: Math.max(0, Math.round(num(source.totalGenerated, 0))),
@@ -184,11 +187,23 @@ async function withBrowserLock<T>(fn: () => Promise<T>, skipped: T): Promise<T> 
   return result as T;
 }
 
+function browserTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function saveAutopilotSettings(
   userId: string,
   settings: AutopilotSettings
 ): Promise<AutopilotSettings> {
-  const normalized = normalizeSettings({ ...settings, language: settings.language ?? currentLocale() });
+  const normalized = normalizeSettings({
+    ...settings,
+    language: settings.language ?? currentLocale(),
+    timezone: browserTimeZone() ?? settings.timezone,
+  });
   if (!isDemoMode) await writeRemote(normalized);
   writeLocal(userId, normalized);
   return normalized;

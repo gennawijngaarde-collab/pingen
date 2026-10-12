@@ -18,8 +18,20 @@ import {
 } from '../../server/http.js';
 import { looksLikeJwt, verifyGitHubOidcToken } from '../../server/githubOidc.js';
 import { runMaintenance } from '../../server/maintenance.js';
+import { runServerAutopilot } from '../../server/autopilot.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type AutomationTask = 'publish' | 'autopilot';
+
+function automationTask(req: ApiRequest): AutomationTask {
+  const fromQuery = Array.isArray(req.query?.task) ? req.query?.task[0] : req.query?.task;
+  const raw = req.url || '';
+  const fromUrl = raw.includes('?') ? new URLSearchParams(raw.slice(raw.indexOf('?') + 1)).get('task') : null;
+  const body = jsonBody(req);
+  const value = fromQuery || fromUrl || (typeof body.task === 'string' ? body.task : '');
+  return value === 'autopilot' ? 'autopilot' : 'publish';
+}
 
 function parseOptions(req: ApiRequest): PublishOptions {
   const body = jsonBody(req);
@@ -45,7 +57,8 @@ function parseOptions(req: ApiRequest): PublishOptions {
  *      • GitHub Actions: `Authorization: Bearer <GitHub OIDC id token>` — signed by
  *        GitHub for this repository's `main` branch, no shared secret required.
  *    Automation runs also perform housekeeping (Stripe webhook provisioning,
- *    subscription reconciliation).
+ *    subscription reconciliation). With `?task=autopilot` the run instead
+ *    generates autopilot pins for every enabled account (server-side autopilot).
  *  - A signed-in user (in-app button): `Authorization: Bearer <Supabase JWT>`.
  *    Runs under RLS, so only that user's pins are published. Optional JSON body:
  *    `{ pinId }` / `{ pinIds: [] }` to publish specific pins immediately (even if
@@ -91,6 +104,22 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return;
       }
       const startedAt = Date.now();
+      const task = automationTask(req);
+      if (task === 'autopilot') {
+        // Server-side autopilot: generates the next missing pin of every enabled
+        // account (most urgent first) within the function's time budget.
+        const summary = await runServerAutopilot(client, startedAt + 52_000);
+        console.log(`[cron ${automation}] autopilot result:`, JSON.stringify(summary));
+        res.status(200).json({
+          success: true,
+          mode: 'cron',
+          task,
+          caller: automation.split(':')[0],
+          ...summary,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
       const result = await publishDuePins(client, { timeBudgetMs: 40_000 });
       console.log(`[cron ${automation}] publish result:`, JSON.stringify(result));
       // Housekeeping (Stripe webhook provisioning, subscription reconciliation) in the remaining budget.
@@ -102,6 +131,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       res.status(200).json({
         success: true,
         mode: 'cron',
+        task,
         caller: automation.split(':')[0],
         ...result,
         maintenance,

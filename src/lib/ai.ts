@@ -1,6 +1,13 @@
 import { supabase } from './supabase';
 import { fetchRuntimeConfig } from './api';
 import { hasKnownErrorCode } from './errors';
+import {
+  buildPinConceptMessages,
+  CONCEPT_TEXT_MODEL,
+  sanitizeOverlayText,
+  sanitizePinTitle as sanitizeTitleShared,
+  shortBusinessHook,
+} from '../../server/pinConcept';
 import { currentDictionary, currentLocale, LANGUAGE_NAMES, dictionaries } from '@/i18n/current';
 import { fmt } from '@/i18n/fmt';
 import type { AppLocale } from '@/i18n/types';
@@ -14,36 +21,11 @@ function aiDict(locale?: AppLocale) {
   return (locale ? dictionaries[locale] : currentDictionary()).ai;
 }
 
-const TEXT_MODEL = 'google/gemini-2.5-flash';
-
-const TITLE_MAX = 80;
-
-function firstPhrase(text: string): string {
-  return text.split(/[,.;:!?]/)[0]?.replace(/\s+/g, ' ').trim() || text.trim();
-}
-
-function shortBusinessHook(business: string): string {
-  const words = firstPhrase(business).split(/\s+/).filter(Boolean).slice(0, 4);
-  return words.length ? words.join(' ') : 'Pinterest';
-}
+const TEXT_MODEL = CONCEPT_TEXT_MODEL;
 
 /** Titre Pinterest court — jamais la description complète du business. */
 export function sanitizePinTitle(raw: string | undefined, business: string): string {
-  const title = (raw || '').replace(/\s+/g, ' ').trim();
-  const fullBusiness = business.replace(/\s+/g, ' ').trim();
-  const looksLikeBusinessDump =
-    !title ||
-    title === fullBusiness ||
-    (fullBusiness.length > 28 && title.includes(fullBusiness)) ||
-    title.length > TITLE_MAX + 20;
-
-  const cleaned = looksLikeBusinessDump ? `Découvrez ${shortBusinessHook(fullBusiness)}` : title;
-  return cleaned.slice(0, TITLE_MAX);
-}
-
-function sanitizeOverlayText(raw: string | undefined, title: string): string {
-  const text = (raw || title).replace(/\s+/g, ' ').trim();
-  return text.split(/\s+/).slice(0, 7).join(' ').slice(0, 60);
+  return sanitizeTitleShared(raw, business, 'Découvrez');
 }
 
 export interface AiStatus {
@@ -383,54 +365,17 @@ Respond in JSON:
 export async function generatePinConcept(input: BusinessPinInput): Promise<PinConcept> {
   const lang = languageName(input.language);
   const content = await openRouterChatJson(
-    [
+    buildPinConceptMessages(
       {
-        role: 'system',
-        content: `You are a Pinterest and marketing design expert. From a business description you design a complete Pin.
-
-Image rules (imagePrompt, ALWAYS in English for the image model):
-- Vertical Pinterest format, sharp marketing photo
-- The visual MUST clearly show the product / trade / niche (e.g. sneakers for a sneaker shop). Generic nature photos unrelated to the business are forbidden
-- Describe subject, objects, mood, colours and composition
-- No brand logos, no realistic celebrity faces
-- Strong visual variation on every generation
-- Keep the lower third simple: a title will be overlaid later
-
-overlayText rules:
-- 3 to 7 words max, written in ${lang}, perfectly spelled
-- Pinterest hook (number, promise, curiosity)
-- This is the text THAT APPEARS INSIDE the image
-
-Text rules (title, description, hashtags, altText: ALL in ${lang}):
-- title: Pinterest hook of 4 to 10 words, max 80 characters. NEVER copy the business description
-- description: 2-3 sentences, SEO, subtle CTA, max 500 characters${
-          input.websiteUrl ? `, ending with a short invitation to visit ${input.websiteUrl}` : ''
-        }
-- hashtags: 3-5 relevant to the business, in ${lang}
-- altText: SEO description of the image, not the raw business description
-
-Respond in JSON:
-{
-  "imagePrompt": "...",
-  "overlayText": "...",
-  "title": "...",
-  "description": "...",
-  "hashtags": ["#..."],
-  "altText": "..."
-}`,
+        business: input.business,
+        productOrOffer: input.productOrOffer,
+        audience: input.audience,
+        niche: input.niche,
+        tone: input.tone,
+        websiteUrl: input.websiteUrl,
       },
-      {
-        role: 'user',
-        content: `Business: ${input.business}
-${input.productOrOffer ? `Offer / product: ${input.productOrOffer}` : ''}
-${input.audience ? `Audience: ${input.audience}` : ''}
-${input.niche ? `Niche: ${input.niche}` : ''}
-${input.tone ? `Tone: ${input.tone}` : ''}
-Output language: ${lang}
-
-Generate a unique, different Pin every time. The image must be visually recognisable as this business, not generic stock imagery.`,
-      },
-    ],
+      lang
+    ),
     { responseFormat: 'json_object', maxTokens: 700 }
   );
 

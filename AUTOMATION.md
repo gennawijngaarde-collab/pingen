@@ -4,6 +4,34 @@ Ce document détaille toutes les fonctionnalités d'automatisation mises en plac
 
 ---
 
+## ⚙️ Où tourne l'automatisation (état actuel — 2026-10)
+
+**Tout se passe côté serveur, sans navigateur ouvert.** Le tableau de bord n'est qu'une
+vue : fermer l'onglet ne change rien à la publication ni à la génération.
+
+| Tâche | Déclencheur | Code |
+| --- | --- | --- |
+| Publier les pins dont l'heure est passée | GitHub Actions toutes les 5 min (`.github/workflows/auto-publish.yml`, auth OIDC) + Vercel Cron quotidien 06:00 UTC | `api/cron/publish-scheduled-pins.ts` → `server/publishScheduledPins.ts` |
+| Générer les pins de l'autopilote (texte + image IA, planification aux heures choisies) | même workflow, 2ᵉ étape `?task=autopilot` | `server/autopilot.ts` |
+| Entretien (webhook Stripe, réconciliation abonnements) | à la suite de la publication | `server/maintenance.ts` |
+
+Fonctionnement de l'autopilote serveur :
+
+1. `autopilot_accounts()` liste les comptes dont l'autopilote est **activé** et dont le plan l'autorise (Pro / Business).
+2. Pour chaque compte, les créneaux manquants sont calculés dans **son fuseau horaire** (`settings.timezone`, enregistré par le navigateur lors de la sauvegarde ; repli `Europe/Paris`).
+3. Les comptes sont traités par urgence (créneau le plus proche d'abord), **un pin par compte et par passage** ; le passage s'arrête avant d'épuiser les 60 s de la fonction. Avec un passage toutes les 5 min, la capacité est largement suffisante (≈ 500 pins/jour).
+4. Un **bail** (`claim_autopilot_lease`) empêche deux passages simultanés de générer le même créneau.
+5. Les quotas (`consume_quota_for`) et les garde-fous de plan (trigger `pins_block_disabled_autopilot`) s'appliquent exactement comme pour une génération manuelle. Désactiver l'autopilote arrête la génération au passage suivant, et un pin en cours de génération est abandonné si l'interrupteur a été coupé entre-temps.
+6. Les statistiques (`lastGeneratedAt`, `totalGenerated`) sont écrites dans `user_metadata.autopilot` via l'API admin.
+
+Différence avec la génération manuelle (« Générer maintenant » dans le navigateur) : l'image serveur
+ne reçoit pas le texte d'accroche superposé (pas de canvas côté serveur) ; l'accroche vit dans le titre.
+
+Les sections ci-dessous décrivent l'historique des workers navigateur ; `SchedulerWorker` ne fait plus
+qu'appeler le moteur serveur pour l'utilisateur connecté, et `AutopilotWorker` a été supprimé.
+
+---
+
 ## ✅ Fonctionnalités d'Automatisation Implémentées
 
 ### 1. 🔄 Scheduler Worker (Publication Automatique)
