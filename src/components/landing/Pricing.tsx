@@ -55,6 +55,9 @@ export function Pricing() {
                       <span className="text-muted-foreground">/{t.common.perMonth}</span>
                     )}
                   </div>
+                  {price > 0 && (
+                    <p className="text-sm text-primary font-medium mt-3">{t.pricing.trialNote}</p>
+                  )}
                 </div>
 
                 <ul className="space-y-4 mb-8">

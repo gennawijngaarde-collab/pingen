@@ -105,8 +105,9 @@ GROK_API_KEY=your-grok-key
 VITE_PINTEREST_APP_ID=your-app-id
 PINTEREST_APP_SECRET=your-app-secret
 
-# Stripe (pour les paiements)
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your-key
+# Stripe (pour les paiements — clés live en production, jamais sk_test / pk_test)
+VITE_STRIPE_PUBLISHABLE_KEY=pk_live_your-key
+STRIPE_SECRET_KEY=sk_live_your-key
 ```
 
 ### 4. Lancer en développement
@@ -245,9 +246,9 @@ Pour activer les paiements:
 
 | Plan | Pins/mois | Comptes Pinterest | Prix |
 |------|-----------|-------------------|------|
-| Starter | 10 | 1 | Gratuit |
-| Pro | 100 | 3 | 19€/mois |
-| Business | Illimité | 10 | 49€/mois |
+| Starter | 5 | 1 | Gratuit |
+| Pro | 150 | 3 | 19€/mois (7 jours gratuits) |
+| Business | 600 | 10 | 49€/mois (7 jours gratuits) |
 
 ---
 

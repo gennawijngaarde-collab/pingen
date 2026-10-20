@@ -1,12 +1,15 @@
 import { reportError } from './sentry.js';
 import { createHmac } from 'node:crypto';
 import { createServiceClient } from './publishScheduledPins.js';
-import { isConfiguredKey, safeEqual } from './http.js';
+import { canonicalAppUrl, isConfiguredKey, safeEqual } from './http.js';
 
 export type PaidPlan = 'pro' | 'business';
 export type Plan = 'starter' | PaidPlan;
 
 export const PLAN_AMOUNTS: Record<PaidPlan, number> = { pro: 1900, business: 4900 };
+/** Paid Pro/Business checkouts start with this many free days before the first charge. */
+export const TRIAL_PERIOD_DAYS = 7;
+export const STRIPE_API_VERSION = '2026-09-30.endive';
 
 export function isPaidPlan(value: unknown): value is PaidPlan {
   return value === 'pro' || value === 'business';
@@ -18,6 +21,23 @@ export function stripeSecretKey(): string {
 
 export function stripeConfigured(): boolean {
   return isConfiguredKey(stripeSecretKey());
+}
+
+/** Production hosts must use live Stripe keys, never sk_test / pk_test. */
+export function productionRequiresLiveStripe(): boolean {
+  try {
+    const host = new URL(canonicalAppUrl()).hostname.replace(/^www\./, '');
+    return host === 'pingenx.io' || host === 'pingen-amber.vercel.app';
+  } catch {
+    return false;
+  }
+}
+
+export function liveStripeRequiredError(): string | null {
+  if (productionRequiresLiveStripe() && stripeMode() !== 'live') {
+    return 'Stripe production keys (sk_live) are required.';
+  }
+  return null;
 }
 
 export interface StripeResult {
@@ -36,6 +56,7 @@ export async function stripeRequest(
     headers: {
       Authorization: `Bearer ${stripeSecretKey()}`,
       'Content-Type': 'application/x-www-form-urlencoded',
+      'Stripe-Version': STRIPE_API_VERSION,
     },
     body: method === 'GET' ? undefined : params,
     signal: AbortSignal.timeout(20_000),
@@ -94,6 +115,7 @@ export interface SubscriptionState {
   subscriptionId: string | null;
   periodStart?: string | null;
   periodEnd?: string | null;
+  trialEnd?: string | null;
 }
 
 /**
@@ -113,19 +135,48 @@ export async function applySubscriptionState(state: SubscriptionState): Promise<
     .eq('id', state.userId);
   if (profileError) throw new Error(`profile update failed: ${profileError.message}`);
 
-  const { error: subError } = await client.from('subscriptions').upsert(
+  const { data: existing } = await client
+    .from('subscriptions')
+    .select('trial_end, trial_reminder_sent_at, trial_used_at')
+    .eq('user_id', state.userId)
+    .maybeSingle();
+  const existingRow = existing as {
+    trial_end?: string | null;
+    trial_reminder_sent_at?: string | null;
+    trial_used_at?: string | null;
+  } | null;
+  const prevEnd = typeof existingRow?.trial_end === 'string' ? existingRow.trial_end : null;
+  const nextEnd = state.trialEnd ?? null;
+  const sameTrial =
+    (!prevEnd && !nextEnd) ||
+    (!!prevEnd && !!nextEnd && new Date(prevEnd).getTime() === new Date(nextEnd).getTime());
+  const prevUsed = typeof existingRow?.trial_used_at === 'string' ? existingRow.trial_used_at : null;
+  const trialUsedAt = prevUsed ?? (nextEnd ? now : null);
+
+  const baseRow = {
+    user_id: state.userId,
+    stripe_customer_id: state.customerId,
+    stripe_subscription_id: state.subscriptionId,
+    plan: state.plan,
+    status: state.status,
+    current_period_start: state.periodStart ?? null,
+    current_period_end: state.periodEnd ?? null,
+    updated_at: now,
+  };
+  let { error: subError } = await client.from('subscriptions').upsert(
     {
-      user_id: state.userId,
-      stripe_customer_id: state.customerId,
-      stripe_subscription_id: state.subscriptionId,
-      plan: state.plan,
-      status: state.status,
-      current_period_start: state.periodStart ?? null,
-      current_period_end: state.periodEnd ?? null,
-      updated_at: now,
+      ...baseRow,
+      trial_end: nextEnd,
+      trial_used_at: trialUsedAt,
+      trial_reminder_sent_at: sameTrial ? existingRow?.trial_reminder_sent_at ?? null : null,
     },
     { onConflict: 'user_id' }
   );
+  if (subError && /trial_end|trial_reminder|trial_used/.test(subError.message)) {
+    console.warn('[stripe] trial columns missing, retrying without them:', subError.message);
+    const retry = await client.from('subscriptions').upsert(baseRow, { onConflict: 'user_id' });
+    subError = retry.error;
+  }
   if (subError) throw new Error(`subscription upsert failed: ${subError.message}`);
 }
 
@@ -140,14 +191,21 @@ export async function findUserIdByCustomer(customerId: string): Promise<string |
   return (data as { user_id?: string } | null)?.user_id || null;
 }
 
-export async function findSubscriptionForUser(
-  userId: string
-): Promise<{ customerId: string | null; subscriptionId: string | null; plan: string | null; status: string | null } | null> {
+export interface LocalSubscription {
+  customerId: string | null;
+  subscriptionId: string | null;
+  plan: string | null;
+  status: string | null;
+  trialEnd: string | null;
+  trialUsedAt: string | null;
+}
+
+export async function findSubscriptionForUser(userId: string): Promise<LocalSubscription | null> {
   const client = createServiceClient();
   if (!client) return null;
   const { data } = await client
     .from('subscriptions')
-    .select('stripe_customer_id, stripe_subscription_id, plan, status')
+    .select('stripe_customer_id, stripe_subscription_id, plan, status, trial_end, trial_used_at')
     .eq('user_id', userId)
     .maybeSingle();
   if (!data) return null;
@@ -156,17 +214,65 @@ export async function findSubscriptionForUser(
     stripe_subscription_id?: string | null;
     plan?: string | null;
     status?: string | null;
+    trial_end?: string | null;
+    trial_used_at?: string | null;
   };
   return {
     customerId: row.stripe_customer_id ?? null,
     subscriptionId: row.stripe_subscription_id ?? null,
     plan: row.plan ?? null,
     status: row.status ?? null,
+    trialEnd: row.trial_end ?? null,
+    trialUsedAt: row.trial_used_at ?? null,
   };
+}
+
+/** True if this Stripe customer already had any subscription (including canceled). */
+export async function customerHasPriorSubscription(customerId: string): Promise<boolean> {
+  const result = await stripeRequest(
+    `/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=1`
+  );
+  if (!result.ok) {
+    console.warn('[stripe] prior-subscription lookup failed:', stripeErrorMessage(result.data));
+    // Fail closed: a known customer must not receive another trial if Stripe is unreachable.
+    return true;
+  }
+  const rows = result.data.data;
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+/**
+ * One 7-day trial per customer. Local history + Stripe history both count:
+ * canceling then checking out again must not grant another trial.
+ */
+export async function shouldGrantCheckoutTrial(existing: LocalSubscription | null): Promise<boolean> {
+  if (!existing) return true;
+  if (existing.trialUsedAt || existing.trialEnd || existing.subscriptionId) return false;
+  if (isPaidPlan(existing.plan)) return false;
+  if (existing.customerId && (await customerHasPriorSubscription(existing.customerId))) return false;
+  return true;
 }
 
 export function unixToIso(value: unknown): string | null {
   return typeof value === 'number' && Number.isFinite(value) ? new Date(value * 1000).toISOString() : null;
+}
+
+export function trialEndFromSubscription(sub: Record<string, unknown>): string | null {
+  if (sub.status !== 'trialing') return null;
+  const iso = unixToIso(sub.trial_end);
+  if (!iso || new Date(iso).getTime() <= Date.now()) return null;
+  return iso;
+}
+
+/** Period dates live on SubscriptionItem from API version 2026-09-30.endive. */
+export function periodFromSubscription(sub: Record<string, unknown>): { start: string | null; end: string | null } {
+  const items = (sub.items as { data?: Array<{ current_period_start?: unknown; current_period_end?: unknown }> } | undefined)
+    ?.data;
+  const item = items?.[0];
+  return {
+    start: unixToIso(item?.current_period_start) ?? unixToIso(sub.current_period_start),
+    end: unixToIso(item?.current_period_end) ?? unixToIso(sub.current_period_end) ?? unixToIso(sub.trial_end),
+  };
 }
 
 export function stripeMode(): 'live' | 'test' | 'none' {
@@ -210,8 +316,9 @@ export async function syncSubscription(sub: StripeObject, forceCanceled = false)
     status: forceCanceled ? 'canceled' : stripeStatusToLocal(sub.status),
     customerId: idOf(sub.customer),
     subscriptionId: idOf(sub.id),
-    periodStart: unixToIso(sub.current_period_start),
-    periodEnd: unixToIso(sub.current_period_end),
+    periodStart: periodFromSubscription(sub).start,
+    periodEnd: periodFromSubscription(sub).end,
+    trialEnd: trialEndFromSubscription(sub),
   });
   return true;
 }
@@ -225,7 +332,9 @@ export async function syncSubscriptionById(
   subscriptionId: string,
   hints: { userId?: string | null; plan?: string | null } = {}
 ): Promise<boolean> {
-  const result = await stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
+  const result = await stripeRequest(
+    `/subscriptions/${encodeURIComponent(subscriptionId)}?expand[]=items.data`
+  );
   if (result.status === 404) {
     const userId = hints.userId || null;
     if (!userId) return false;

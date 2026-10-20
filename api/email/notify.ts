@@ -1,23 +1,15 @@
 import { reportError } from '../../server/sentry.js';
 import { createServiceClient } from '../../server/publishScheduledPins.js';
 import { resolveAdminEmail } from '../../server/maintenance.js';
+import { escapeHtml, resendConfigured, sendResendEmail } from '../../server/email.js';
 import {
   clientIp,
-  isConfiguredKey,
   jsonBody,
   rateLimit,
   str,
   type ApiRequest,
   type ApiResponse,
 } from '../../server/http.js';
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 
@@ -37,9 +29,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  const apiKey = (process.env.RESEND_API_KEY || '').trim();
-  const from = (process.env.RESEND_FROM || 'GenX <contact@pingenx.io>').trim();
-  const adminEmail = isConfiguredKey(apiKey, 8) ? await resolveAdminEmail().catch(() => null) : null;
+  const adminEmail = resendConfigured() ? await resolveAdminEmail().catch(() => null) : null;
   if (!adminEmail) {
     res.status(200).json({ ok: false, skipped: true });
     return;
@@ -70,18 +60,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 <p><strong>Email :</strong> ${escapeHtml(email)}</p>`;
 
   try {
-    const sent = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [adminEmail], subject: `Nouvelle inscription GenX — ${email}`, html }),
-      signal: AbortSignal.timeout(15_000),
+    const ok = await sendResendEmail({
+      to: adminEmail,
+      subject: `Nouvelle inscription GenX — ${email}`,
+      html,
     });
-    if (!sent.ok) {
-      console.error('[email/notify] resend failed', sent.status, await sent.text().catch(() => ''));
-      res.status(202).json({ ok: false });
-      return;
-    }
-    res.status(200).json({ ok: true });
+    res.status(ok ? 200 : 202).json({ ok });
   } catch (error) {
     console.error('[email/notify] error', error);
     await reportError(error, { route: 'email/notify' });

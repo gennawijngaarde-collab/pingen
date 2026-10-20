@@ -13,6 +13,7 @@ import {
 import {
   findSubscriptionForUser,
   isMissingResource,
+  liveStripeRequiredError,
   stripeConfigured,
   stripeErrorMessage,
   stripeRequest,
@@ -31,6 +32,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
   if (!stripeConfigured()) {
     res.status(503).json({ error: 'Stripe is not configured.' });
+    return;
+  }
+  const liveError = liveStripeRequiredError();
+  if (liveError) {
+    res.status(503).json({ error: liveError });
     return;
   }
   if (!rateLimit(`portal:${clientIp(req)}`, 20, 60_000)) {

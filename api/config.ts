@@ -22,6 +22,7 @@ export default function handler(_req: ApiRequest, res: ApiResponse) {
     },
     stripe: {
       configured: isConfiguredKey(stripeSecret),
+      live: stripeSecret.startsWith('sk_live_') && stripePublishable.startsWith('pk_live_'),
       publishableKey: /^pk_(live|test)_/.test(stripePublishable) ? stripePublishable : '',
     },
     pinterest: {

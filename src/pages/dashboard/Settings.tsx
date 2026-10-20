@@ -132,11 +132,15 @@ export function Settings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [stripeReady, setStripeReady] = useState(false);
+  const [stripeLive, setStripeLive] = useState(false);
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchPinterestRuntimeConfig();
-    void fetchStripeStatus().then((status) => setStripeReady(status.configured));
+    void fetchStripeStatus().then((status) => {
+      setStripeReady(status.configured);
+      setStripeLive(Boolean(status.live));
+    });
   }, []);
 
   useEffect(() => {
@@ -940,7 +944,11 @@ export function Settings() {
             <CardHeader>
               <CardTitle>{s.currentPlanTitle}</CardTitle>
               <CardDescription>
-                {stripeReady ? s.billingStripeReadyDesc : s.billingStripeNotReadyDesc}
+                {stripeReady
+                  ? stripeLive
+                    ? s.billingStripeReadyDesc
+                    : s.billingStripeTestModeDesc
+                  : s.billingStripeNotReadyDesc}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -953,6 +961,9 @@ export function Settings() {
                     <Badge className="bg-primary">{s.active}</Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">{planPrices[currentPlan]}</p>
+                  {currentPlan === 'starter' && (
+                    <p className="text-xs text-primary mt-1">{s.trialNote}</p>
+                  )}
                 </div>
                 {profile?.plan === 'starter' && (
                   <Button
@@ -961,7 +972,7 @@ export function Settings() {
                     disabled={isSaving}
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
-                    {s.upgrade}
+                    {s.trialCta}
                   </Button>
                 )}
               </div>

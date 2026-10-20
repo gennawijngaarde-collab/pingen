@@ -63,10 +63,13 @@ export interface SettingsDictionary {
   // Billing tab
   currentPlanTitle: string;
   billingStripeReadyDesc: string;
+  billingStripeTestModeDesc: string;
   billingStripeNotReadyDesc: string;
   active: string;
   planPricePro: string;
   planPriceBusiness: string;
+  trialNote: string;
+  trialCta: string;
   upgrade: string;
   includedInPlan: string;
   features: {
@@ -210,12 +213,17 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     notifTipsDesc: 'Recevez des conseils pour améliorer vos Pins',
 
     currentPlanTitle: 'Plan actuel',
-    billingStripeReadyDesc: 'Les upgrades Pro (19€) et Business (49€) passent par Stripe Checkout.',
+    billingStripeReadyDesc:
+      'Pro (19€) et Business (49€) commencent par 7 jours gratuits, puis Stripe Checkout prélève l’abonnement.',
+    billingStripeTestModeDesc:
+      'Stripe est en mode test. Passez les clés sk_live / pk_live sur Vercel (Production) pour encaisser de vrais paiements.',
     billingStripeNotReadyDesc:
       'Stripe n’est pas encore configuré : les changements de plan restent locaux jusqu’à STRIPE_SECRET_KEY.',
     active: 'Actif',
     planPricePro: '19€/mois',
     planPriceBusiness: '49€/mois',
+    trialNote: '7 jours gratuits, puis facturation. Annulez avant pour ne rien payer.',
+    trialCta: 'Essayer 7 jours gratuits',
     upgrade: 'Upgrader',
     includedInPlan: 'Inclus dans votre plan:',
     features: {
@@ -224,13 +232,13 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
       starterTexts: '20 textes IA par mois',
       starterAccounts: '1 compte Pinterest',
       manualScheduling: 'Planification manuelle',
-      proPins: '100 Pins par mois',
+      proPins: '150 Pins par mois',
       proImages: '100 images IA par mois',
       proTexts: '300 textes IA par mois',
       proAutopilot: "Autopilote : jusqu'à 3 Pins / jour",
       autoScheduling: 'Planification automatique',
       prioritySupport: 'Support prioritaire',
-      businessPins: '300 Pins par mois',
+      businessPins: '600 Pins par mois',
       businessImages: '300 images IA par mois',
       businessTexts: '1 000 textes IA par mois',
       businessAutopilot: "Autopilote : jusqu'à 5 Pins / jour",
@@ -355,12 +363,17 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     notifTipsDesc: 'Get tips to improve your Pins',
 
     currentPlanTitle: 'Current plan',
-    billingStripeReadyDesc: 'Pro (€19) and Business (€49) upgrades go through Stripe Checkout.',
+    billingStripeReadyDesc:
+      'Pro (€19) and Business (€49) start with 7 days free, then Stripe Checkout bills the subscription.',
+    billingStripeTestModeDesc:
+      'Stripe is in test mode. Set sk_live / pk_live on Vercel (Production) to accept real payments.',
     billingStripeNotReadyDesc:
       'Stripe is not configured yet: plan changes stay local until STRIPE_SECRET_KEY is set.',
     active: 'Active',
     planPricePro: '€19/month',
     planPriceBusiness: '€49/month',
+    trialNote: '7-day free trial, then billed monthly. Cancel before it ends to pay nothing.',
+    trialCta: 'Start 7-day free trial',
     upgrade: 'Upgrade',
     includedInPlan: 'Included in your plan:',
     features: {
@@ -369,13 +382,13 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
       starterTexts: '20 AI texts per month',
       starterAccounts: '1 Pinterest account',
       manualScheduling: 'Manual scheduling',
-      proPins: '100 Pins per month',
+      proPins: '150 Pins per month',
       proImages: '100 AI images per month',
       proTexts: '300 AI texts per month',
       proAutopilot: 'Autopilot: up to 3 Pins / day',
       autoScheduling: 'Automatic scheduling',
       prioritySupport: 'Priority support',
-      businessPins: '300 Pins per month',
+      businessPins: '600 Pins per month',
       businessImages: '300 AI images per month',
       businessTexts: '1,000 AI texts per month',
       businessAutopilot: 'Autopilot: up to 5 Pins / day',
@@ -499,12 +512,17 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     notifTipsDesc: 'Recibe consejos para mejorar tus Pines',
 
     currentPlanTitle: 'Plan actual',
-    billingStripeReadyDesc: 'Las mejoras a Pro (19€) y Business (49€) pasan por Stripe Checkout.',
+    billingStripeReadyDesc:
+      'Pro (19€) y Business (49€) empiezan con 7 días gratis; luego Stripe Checkout cobra la suscripción.',
+    billingStripeTestModeDesc:
+      'Stripe está en modo test. Pon las claves sk_live / pk_live en Vercel (Production) para cobrar de verdad.',
     billingStripeNotReadyDesc:
       'Stripe aún no está configurado: los cambios de plan se quedan en local hasta definir STRIPE_SECRET_KEY.',
     active: 'Activo',
     planPricePro: '19€/mes',
     planPriceBusiness: '49€/mes',
+    trialNote: '7 días gratis, después se factura. Cancela antes para no pagar nada.',
+    trialCta: 'Probar 7 días gratis',
     upgrade: 'Mejorar plan',
     includedInPlan: 'Incluido en tu plan:',
     features: {
@@ -513,13 +531,13 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
       starterTexts: '20 textos IA al mes',
       starterAccounts: '1 cuenta de Pinterest',
       manualScheduling: 'Planificación manual',
-      proPins: '100 Pines al mes',
+      proPins: '150 Pines al mes',
       proImages: '100 imágenes IA al mes',
       proTexts: '300 textos IA al mes',
       proAutopilot: 'Autopiloto: hasta 3 Pines / día',
       autoScheduling: 'Planificación automática',
       prioritySupport: 'Soporte prioritario',
-      businessPins: '300 Pines al mes',
+      businessPins: '600 Pines al mes',
       businessImages: '300 imágenes IA al mes',
       businessTexts: '1.000 textos IA al mes',
       businessAutopilot: 'Autopiloto: hasta 5 Pines / día',
@@ -643,12 +661,17 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
     notifTipsDesc: 'Erhalte Tipps, um deine Pins zu verbessern',
 
     currentPlanTitle: 'Aktueller Plan',
-    billingStripeReadyDesc: 'Upgrades auf Pro (19 €) und Business (49 €) laufen über Stripe Checkout.',
+    billingStripeReadyDesc:
+      'Pro (19 €) und Business (49 €) starten mit 7 Tagen kostenlos; danach zieht Stripe Checkout das Abo ein.',
+    billingStripeTestModeDesc:
+      'Stripe läuft im Testmodus. Setze sk_live / pk_live in Vercel (Production), um echte Zahlungen zu akzeptieren.',
     billingStripeNotReadyDesc:
       'Stripe ist noch nicht konfiguriert: Planänderungen bleiben lokal, bis STRIPE_SECRET_KEY gesetzt ist.',
     active: 'Aktiv',
     planPricePro: '19 €/Monat',
     planPriceBusiness: '49 €/Monat',
+    trialNote: '7 Tage kostenlos, danach monatliche Abrechnung. Vorher kündigen, um nichts zu zahlen.',
+    trialCta: '7 Tage kostenlos testen',
     upgrade: 'Upgraden',
     includedInPlan: 'In deinem Plan enthalten:',
     features: {
@@ -657,13 +680,13 @@ export const settings: Record<AppLocale, SettingsDictionary> = {
       starterTexts: '20 KI-Texte pro Monat',
       starterAccounts: '1 Pinterest-Konto',
       manualScheduling: 'Manuelle Planung',
-      proPins: '100 Pins pro Monat',
+      proPins: '150 Pins pro Monat',
       proImages: '100 KI-Bilder pro Monat',
       proTexts: '300 KI-Texte pro Monat',
       proAutopilot: 'Autopilot: bis zu 3 Pins / Tag',
       autoScheduling: 'Automatische Planung',
       prioritySupport: 'Prioritäts-Support',
-      businessPins: '300 Pins pro Monat',
+      businessPins: '600 Pins pro Monat',
       businessImages: '300 KI-Bilder pro Monat',
       businessTexts: '1.000 KI-Texte pro Monat',
       businessAutopilot: 'Autopilot: bis zu 5 Pins / Tag',

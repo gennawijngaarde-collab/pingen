@@ -223,7 +223,8 @@ const es: Dictionary = {
     badge: 'Precios',
     title: 'Precios simples, sin sorpresas',
     subtitle:
-      'Empieza gratis y mejora de plan cuando quieras. Cancela en cualquier momento.',
+      'Pro y Business empiezan con 7 días gratis, luego 19€ o 49€ al mes. Cancela cuando quieras.',
+    trialNote: '7 días gratis, después se factura. Cancela antes para no pagar nada.',
     plans: [
       {
         name: 'Starter',
@@ -241,27 +242,27 @@ const es: Dictionary = {
         name: 'Pro',
         description: 'Para creadores serios',
         features: [
-          '100 Pins al mes',
+          '150 Pins al mes',
           '100 imágenes IA al mes',
           '300 textos IA al mes',
           'Autopiloto: hasta 3 Pins / día',
           'Planificación automática',
           'Soporte prioritario',
         ],
-        cta: 'Pasar a Pro',
+        cta: 'Probar Pro 7 días',
       },
       {
         name: 'Business',
         description: 'Para equipos y agencias',
         features: [
-          '300 Pins al mes',
+          '600 Pins al mes',
           '300 imágenes IA al mes',
           '1.000 textos IA al mes',
           'Autopiloto: hasta 5 Pins / día',
           'Planificación automática',
           'Soporte dedicado',
         ],
-        cta: 'Pasar a Business',
+        cta: 'Probar Business 7 días',
       },
     ],
   },
@@ -333,7 +334,7 @@ const es: Dictionary = {
       {
         question: '¿Hay un límite de Pins que puedo crear?',
         answer:
-          'Los límites dependen del plan: Starter (5 Pins y 5 imágenes IA/mes), Pro (100 Pins y 100 imágenes IA/mes), Business (300 Pins y 300 imágenes IA/mes). Puedes mejorar de plan en cualquier momento.',
+          'Los límites dependen del plan: Starter (5 Pins y 5 imágenes IA/mes), Pro (150 Pins y 100 imágenes IA/mes), Business (600 Pins y 300 imágenes IA/mes). Puedes mejorar de plan en cualquier momento.',
       },
       {
         question: '¿Puedo cancelar mi suscripción en cualquier momento?',
@@ -348,7 +349,7 @@ const es: Dictionary = {
       {
         question: '¿Ofrecen prueba gratuita?',
         answer:
-          '¡Sí! El plan Starter es gratis para siempre: hasta 5 Pins y 5 imágenes IA al mes, sin tarjeta. Pasa a Pro o Business cuando quieras y cancela en cualquier momento.',
+          'Sí. Starter es gratis para siempre (sin tarjeta). Pro y Business empiezan con 7 días gratis (tarjeta requerida), luego 19€ o 49€ al mes. Cancela durante la prueba para no pagar.',
       },
       {
         question: '¿Mis datos están seguros?',
@@ -366,10 +367,10 @@ const es: Dictionary = {
     badge: 'Empieza gratis hoy',
     title: '¿Listo para revolucionar tu Pinterest?',
     subtitle:
-      'Únete a más de 50.000 creadores que ahorran tiempo y hacen crecer su audiencia con PinGen. Prueba gratis, sin compromiso.',
+      'Únete a más de 50.000 creadores que ahorran tiempo y hacen crecer su audiencia con PinGen. 7 días de prueba en Pro y Business.',
     createAccount: 'Crear mi cuenta gratis',
     seeDemo: 'Ver la demo',
-    trust: 'Sin tarjeta de crédito • Cancela cuando quieras',
+    trust: 'Starter sin tarjeta • 7 días gratis en Pro y Business • Cancela cuando quieras',
   },
   footer: {
     product: 'Producto',

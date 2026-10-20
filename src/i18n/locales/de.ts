@@ -223,7 +223,8 @@ const de: Dictionary = {
     badge: 'Preise',
     title: 'Einfache Preise, keine Überraschungen',
     subtitle:
-      'Starte kostenlos und upgrade, wenn du bereit bist. Jederzeit kündbar.',
+      'Pro und Business starten mit 7 Tagen kostenlos, danach 19 € oder 49 € pro Monat. Jederzeit kündbar.',
+    trialNote: '7 Tage kostenlos, danach monatliche Abrechnung. Vorher kündigen, um nichts zu zahlen.',
     plans: [
       {
         name: 'Starter',
@@ -241,27 +242,27 @@ const de: Dictionary = {
         name: 'Pro',
         description: 'Für ernsthafte Creator',
         features: [
-          '100 Pins pro Monat',
+          '150 Pins pro Monat',
           '100 KI-Bilder pro Monat',
           '300 KI-Texte pro Monat',
           'Autopilot: bis zu 3 Pins / Tag',
           'Automatische Planung',
           'Prioritäts-Support',
         ],
-        cta: 'Auf Pro upgraden',
+        cta: 'Pro 7 Tage testen',
       },
       {
         name: 'Business',
         description: 'Für Teams und Agenturen',
         features: [
-          '300 Pins pro Monat',
+          '600 Pins pro Monat',
           '300 KI-Bilder pro Monat',
           '1.000 KI-Texte pro Monat',
           'Autopilot: bis zu 5 Pins / Tag',
           'Automatische Planung',
           'Dedizierter Support',
         ],
-        cta: 'Auf Business upgraden',
+        cta: 'Business 7 Tage testen',
       },
     ],
   },
@@ -333,7 +334,7 @@ const de: Dictionary = {
       {
         question: 'Gibt es ein Limit, wie viele Pins ich erstellen kann?',
         answer:
-          'Limits hängen vom Plan ab: Starter (5 Pins und 5 KI-Bilder/Monat), Pro (100 Pins und 100 KI-Bilder/Monat), Business (300 Pins und 300 KI-Bilder/Monat). Du kannst jederzeit upgraden.',
+          'Limits hängen vom Plan ab: Starter (5 Pins und 5 KI-Bilder/Monat), Pro (150 Pins und 100 KI-Bilder/Monat), Business (600 Pins und 300 KI-Bilder/Monat). Du kannst jederzeit upgraden.',
       },
       {
         question: 'Kann ich mein Abo jederzeit kündigen?',
@@ -348,7 +349,7 @@ const de: Dictionary = {
       {
         question: 'Gibt es eine kostenlose Testphase?',
         answer:
-          'Ja! Der Starter-Plan ist für immer kostenlos: bis zu 5 Pins und 5 KI-Bilder pro Monat, ohne Kreditkarte. Upgrade jederzeit auf Pro oder Business und kündige, wann du willst.',
+          'Ja. Starter ist für immer kostenlos (ohne Karte). Pro und Business starten mit 7 Tagen kostenlos (Karte erforderlich), danach 19 € oder 49 € pro Monat. Kündige während der Testphase, um nichts zu zahlen.',
       },
       {
         question: 'Sind meine Daten sicher?',
@@ -366,10 +367,10 @@ const de: Dictionary = {
     badge: 'Heute kostenlos starten',
     title: 'Bereit, dein Pinterest zu revolutionieren?',
     subtitle:
-      'Schließe dich über 50.000 Creatorn an, die mit PinGen Zeit sparen und wachsen. Kostenlose Testphase, ohne Verpflichtung.',
+      'Schließe dich über 50.000 Creatorn an, die mit PinGen Zeit sparen und wachsen. 7 Tage kostenlos bei Pro und Business.',
     createAccount: 'Kostenloses Konto erstellen',
     seeDemo: 'Demo ansehen',
-    trust: 'Keine Kreditkarte nötig • Jederzeit kündbar',
+    trust: 'Starter ohne Karte • 7 Tage kostenlos bei Pro und Business • Jederzeit kündbar',
   },
   footer: {
     product: 'Produkt',

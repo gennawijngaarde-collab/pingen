@@ -158,6 +158,7 @@ export interface Dictionary {
     badge: string;
     title: string;
     subtitle: string;
+    trialNote: string;
     plans: Array<{
       name: string;
       description: string;

@@ -260,10 +260,10 @@ BEGIN
   WHERE id = user_uuid;
   
   pin_limit := CASE user_plan
-    WHEN 'starter' THEN 10
-    WHEN 'pro' THEN 100
-    WHEN 'business' THEN 999999
-    ELSE 10
+    WHEN 'starter' THEN 5
+    WHEN 'pro' THEN 150
+    WHEN 'business' THEN 600
+    ELSE 5
   END;
   
   RETURN pin_count < pin_limit;

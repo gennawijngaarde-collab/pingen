@@ -223,7 +223,8 @@ const en: Dictionary = {
     badge: 'Pricing',
     title: 'Simple pricing, no surprises',
     subtitle:
-      'Start free and upgrade when you are ready. Cancel anytime.',
+      'Pro and Business start with 7 days free, then €19 or €49 per month. Cancel anytime.',
+    trialNote: '7-day free trial, then billed monthly. Cancel before it ends to pay nothing.',
     plans: [
       {
         name: 'Starter',
@@ -241,27 +242,27 @@ const en: Dictionary = {
         name: 'Pro',
         description: 'For serious creators',
         features: [
-          '100 Pins per month',
+          '150 Pins per month',
           '100 AI images per month',
           '300 AI texts per month',
           'Autopilot: up to 3 Pins / day',
           'Automatic scheduling',
           'Priority support',
         ],
-        cta: 'Upgrade to Pro',
+        cta: 'Start 7-day Pro trial',
       },
       {
         name: 'Business',
         description: 'For teams and agencies',
         features: [
-          '300 Pins per month',
+          '600 Pins per month',
           '300 AI images per month',
           '1,000 AI texts per month',
           'Autopilot: up to 5 Pins / day',
           'Automatic scheduling',
           'Dedicated support',
         ],
-        cta: 'Upgrade to Business',
+        cta: 'Start 7-day Business trial',
       },
     ],
   },
@@ -333,7 +334,7 @@ const en: Dictionary = {
       {
         question: 'Is there a limit to how many Pins I can create?',
         answer:
-          'Limits depend on your plan: Starter (5 Pins and 5 AI images/month), Pro (100 Pins and 100 AI images/month), Business (300 Pins and 300 AI images/month). You can upgrade anytime if you hit your limit.',
+          'Limits depend on your plan: Starter (5 Pins and 5 AI images/month), Pro (150 Pins and 100 AI images/month), Business (600 Pins and 300 AI images/month). You can upgrade anytime if you hit your limit.',
       },
       {
         question: 'Can I cancel my subscription anytime?',
@@ -348,7 +349,7 @@ const en: Dictionary = {
       {
         question: 'Do you offer a free trial?',
         answer:
-          'Yes! Our Starter plan is free forever: up to 5 Pins and 5 AI images per month, no credit card required. Upgrade to Pro or Business whenever you like, and cancel anytime.',
+          'Yes. Starter is free forever (no card). Pro and Business start with a 7-day free trial (card required), then €19 or €49 per month. Cancel during the trial to avoid being charged.',
       },
       {
         question: 'Is my data secure?',
@@ -366,10 +367,10 @@ const en: Dictionary = {
     badge: 'Start free today',
     title: 'Ready to transform your Pinterest?',
     subtitle:
-      'Join 50,000+ creators who save time and grow their audience with PinGen. Free trial, no commitment.',
+      'Join 50,000+ creators who save time and grow their audience with PinGen. 7-day free trial on Pro and Business.',
     createAccount: 'Create my free account',
     seeDemo: 'See demo',
-    trust: 'No credit card required • Cancel anytime',
+    trust: 'Starter needs no card • 7-day free trial on Pro and Business • Cancel anytime',
   },
   footer: {
     product: 'Product',

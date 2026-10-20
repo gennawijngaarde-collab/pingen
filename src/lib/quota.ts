@@ -18,8 +18,8 @@ export interface QuotaUsage {
 /** Mirrors `plan_pin_limit` / `plan_monthly_quota` in the database (used as a fallback only). */
 export const PLAN_LIMITS: Record<PlanKey, { pins: number; aiImage: number; aiText: number }> = {
   starter: { pins: 5, aiImage: 5, aiText: 20 },
-  pro: { pins: 100, aiImage: 100, aiText: 300 },
-  business: { pins: 300, aiImage: 300, aiText: 1000 },
+  pro: { pins: 150, aiImage: 100, aiText: 300 },
+  business: { pins: 600, aiImage: 300, aiText: 1000 },
 };
 
 export const PLAN_AUTOPILOT_DAILY: Record<PlanKey, number> = {

@@ -4,6 +4,7 @@ export type PaidPlan = 'pro' | 'business';
 
 export interface StripeStatus {
   configured: boolean;
+  live?: boolean;
   publishableKey: string;
 }
 

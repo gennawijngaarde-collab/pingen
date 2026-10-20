@@ -14,11 +14,13 @@ import {
   findSubscriptionForUser,
   idOf,
   isPaidPlan,
+  liveStripeRequiredError,
+  periodFromSubscription,
   stripeConfigured,
   stripeErrorMessage,
   stripeRequest,
   stripeStatusToLocal,
-  unixToIso,
+  trialEndFromSubscription,
 } from '../../server/stripe.js';
 
 /**
@@ -78,6 +80,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       res.status(503).json({ error: 'Stripe is not configured.' });
       return;
     }
+    const liveError = liveStripeRequiredError();
+    if (liveError) {
+      res.status(503).json({ error: liveError });
+      return;
+    }
 
     const sessionId = str(body.sessionId, 200);
     if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
@@ -125,14 +132,16 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const customerId = idOf(session.customer);
     const subscriptionId = idOf(session.subscription);
 
+    const period = subscription ? periodFromSubscription(subscription) : { start: null, end: null };
     await applySubscriptionState({
       userId: user.id,
       plan,
       status: subscription ? stripeStatusToLocal(subscription.status) : 'active',
       customerId,
       subscriptionId,
-      periodStart: subscription ? unixToIso(subscription.current_period_start) : null,
-      periodEnd: subscription ? unixToIso(subscription.current_period_end) : null,
+      periodStart: period.start,
+      periodEnd: period.end,
+      trialEnd: subscription ? trialEndFromSubscription(subscription) : null,
     });
 
     res.status(200).json({

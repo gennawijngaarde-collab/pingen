@@ -1,6 +1,7 @@
 import { canonicalAppUrl } from './http.js';
 import { createServiceClient } from './publishScheduledPins.js';
 import { ensureStripeWebhook, reconcileSubscriptions, type ReconcileResult, type WebhookEnsureResult } from './stripe.js';
+import { sendTrialReminders, type TrialReminderResult } from './trialReminder.js';
 
 let adminEmailCache: { value: string | null; at: number } | null = null;
 const ADMIN_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -34,6 +35,7 @@ export function maskEmail(email: string | null): string | null {
 export interface MaintenanceResult {
   stripeWebhook: WebhookEnsureResult;
   reconcile: ReconcileResult;
+  trialReminders: TrialReminderResult;
   adminEmail: string | null;
 }
 
@@ -46,6 +48,13 @@ export interface MaintenanceResult {
 export async function runMaintenance(deadlineMs: number): Promise<MaintenanceResult> {
   const stripeWebhook = await ensureStripeWebhook(`${canonicalAppUrl()}/api/stripe/webhook`);
   const reconcile = Date.now() < deadlineMs ? await reconcileSubscriptions(20, deadlineMs) : { checked: 0, updated: 0, errors: 0 };
+  const trialReminders =
+    Date.now() < deadlineMs
+      ? await sendTrialReminders().catch((error) => {
+          console.error('[cron] trial reminders failed:', error);
+          return { due: 0, sent: 0, skipped: 0, errors: 1 };
+        })
+      : { due: 0, sent: 0, skipped: 1, errors: 0 };
   const adminEmail = maskEmail(await resolveAdminEmail().catch(() => null));
-  return { stripeWebhook, reconcile, adminEmail };
+  return { stripeWebhook, reconcile, trialReminders, adminEmail };
 }

@@ -69,13 +69,13 @@ export async function apiFetch<T = Record<string, unknown>>(
 
 export interface RuntimeConfig {
   ai: { hasTextAi: boolean; hasImageAi: boolean };
-  stripe: { configured: boolean; publishableKey: string };
+  stripe: { configured: boolean; live?: boolean; publishableKey: string };
   pinterest: { configured: boolean; appId: string; hasSecret: boolean; redirectUri: string; scopes: string[] };
 }
 
 const FALLBACK_CONFIG: RuntimeConfig = {
   ai: { hasTextAi: false, hasImageAi: false },
-  stripe: { configured: false, publishableKey: '' },
+  stripe: { configured: false, live: false, publishableKey: '' },
   pinterest: { configured: false, appId: '', hasSecret: false, redirectUri: '', scopes: [] },
 };
 

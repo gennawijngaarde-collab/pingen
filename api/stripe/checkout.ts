@@ -13,8 +13,11 @@ import {
 } from '../../server/http.js';
 import {
   PLAN_AMOUNTS,
+  TRIAL_PERIOD_DAYS,
   findSubscriptionForUser,
   isPaidPlan,
+  liveStripeRequiredError,
+  shouldGrantCheckoutTrial,
   stripeConfigured,
   isMissingResource,
   stripeErrorMessage,
@@ -33,6 +36,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   }
   if (!stripeConfigured()) {
     res.status(503).json({ error: 'Stripe is not configured.' });
+    return;
+  }
+  const liveError = liveStripeRequiredError();
+  if (liveError) {
+    res.status(503).json({ error: liveError });
     return;
   }
   if (!rateLimit(`checkout:${clientIp(req)}`, 20, 60_000)) {
@@ -71,6 +79,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   params.set('subscription_data[metadata][user_id]', user.id);
   params.set('subscription_data[metadata][plan]', plan);
   params.set('allow_promotion_codes', 'true');
+  params.set('payment_method_collection', 'always');
 
   // Reuse the existing Stripe customer so invoices and the portal stay consistent.
   const existing = await findSubscriptionForUser(user.id).catch(() => null);
@@ -78,6 +87,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     params.set('customer', existing.customerId);
   } else if (user.email) {
     params.set('customer_email', user.email);
+  }
+
+  // One 7-day trial per customer (canceled / expired subs do not get another).
+  if (await shouldGrantCheckoutTrial(existing)) {
+    params.set('subscription_data[trial_period_days]', String(TRIAL_PERIOD_DAYS));
   }
 
   const priceId = (plan === 'pro' ? process.env.STRIPE_PRICE_PRO : process.env.STRIPE_PRICE_BUSINESS)?.trim() || '';
