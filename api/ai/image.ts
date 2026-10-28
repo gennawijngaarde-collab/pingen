@@ -203,7 +203,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             ? errorData.message
             : `Image generation failed (${grokRes.status})`;
       console.error('[ai/image] grok error', grokRes.status, errorMsg);
-      res.status(grokRes.status >= 500 ? 502 : grokRes.status).json({ error: errorMsg });
+      res.status(grokRes.status >= 500 ? 502 : grokRes.status).json({
+        error: 'La génération de l’image a échoué. Réessayez.',
+      });
       return;
     }
 

@@ -40,6 +40,7 @@ const de: Dictionary = {
   nav: {
     features: 'Funktionen',
     howItWorks: 'So funktioniert’s',
+    examples: 'Beispiele',
     pricing: 'Preise',
     faq: 'FAQ',
   },
@@ -140,6 +141,7 @@ const de: Dictionary = {
       'Erstelle, plane und veröffentliche optimierte Pins automatisch. Spare Zeit und wachse mit deinem Business.',
     cta: 'Kostenlos starten',
     login: 'Anmelden',
+    tutorial: 'Tutorial',
   },
   features: {
     badge: 'Funktionen',
@@ -217,6 +219,24 @@ const de: Dictionary = {
         description:
           'Verfolge Wachstum in Echtzeit und lass Empfehlungen deine Strategie weiter verbessern.',
       },
+    ],
+  },
+  examples: {
+    badge: 'Beispiele',
+    title: 'Solche Visuals erstellt GenX',
+    subtitle:
+      'Vertikale Motive, bereit zur Veröffentlichung, zugeschnitten auf ein konkretes Business. Klicken Sie auf eine Karte, um sie zu vergrößern.',
+    cta: 'Eigene erstellen',
+    enlarge: 'Vergrößern',
+    items: [
+      { title: 'Amazon', caption: 'Produkt-Pins, die zur Produktseite führen' },
+      { title: 'Zeit sparen', caption: 'Ein klares Versprechen, bereit zur Veröffentlichung' },
+      { title: 'Blog', caption: 'Eine stimmige Serie für eine Lifestyle-Marke' },
+      { title: 'Etsy', caption: 'Ein handgemachtes Schaufenster, bereit für Pinterest' },
+      { title: 'Kampagne', caption: 'Ein Traffic-Motiv, das das Ergebnis zeigt' },
+      { title: 'Creator', caption: 'Ein redaktionelles Layout, ruhig und lesbar' },
+      { title: 'Ergebnisse', caption: 'Ein Dashboard, das man auf einen Blick liest' },
+      { title: 'Shopify', caption: 'Ein Shop und seine Verkäufe in einem Motiv' },
     ],
   },
   pricing: {
@@ -465,7 +485,7 @@ const de: Dictionary = {
     errors: {
       modelUnavailable: 'Das KI-Modell ist nicht mehr verfügbar. Bitte versuchen Sie es gleich erneut.',
       unreachable: 'Der KI-Dienst ist nicht erreichbar. Bitte versuchen Sie es gleich erneut.',
-      insufficientCredit: 'KI-Guthaben unzureichend. Laden Sie OpenRouter (Text) oder Grok (Bilder) auf.',
+      insufficientCredit: 'Die Generierung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es gleich erneut.',
       notEnabled: 'Der KI-Dienst ist in dieser Umgebung noch nicht aktiviert.',
       saturated: 'Der KI-Dienst ist vorübergehend überlastet. Bitte versuchen Sie es gleich erneut.',
       rejected: 'Der KI-Dienst hat die Anfrage abgelehnt. Passen Sie Ihren Inhalt an und versuchen Sie es erneut.',

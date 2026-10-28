@@ -40,6 +40,7 @@ const es: Dictionary = {
   nav: {
     features: 'Funciones',
     howItWorks: 'Cómo funciona',
+    examples: 'Ejemplos',
     pricing: 'Precios',
     faq: 'FAQ',
   },
@@ -140,6 +141,7 @@ const es: Dictionary = {
       'Crea, programa y publica Pins optimizados automáticamente. Ahorra tiempo y haz crecer tu negocio.',
     cta: 'Empezar gratis',
     login: 'Iniciar sesión',
+    tutorial: 'Tutorial',
   },
   features: {
     badge: 'Funciones',
@@ -217,6 +219,24 @@ const es: Dictionary = {
         description:
           'Sigue tu crecimiento en tiempo real y deja que las recomendaciones afinen tu estrategia.',
       },
+    ],
+  },
+  examples: {
+    badge: 'Ejemplos',
+    title: 'El tipo de visuales que crea GenX',
+    subtitle:
+      'Creaciones verticales, listas para publicar, pensadas para un negocio concreto. Haz clic en una tarjeta para ampliarla.',
+    cta: 'Crear los tuyos',
+    enlarge: 'Ampliar',
+    items: [
+      { title: 'Amazon', caption: 'Pins de producto que llevan a una ficha' },
+      { title: 'Ahorro de tiempo', caption: 'Una promesa clara, lista para publicar' },
+      { title: 'Blog', caption: 'Una serie coherente para un universo lifestyle' },
+      { title: 'Etsy', caption: 'Un escaparate artesanal, listo para Pinterest' },
+      { title: 'Campaña', caption: 'Un visual de tráfico centrado en el resultado' },
+      { title: 'Creadores', caption: 'Un formato editorial, suave y legible' },
+      { title: 'Resultados', caption: 'Un panel que se lee de un vistazo' },
+      { title: 'Shopify', caption: 'Una tienda y sus ventas, en un solo visual' },
     ],
   },
   pricing: {
@@ -465,7 +485,7 @@ const es: Dictionary = {
     errors: {
       modelUnavailable: 'El modelo de IA ya no está disponible. Inténtalo de nuevo en un momento.',
       unreachable: 'No se puede contactar con el servicio de IA. Inténtalo de nuevo en un momento.',
-      insufficientCredit: 'Crédito de IA insuficiente. Recarga OpenRouter (texto) o Grok (imágenes).',
+      insufficientCredit: 'La generación no está disponible por el momento. Inténtalo de nuevo en un instante.',
       notEnabled: 'El servicio de IA aún no está activado en este entorno.',
       saturated: 'El servicio de IA está saturado temporalmente. Inténtalo de nuevo en un momento.',
       rejected: 'El servicio de IA rechazó la solicitud. Modifica tu contenido e inténtalo de nuevo.',

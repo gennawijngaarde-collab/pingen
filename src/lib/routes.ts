@@ -21,6 +21,7 @@ export const ROUTES = {
 export const HOME_HASH = {
   features: '/#features',
   howItWorks: '/#how-it-works',
+  examples: '/#examples',
   pricing: '/#pricing',
   faq: '/#faq',
 } as const;

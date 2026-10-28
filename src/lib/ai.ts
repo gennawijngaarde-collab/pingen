@@ -104,7 +104,7 @@ async function openRouterChatJson(
   }
 
   if (!res.ok) {
-    const msg = payload?.error?.message || raw || `Erreur OpenRouter (${res.status})`;
+    const msg = payload?.error?.message || raw || `Génération indisponible (${res.status})`;
     throw new HttpError(res.status, msg);
   }
 
@@ -136,8 +136,11 @@ export function formatAiError(error: unknown): string {
   }
   if (status === 401) return e.notEnabled;
   if (status === 429) return e.saturated;
-  if (status === 400) return message || e.rejected;
   if (status === 403) return e.forbidden;
+  if (/openrouter|grok|\bx\.?ai\b|gemini|ideogram/.test(lower)) {
+    return status === 400 ? e.rejected : e.unknown;
+  }
+  if (status === 400) return message || e.rejected;
   return message || e.unknown;
 }
 
@@ -394,7 +397,7 @@ export async function generatePinConcept(input: BusinessPinInput): Promise<PinCo
   };
 }
 
-/** Génère une image Pin verticale via Grok, puis superpose le titre. */
+/** Génère une image Pin verticale, puis superpose le titre. */
 export async function generatePinImage(
   prompt: string,
   overlayText?: string
@@ -428,7 +431,7 @@ export async function generatePinImage(
   if (!response.ok || !payload.url) {
     throw new HttpError(
       response.status || 502,
-      payload.error || `Erreur Grok (${response.status || 'inconnu'})`
+      payload.error || 'La génération de l’image a échoué. Réessayez.'
     );
   }
 

@@ -40,6 +40,7 @@ const en: Dictionary = {
   nav: {
     features: 'Features',
     howItWorks: 'How it works',
+    examples: 'Examples',
     pricing: 'Pricing',
     faq: 'FAQ',
   },
@@ -140,6 +141,7 @@ const en: Dictionary = {
       'Create, schedule and publish optimized Pins automatically. Save time and grow your business.',
     cta: 'Start for free',
     login: 'Log in',
+    tutorial: 'Tutorial',
   },
   features: {
     badge: 'Features',
@@ -217,6 +219,24 @@ const en: Dictionary = {
         description:
           'Track growth in real time and let recommendations refine your strategy for even better results.',
       },
+    ],
+  },
+  examples: {
+    badge: 'Examples',
+    title: 'The kind of visuals GenX creates',
+    subtitle:
+      'Vertical creatives, ready to publish, shaped around a specific business. Click a card to enlarge it.',
+    cta: 'Create yours',
+    enlarge: 'Enlarge',
+    items: [
+      { title: 'Amazon', caption: 'Product Pins that point back to a listing' },
+      { title: 'Save time', caption: 'A clear promise, ready to publish' },
+      { title: 'Blog', caption: 'A consistent series for a lifestyle brand' },
+      { title: 'Etsy', caption: 'A handmade shopfront, ready for Pinterest' },
+      { title: 'Campaign', caption: 'A traffic visual built around the result' },
+      { title: 'Creators', caption: 'An editorial layout, soft and readable' },
+      { title: 'Results', caption: 'A dashboard you can read at a glance' },
+      { title: 'Shopify', caption: 'A store and its sales, in one visual' },
     ],
   },
   pricing: {
@@ -465,7 +485,7 @@ const en: Dictionary = {
     errors: {
       modelUnavailable: 'The AI model is no longer available. Please try again shortly.',
       unreachable: 'The AI service cannot be reached. Please try again shortly.',
-      insufficientCredit: 'Insufficient AI credit. Top up OpenRouter (text) or Grok (images).',
+      insufficientCredit: 'Generation is temporarily unavailable. Please try again shortly.',
       notEnabled: 'The AI service is not enabled on this environment yet.',
       saturated: 'The AI service is temporarily overloaded. Please try again shortly.',
       rejected: 'The AI service rejected the request. Adjust your content and try again.',

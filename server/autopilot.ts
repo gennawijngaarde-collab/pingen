@@ -213,10 +213,13 @@ async function generateConcept(settings: ServerAutopilotSettings, userId: string
     }),
     signal: AbortSignal.timeout(25_000),
   });
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`);
+  if (!res.ok) {
+    console.error('[autopilot] text', res.status, (await res.text().catch(() => '')).slice(0, 200));
+    throw new Error('La génération du texte a échoué.');
+  }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('OpenRouter returned no content');
+  if (!content) throw new Error('La génération du texte n’a rien renvoyé.');
   const parsed = JSON.parse(extractJsonObject(content)) as Partial<PinConcept>;
   const title = sanitizePinTitle(parsed.title, settings.business);
   const hook = shortBusinessHook(settings.business);
@@ -244,10 +247,13 @@ async function generateImageUrl(imagePrompt: string): Promise<string> {
     body: JSON.stringify({ model: 'grok-imagine-image-quality', prompt: buildGrokPrompt(imagePrompt) }),
     signal: AbortSignal.timeout(45_000),
   });
-  if (!res.ok) throw new Error(`xAI ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`);
+  if (!res.ok) {
+    console.error('[autopilot] image', res.status, (await res.text().catch(() => '')).slice(0, 200));
+    throw new Error('La génération de l’image a échoué.');
+  }
   const data = (await res.json()) as { data?: Array<{ url?: string }> };
   const url = data.data?.[0]?.url;
-  if (!url || !/^https:\/\//i.test(url)) throw new Error('xAI returned no image URL');
+  if (!url || !/^https:\/\//i.test(url)) throw new Error('La génération de l’image n’a rien renvoyé.');
   return url;
 }
 

@@ -16,6 +16,7 @@ export function Header() {
   const navLinks = [
     { label: t.nav.features, href: HOME_HASH.features },
     { label: t.nav.howItWorks, href: HOME_HASH.howItWorks },
+    { label: t.nav.examples, href: HOME_HASH.examples },
     { label: t.nav.pricing, href: HOME_HASH.pricing },
     { label: t.nav.faq, href: HOME_HASH.faq },
   ];

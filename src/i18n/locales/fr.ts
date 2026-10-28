@@ -40,6 +40,7 @@ const fr: Dictionary = {
   nav: {
     features: 'Fonctionnalités',
     howItWorks: 'Comment ça marche',
+    examples: 'Exemples',
     pricing: 'Tarifs',
     faq: 'FAQ',
   },
@@ -140,6 +141,7 @@ const fr: Dictionary = {
       'Créez, planifiez et publiez des Pins optimisés automatiquement. Gagnez du temps et développez votre business.',
     cta: 'Commencer gratuitement',
     login: 'Se connecter',
+    tutorial: 'Tutoriel',
   },
   features: {
     badge: 'Fonctionnalités',
@@ -217,6 +219,24 @@ const fr: Dictionary = {
         description:
           'Suivez votre croissance en temps réel et laissez nos recommandations affiner votre stratégie pour encore plus de résultats.',
       },
+    ],
+  },
+  examples: {
+    badge: 'Exemples',
+    title: 'Le genre de visuels que GenX produit',
+    subtitle:
+      'Des créations verticales, prêtes à publier, pensées pour une activité précise. Cliquez sur une carte pour l’agrandir.',
+    cta: 'Créer les vôtres',
+    enlarge: 'Agrandir',
+    items: [
+      { title: 'Amazon', caption: 'Pins produit qui renvoient vers une fiche' },
+      { title: 'Gain de temps', caption: 'Une promesse claire, un visuel prêt à publier' },
+      { title: 'Blog', caption: 'Une série cohérente pour un univers lifestyle' },
+      { title: 'Etsy', caption: 'Une vitrine artisanale, prête pour Pinterest' },
+      { title: 'Campagne', caption: 'Un visuel de trafic, centré sur le résultat' },
+      { title: 'Créateurs', caption: 'Un format éditorial, doux et lisible' },
+      { title: 'Résultats', caption: 'Un tableau de bord, lisible en un coup d’œil' },
+      { title: 'Shopify', caption: 'Une boutique et ses ventes, sur un seul visuel' },
     ],
   },
   pricing: {
@@ -465,7 +485,7 @@ const fr: Dictionary = {
     errors: {
       modelUnavailable: "Le modèle IA n'est plus disponible. Réessayez dans un instant.",
       unreachable: "Le service IA n'est pas joignable. Réessayez dans un instant.",
-      insufficientCredit: 'Crédit IA insuffisant. Rechargez OpenRouter (texte) ou Grok (images).',
+      insufficientCredit: 'La génération est temporairement indisponible. Réessayez dans un instant.',
       notEnabled: "Le service IA n'est pas encore activé sur cet environnement.",
       saturated: 'Le service IA est temporairement saturé. Réessayez dans un instant.',
       rejected: 'La demande a été refusée par le service IA. Modifiez votre contenu puis réessayez.',

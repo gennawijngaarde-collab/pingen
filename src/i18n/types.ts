@@ -41,6 +41,7 @@ export interface Dictionary {
   nav: {
     features: string;
     howItWorks: string;
+    examples: string;
     pricing: string;
     faq: string;
   };
@@ -139,6 +140,7 @@ export interface Dictionary {
     subtitle: string;
     cta: string;
     login: string;
+    tutorial: string;
   };
   features: {
     badge: string;
@@ -153,6 +155,14 @@ export interface Dictionary {
     ready: string;
     cta: string;
     steps: Array<{ title: string; description: string }>;
+  };
+  examples: {
+    badge: string;
+    title: string;
+    subtitle: string;
+    cta: string;
+    enlarge: string;
+    items: Array<{ title: string; caption: string }>;
   };
   pricing: {
     badge: string;

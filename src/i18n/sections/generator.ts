@@ -165,7 +165,7 @@ const fr: GeneratorDictionary = {
   autoHelpBefore: "L'IA génère une ",
   autoHelpStrong: 'nouvelle image',
   autoHelpAfter:
-    ' (Grok, format vertical avec titre lisible) et le texte du Pin. Chaque génération produit une variante différente.',
+    ' au format vertical, avec un titre lisible, et le texte du Pin. Chaque génération produit une variante différente.',
   generatedPinAlt: 'Pin généré',
   selectedImageAlt: 'Image sélectionnée',
   removeImage: "Retirer l'image",
@@ -197,9 +197,9 @@ const fr: GeneratorDictionary = {
 
   stepAnalyzingImage: "Analyse de l'image et rédaction…",
   stepConcept: '1/2 Conception du Pin…',
-  stepImage: "2/2 Génération de l'image (Grok)…",
+  stepImage: "2/2 Génération de l'image…",
   statusGenerating: 'Génération en cours (texte + image, ~20–60 s)…',
-  statusCreatingImage: "Création de l'image avec Grok…",
+  statusCreatingImage: "Création de l'image…",
   statusSuccess: 'Pin généré avec succès.',
   textOkImageFailed: "Texte généré, mais l'image a échoué : {error}",
 
@@ -284,7 +284,7 @@ const en: GeneratorDictionary = {
   autoHelpBefore: 'The AI generates a ',
   autoHelpStrong: 'brand-new image',
   autoHelpAfter:
-    ' (Grok, vertical format with a readable title) plus the Pin copy. Every generation produces a different variant.',
+    ' in a vertical format, with a readable title, plus the Pin copy. Every generation produces a different variant.',
   generatedPinAlt: 'Generated Pin',
   selectedImageAlt: 'Selected image',
   removeImage: 'Remove image',
@@ -316,9 +316,9 @@ const en: GeneratorDictionary = {
 
   stepAnalyzingImage: 'Analyzing the image and writing…',
   stepConcept: '1/2 Designing the Pin…',
-  stepImage: '2/2 Generating the image (Grok)…',
+  stepImage: '2/2 Generating the image…',
   statusGenerating: 'Generation in progress (text + image, ~20–60 s)…',
-  statusCreatingImage: 'Creating the image with Grok…',
+  statusCreatingImage: 'Creating the image…',
   statusSuccess: 'Pin generated successfully.',
   textOkImageFailed: 'Text generated, but the image failed: {error}',
 
@@ -404,7 +404,7 @@ const es: GeneratorDictionary = {
   autoHelpBefore: 'La IA genera una ',
   autoHelpStrong: 'imagen nueva',
   autoHelpAfter:
-    ' (Grok, formato vertical con título legible) y el texto del Pin. Cada generación produce una variante diferente.',
+    ' en formato vertical, con un título legible, y el texto del Pin. Cada generación produce una variante diferente.',
   generatedPinAlt: 'Pin generado',
   selectedImageAlt: 'Imagen seleccionada',
   removeImage: 'Quitar la imagen',
@@ -436,9 +436,9 @@ const es: GeneratorDictionary = {
 
   stepAnalyzingImage: 'Analizando la imagen y redactando…',
   stepConcept: '1/2 Diseñando el Pin…',
-  stepImage: '2/2 Generando la imagen (Grok)…',
+  stepImage: '2/2 Generando la imagen…',
   statusGenerating: 'Generación en curso (texto + imagen, ~20–60 s)…',
-  statusCreatingImage: 'Creando la imagen con Grok…',
+  statusCreatingImage: 'Creando la imagen…',
   statusSuccess: 'Pin generado con éxito.',
   textOkImageFailed: 'Texto generado, pero la imagen falló: {error}',
 
@@ -524,7 +524,7 @@ const de: GeneratorDictionary = {
   autoHelpBefore: 'Die KI erstellt ein ',
   autoHelpStrong: 'neues Bild',
   autoHelpAfter:
-    ' (Grok, Hochformat mit gut lesbarem Titel) sowie den Text des Pins. Jede Generierung liefert eine andere Variante.',
+    ' im Hochformat, mit gut lesbarem Titel, sowie den Text des Pins. Jede Generierung liefert eine andere Variante.',
   generatedPinAlt: 'Generierter Pin',
   selectedImageAlt: 'Ausgewähltes Bild',
   removeImage: 'Bild entfernen',
@@ -556,9 +556,9 @@ const de: GeneratorDictionary = {
 
   stepAnalyzingImage: 'Bild wird analysiert und Text verfasst…',
   stepConcept: '1/2 Pin wird konzipiert…',
-  stepImage: '2/2 Bild wird generiert (Grok)…',
+  stepImage: '2/2 Bild wird generiert…',
   statusGenerating: 'Generierung läuft (Text + Bild, ~20–60 s)…',
-  statusCreatingImage: 'Bild wird mit Grok erstellt…',
+  statusCreatingImage: 'Bild wird erstellt…',
   statusSuccess: 'Pin erfolgreich generiert.',
   textOkImageFailed: 'Text generiert, aber das Bild ist fehlgeschlagen: {error}',
 

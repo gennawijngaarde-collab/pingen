@@ -14,6 +14,7 @@ export function Footer() {
       title: t.footer.product,
       links: [
         { label: l.features, href: HOME_HASH.features },
+        { label: t.nav.examples, href: HOME_HASH.examples },
         { label: l.pricing, href: HOME_HASH.pricing },
         { label: l.templates, href: ROUTES.comingSoon },
         { label: l.integrations, href: ROUTES.comingSoon },

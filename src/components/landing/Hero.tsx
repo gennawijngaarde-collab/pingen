@@ -86,13 +86,19 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="mt-16 lg:mt-24 relative">
-          <div className="relative rounded-2xl lg:rounded-3xl overflow-hidden shadow-2xl shadow-primary/10 border bg-white">
-            <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent pointer-events-none" />
-            <img
-              src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=1400&h=800&fit=crop"
-              alt="GenX Dashboard Preview"
-              className="w-full h-auto"
+        <div className="mt-16 lg:mt-24 relative max-w-5xl mx-auto">
+          <p className="mb-4 text-center text-sm font-medium text-muted-foreground">
+            {t.hero.tutorial}
+          </p>
+          <div className="relative rounded-2xl lg:rounded-3xl overflow-hidden shadow-2xl shadow-primary/10 border bg-black">
+            <iframe
+              className="aspect-video w-full"
+              src="https://www.youtube-nocookie.com/embed/STizFxtN4J0"
+              title={t.hero.tutorial}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
             />
           </div>
         </div>

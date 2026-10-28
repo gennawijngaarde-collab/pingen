@@ -137,6 +137,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
 
     const text = await upstream.text();
+    if (!upstream.ok) {
+      console.error('[ai/chat] upstream', upstream.status, text.slice(0, 200));
+      res.status(upstream.status).json({ error: { message: 'Génération indisponible.' } });
+      return;
+    }
     res.status(upstream.status);
     res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json');
     res.send(text);
