@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /api/
+Disallow: /coming-soon
+Disallow: /privacy.html
+
+Sitemap: https://www.pingenx.io/sitemap.xml
