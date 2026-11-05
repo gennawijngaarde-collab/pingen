@@ -56,7 +56,7 @@ async function main() {
   }
 
   const stripe = new Stripe(stripeKey, {
-    apiVersion: '2026-09-30.endive' as any,
+    apiVersion: '2026-09-30.endive' as Stripe.LatestApiVersion,
   });
 
   log('📦 Étape 1/4 : Création du produit Pro...', 'blue');
@@ -144,7 +144,7 @@ async function main() {
     } else {
       const webhook = await stripe.webhookEndpoints.create({
         url: webhookUrl,
-        enabled_events: webhookEvents as any,
+        enabled_events: webhookEvents as unknown as Stripe.WebhookEndpointCreateParams.EnabledEvent[],
         description: 'GenX billing sync (auto-provisioned)',
       });
       log(`✅ Webhook créé : ${webhook.id}`, 'green');
