@@ -1,0 +1,22 @@
+{
+  "products": [
+    {
+      "id": "prod_test_pro_demo",
+      "name": "GenX Pro",
+      "price_id": "price_1QRjYJP8YlK5vHXatest_pro_demo",
+      "amount": 1900,
+      "currency": "eur",
+      "interval": "month",
+      "trial_days": 7
+    },
+    {
+      "id": "prod_test_business_demo",
+      "name": "GenX Business",
+      "price_id": "price_1QRjYJP8YlK5vHXatest_business_demo",
+      "amount": 4900,
+      "currency": "eur",
+      "interval": "month",
+      "trial_days": 7
+    }
+  ]
+}
