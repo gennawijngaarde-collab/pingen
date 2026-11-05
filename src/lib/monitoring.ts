@@ -111,6 +111,7 @@ export type AnalyticsEvent =
   | 'autopilot_toggled'
   | 'autopilot_generate_now'
   | 'pinterest_connected'
+  | 'onboarding_plan_selected'
   | 'checkout_started'
   | 'plan_activated'
   | 'subscription_cancelled'
