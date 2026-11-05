@@ -32,7 +32,7 @@ export function Signup() {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated && !isSuccess) {
-      navigate(ROUTES.dashboard, { replace: true });
+      navigate(ROUTES.selectPlan, { replace: true });
     }
   }, [authLoading, isAuthenticated, navigate, isSuccess]);
 

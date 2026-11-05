@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/lib/routes';
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, profile } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -21,6 +21,15 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
         to={ROUTES.login}
         replace
         state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
+  }
+
+  if (profile && profile.plan === 'starter') {
+    return (
+      <Navigate
+        to={ROUTES.selectPlan}
+        replace
       />
     );
   }
