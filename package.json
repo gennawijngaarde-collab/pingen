@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
-    "ci": "npm run lint && npm run typecheck && npm run build"
+    "ci": "npm run lint && npm run typecheck && npm run build",
+    "setup-stripe": "tsx scripts/setup-stripe-live.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
