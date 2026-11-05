@@ -11,6 +11,7 @@ import './App.css';
 import { LandingPage } from './pages/LandingPage';
 import { Login } from './pages/auth/Login';
 import { Signup } from './pages/auth/Signup';
+import { SelectPlan } from './pages/onboarding/SelectPlan';
 import { DashboardLayout } from './pages/dashboard/DashboardLayout';
 import { Dashboard } from './pages/dashboard/Dashboard';
 import { PinGenerator } from './pages/dashboard/PinGenerator';
@@ -46,6 +47,7 @@ function AppRoutes() {
       <Route path={ROUTES.home} element={<LandingPage />} />
       <Route path={ROUTES.login} element={<Login />} />
       <Route path={ROUTES.signup} element={<Signup />} />
+      <Route path={ROUTES.selectPlan} element={<SelectPlan />} />
       <Route path={ROUTES.privacy} element={<PrivacyPolicy />} />
       <Route path={ROUTES.terms} element={<TermsOfService />} />
       <Route path={ROUTES.legal} element={<LegalNotice />} />
