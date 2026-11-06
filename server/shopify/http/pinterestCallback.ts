@@ -1,7 +1,7 @@
-import { reportError } from '../../../server/sentry.js';
-import { canonicalAppUrl, type ApiRequest, type ApiResponse } from '../../../server/http.js';
-import { pinterestAppId, pinterestAppSecret } from '../../../server/pinterestApp.js';
-import { encryptSecret, loadShop, readShopState, requireService, shopifyApiKey } from '../../../server/shopify.js';
+import { reportError } from '../../sentry.js';
+import { canonicalAppUrl, type ApiRequest, type ApiResponse } from '../../http.js';
+import { pinterestAppId, pinterestAppSecret } from '../../pinterestApp.js';
+import { encryptSecret, loadShop, readShopState, requireService, shopifyApiKey } from '../../shopify.js';
 
 function queryString(req: ApiRequest, key: string): string {
   const value = req.query?.[key];

@@ -1,6 +1,6 @@
-import { reportError } from '../../../server/sentry.js';
-import { bearerToken, jsonBody, str, type ApiRequest, type ApiResponse } from '../../../server/http.js';
-import { loadShop, requireService, verifySessionToken } from '../../../server/shopify.js';
+import { reportError } from '../../sentry.js';
+import { bearerToken, jsonBody, str, type ApiRequest, type ApiResponse } from '../../http.js';
+import { loadShop, requireService, verifySessionToken } from '../../shopify.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

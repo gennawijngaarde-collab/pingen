@@ -23,11 +23,18 @@ async function readBody(req: IncomingMessage): Promise<Buffer> {
   return Buffer.concat(chunks)
 }
 
-function resolveHandlerFile(pathname: string): string | null {
+function resolveHandlerFile(pathname: string): { file: string; path?: string[] } | null {
   const rel = pathname.replace(/^\/api\/?/, '').replace(/\/+$/, '')
   if (!rel || rel.includes('..')) return null
+  if (rel === 'shopify' || rel.startsWith('shopify/')) {
+    return {
+      file: path.resolve(process.cwd(), 'api', 'shopify', '[...path].ts'),
+      path: rel === 'shopify' ? [] : rel.slice('shopify/'.length).split('/'),
+    }
+  }
   const candidates = [path.resolve(process.cwd(), 'api', `${rel}.ts`), path.resolve(process.cwd(), 'api', rel, 'index.ts')]
-  return candidates.find((file) => existsSync(file)) || null
+  const file = candidates.find((candidate) => existsSync(candidate))
+  return file ? { file } : null
 }
 
 function wrapResponse(res: ServerResponse) {
@@ -64,11 +71,11 @@ export function apiDevPlugin(mode: string): Plugin {
         const url = new URL(req.url || '/', 'http://localhost')
         if (!url.pathname.startsWith('/api/')) return next()
 
-        const file = resolveHandlerFile(url.pathname)
-        if (!file) return next()
+        const resolved = resolveHandlerFile(url.pathname)
+        if (!resolved) return next()
 
         try {
-          const mod = (await server.ssrLoadModule(file)) as { default?: Handler; config?: { api?: { bodyParser?: boolean } } }
+          const mod = (await server.ssrLoadModule(resolved.file)) as { default?: Handler; config?: { api?: { bodyParser?: boolean } } }
           const handler = mod.default
           if (typeof handler !== 'function') {
             res.statusCode = 500
@@ -78,6 +85,7 @@ export function apiDevPlugin(mode: string): Plugin {
 
           const request = req as VercelLikeRequest
           request.query = Object.fromEntries(url.searchParams.entries())
+          if (resolved.path) request.query.path = resolved.path
           const raw = await readBody(req)
           const parseBody = mod.config?.api?.bodyParser !== false
           if (!parseBody) {

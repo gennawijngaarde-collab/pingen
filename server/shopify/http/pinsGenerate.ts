@@ -1,6 +1,6 @@
-import { reportError } from '../../../server/sentry.js';
-import { bearerToken, jsonBody, str, type ApiRequest, type ApiResponse } from '../../../server/http.js';
-import { loadShop, pinsCreatedThisMonth, requireService, shopPinLimit, verifySessionToken } from '../../../server/shopify.js';
+import { reportError } from '../../sentry.js';
+import { bearerToken, jsonBody, str, type ApiRequest, type ApiResponse } from '../../http.js';
+import { loadShop, pinsCreatedThisMonth, requireService, shopPinLimit, verifySessionToken } from '../../shopify.js';
 
 /**
  * Creates a draft pin for one product. Nothing is sent to Pinterest.

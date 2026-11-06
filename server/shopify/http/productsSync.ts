@@ -1,6 +1,6 @@
-import { reportError } from '../../../server/sentry.js';
-import { bearerToken, type ApiRequest, type ApiResponse } from '../../../server/http.js';
-import { loadShop, requireService, shopifyGraphql, verifySessionToken } from '../../../server/shopify.js';
+import { reportError } from '../../sentry.js';
+import { bearerToken, type ApiRequest, type ApiResponse } from '../../http.js';
+import { loadShop, requireService, shopifyGraphql, verifySessionToken } from '../../shopify.js';
 
 interface ProductsData {
   products: {

@@ -1,12 +1,12 @@
-import { reportError } from '../../server/sentry.js';
-import { header, type ApiRequest, type ApiResponse } from '../../server/http.js';
+import { reportError } from '../../sentry.js';
+import { header, type ApiRequest, type ApiResponse } from '../../http.js';
 import {
   deleteShopData,
   markShopUninstalled,
   normalizeShopDomain,
   requireService,
   verifyWebhookHmac,
-} from '../../server/shopify.js';
+} from '../../shopify.js';
 
 export const config = { api: { bodyParser: false } };
 

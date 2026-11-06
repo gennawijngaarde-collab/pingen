@@ -1,5 +1,5 @@
-import { bearerToken, type ApiRequest, type ApiResponse } from '../../server/http.js';
-import { loadShop, pinsCreatedThisMonth, requireService, shopPinLimit, verifySessionToken } from '../../server/shopify.js';
+import { bearerToken, type ApiRequest, type ApiResponse } from '../../http.js';
+import { loadShop, pinsCreatedThisMonth, requireService, shopPinLimit, verifySessionToken } from '../../shopify.js';
 
 /** Embedded app bootstrap. Authorization: Bearer <Shopify session token>. */
 export default async function handler(req: ApiRequest, res: ApiResponse) {

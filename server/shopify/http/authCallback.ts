@@ -1,4 +1,4 @@
-import { reportError } from '../../../server/sentry.js';
+import { reportError } from '../../sentry.js';
 import {
   exchangeOfflineToken,
   normalizeShopDomain,
@@ -7,8 +7,8 @@ import {
   shopifyApiKey,
   upsertInstalledShop,
   verifyShopifyQuery,
-} from '../../../server/shopify.js';
-import type { ApiRequest, ApiResponse } from '../../../server/http.js';
+} from '../../shopify.js';
+import type { ApiRequest, ApiResponse } from '../../http.js';
 
 function queryString(req: ApiRequest, key: string): string {
   const value = req.query?.[key];

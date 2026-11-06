@@ -1,5 +1,5 @@
-import { installUrl, normalizeShopDomain, shopifyConfigured } from '../../server/shopify.js';
-import type { ApiRequest, ApiResponse } from '../../server/http.js';
+import { installUrl, normalizeShopDomain, shopifyConfigured } from '../../shopify.js';
+import type { ApiRequest, ApiResponse } from '../../http.js';
 
 /** Starts the public-app OAuth install. */
 export default function handler(req: ApiRequest, res: ApiResponse) {

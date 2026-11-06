@@ -1,5 +1,5 @@
-import { reportError } from '../../server/sentry.js';
-import { bearerToken, canonicalAppUrl, jsonBody, type ApiRequest, type ApiResponse } from '../../server/http.js';
+import { reportError } from '../../sentry.js';
+import { bearerToken, canonicalAppUrl, jsonBody, type ApiRequest, type ApiResponse } from '../../http.js';
 import {
   SHOP_PLANS,
   loadShop,
@@ -7,7 +7,7 @@ import {
   shopifyGraphql,
   verifySessionToken,
   type ShopPlan,
-} from '../../server/shopify.js';
+} from '../../shopify.js';
 
 interface BillingData {
   appSubscriptionCreate: {

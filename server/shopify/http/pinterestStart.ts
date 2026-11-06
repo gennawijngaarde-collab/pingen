@@ -1,6 +1,6 @@
-import { bearerToken, canonicalAppUrl, type ApiRequest, type ApiResponse } from '../../../server/http.js';
-import { PINTEREST_SCOPES, pinterestAppId } from '../../../server/pinterestApp.js';
-import { loadShop, signShopState, verifySessionToken } from '../../../server/shopify.js';
+import { bearerToken, canonicalAppUrl, type ApiRequest, type ApiResponse } from '../../http.js';
+import { PINTEREST_SCOPES, pinterestAppId } from '../../pinterestApp.js';
+import { loadShop, signShopState, verifySessionToken } from '../../shopify.js';
 
 /** Returns the Pinterest OAuth URL for this shop. The secret stays on the server. */
 export default async function handler(req: ApiRequest, res: ApiResponse) {
