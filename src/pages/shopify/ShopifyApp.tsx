@@ -28,10 +28,58 @@ interface SessionPayload {
   pinsLimit: number;
 }
 
+interface ShopifyGlobal {
+  idToken?: () => Promise<string>;
+}
+
+function shopifyGlobal(): ShopifyGlobal | undefined {
+  return (window as unknown as { shopify?: ShopifyGlobal }).shopify;
+}
+
+function embeddedLaunch(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.has('host') || params.get('embedded') === '1' || params.has('id_token');
+}
+
+async function ensureAppBridge(): Promise<void> {
+  if (shopifyGlobal()?.idToken) return;
+  const response = await fetch('/api/config');
+  const config = (await response.json()) as { shopify?: { apiKey?: string } };
+  const apiKey = config.shopify?.apiKey || '';
+  if (!apiKey) return;
+  let meta = document.querySelector('meta[name="shopify-api-key"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'shopify-api-key');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', apiKey);
+  if (!document.querySelector('script[src="https://cdn.shopify.com/shopifycloud/app-bridge.js"]')) {
+    await new Promise<void>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.shopify.com/shopifycloud/app-bridge.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('App Bridge indisponible'));
+      document.head.appendChild(script);
+    });
+  }
+  const started = Date.now();
+  while (!shopifyGlobal()?.idToken && Date.now() - started < 3000) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
 async function sessionToken(): Promise<string | null> {
-  const shopify = (window as unknown as { shopify?: { idToken?: () => Promise<string> } }).shopify;
-  if (!shopify?.idToken) return null;
-  return shopify.idToken();
+  if (embeddedLaunch()) {
+    try {
+      await ensureAppBridge();
+    } catch {
+      // The token Shopify put on the URL can still open the first session.
+    }
+  }
+  const current = shopifyGlobal();
+  if (current?.idToken) return current.idToken();
+  return new URLSearchParams(window.location.search).get('id_token');
 }
 
 async function api<T>(path: string, token: string, init?: RequestInit): Promise<T> {
@@ -54,6 +102,7 @@ export function ShopifyApp() {
   const [session, setSession] = useState<SessionPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [booting, setBooting] = useState(embeddedLaunch);
 
   const refresh = useCallback(async (current: string) => {
     const payload = await api<SessionPayload>('/api/shopify/session', current);
@@ -63,14 +112,15 @@ export function ShopifyApp() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const current = await sessionToken();
-      if (cancelled) return;
-      if (!current) return;
-      setToken(current);
       try {
+        const current = await sessionToken();
+        if (cancelled || !current) return;
+        setToken(current);
         await refresh(current);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Session impossible');
+      } finally {
+        if (!cancelled) setBooting(false);
       }
     })();
     return () => {
@@ -90,6 +140,14 @@ export function ShopifyApp() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (booting) {
+    return (
+      <main className="mx-auto max-w-lg px-6 py-16">
+        <p className="text-[#717171]">Connexion à la boutique…</p>
+      </main>
+    );
   }
 
   if (!token) {
