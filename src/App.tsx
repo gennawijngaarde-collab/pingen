@@ -9,6 +9,7 @@ import { ROUTES } from '@/lib/routes';
 import './App.css';
 
 import { LandingPage } from './pages/LandingPage';
+import { GuidePage } from './pages/guides/GuidePage';
 import { Login } from './pages/auth/Login';
 import { Signup } from './pages/auth/Signup';
 import { SelectPlan } from './pages/onboarding/SelectPlan';
@@ -24,6 +25,7 @@ import { TermsOfService } from './pages/legal/TermsOfService';
 import { LegalNotice } from './pages/legal/LegalNotice';
 import { NotFound } from './pages/NotFound';
 import { ComingSoon } from './pages/ComingSoon';
+import { ShopifyApp } from './pages/shopify/ShopifyApp';
 
 function ProtectedDashboard() {
   return (
@@ -52,6 +54,10 @@ function AppRoutes() {
       <Route path={ROUTES.terms} element={<TermsOfService />} />
       <Route path={ROUTES.legal} element={<LegalNotice />} />
       <Route path={ROUTES.comingSoon} element={<ComingSoon />} />
+      <Route path="/shopify" element={<ShopifyApp />} />
+      <Route path="/:lang/:category/:slug" element={<GuidePage />} />
+      <Route path="/:lang/:category" element={<GuidePage />} />
+      <Route path="/:lang" element={<GuidePage />} />
       <Route path={ROUTES.cookies} element={<Navigate to={ROUTES.privacyCookies} replace />} />
       <Route path="/confidentialite" element={<Navigate to={ROUTES.privacy} replace />} />
       <Route path="/mentions-legales" element={<Navigate to={ROUTES.legal} replace />} />

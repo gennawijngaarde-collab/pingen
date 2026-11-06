@@ -2,12 +2,16 @@
 
 import { Link } from 'react-router-dom';
 import { useI18n } from '@/i18n/I18nProvider';
+import { PUBLISHED_GUIDE_LANGUAGES } from '@/i18n/sections/guides/languages';
 import { COMPANY } from '@/lib/company';
 import { HOME_HASH, ROUTES } from '@/lib/routes';
 
 export function Footer() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const l = t.footer.links;
+  const guideHref = (PUBLISHED_GUIDE_LANGUAGES as readonly string[]).includes(locale)
+    ? `/${locale}`
+    : null;
 
   const columns = [
     {
@@ -36,6 +40,7 @@ export function Footer() {
         { label: l.tutorials, href: ROUTES.comingSoon },
         { label: l.help, href: ROUTES.comingSoon },
         { label: l.community, href: ROUTES.comingSoon },
+        ...(guideHref ? [{ label: l.guides, href: guideHref }] : []),
       ],
     },
     {

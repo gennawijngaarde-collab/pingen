@@ -217,6 +217,7 @@ export interface Dictionary {
       tutorials: string;
       help: string;
       community: string;
+      guides: string;
       privacy: string;
       terms: string;
       cookies: string;

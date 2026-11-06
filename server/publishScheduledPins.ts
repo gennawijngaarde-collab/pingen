@@ -39,6 +39,8 @@ interface PinRow {
   alt_text: string | null;
   retry_count: number | null;
   scheduled_at: string | null;
+  /** Set on Shopify-channel pins. The SaaS publisher never claims those. */
+  shop_id?: string | null;
 }
 
 interface PinterestAccountRow {
@@ -280,39 +282,71 @@ async function releasePin(client: SupabaseClient, id: string): Promise<void> {
  * With a service-role client this covers all users; with a user client RLS
  * restricts it to that user's pins.
  */
+const PINS_WITH_SHOP =
+  'id, user_id, title, description, image_url, link, board_id, alt_text, retry_count, scheduled_at, shop_id' as const;
+const PINS_WITHOUT_SHOP =
+  'id, user_id, title, description, image_url, link, board_id, alt_text, retry_count, scheduled_at' as const;
+
+async function loadDuePins(
+  client: SupabaseClient,
+  options: PublishOptions,
+  now: string,
+): Promise<{ data: PinRow[] | null; error: { message: string } | null }> {
+  const limit = options.pinIds?.length ? Math.min(options.pinIds.length, 50) : 25;
+  const pinIds = options.pinIds ?? [];
+  const explicit = pinIds.length > 0;
+
+  let withShop = client
+    .from('pins')
+    .select(PINS_WITH_SHOP)
+    .order('scheduled_at', { ascending: true })
+    .limit(limit)
+    .is('shop_id', null);
+  if (explicit) withShop = withShop.in('id', pinIds).in('status', ['scheduled', 'failed', 'draft']);
+  else if (options.scope === 'all') withShop = withShop.eq('status', 'scheduled');
+  else withShop = withShop.eq('status', 'scheduled').lte('scheduled_at', now);
+
+  const first = await withShop;
+  if (!first.error || !/shop_id/i.test(first.error.message)) {
+    return { data: (first.data ?? null) as unknown as PinRow[] | null, error: first.error };
+  }
+
+  let withoutShop = client
+    .from('pins')
+    .select(PINS_WITHOUT_SHOP)
+    .order('scheduled_at', { ascending: true })
+    .limit(limit);
+  if (explicit) withoutShop = withoutShop.in('id', pinIds).in('status', ['scheduled', 'failed', 'draft']);
+  else if (options.scope === 'all') withoutShop = withoutShop.eq('status', 'scheduled');
+  else withoutShop = withoutShop.eq('status', 'scheduled').lte('scheduled_at', now);
+
+  const second = await withoutShop;
+  return { data: (second.data ?? null) as unknown as PinRow[] | null, error: second.error };
+}
+
 export async function publishDuePins(
   client: SupabaseClient,
   options: PublishOptions = {}
 ): Promise<PublishResult> {
   const startedAt = Date.now();
   const now = new Date().toISOString();
-  let query = client
-    .from('pins')
-    .select('id, user_id, title, description, image_url, link, board_id, alt_text, retry_count, scheduled_at')
-    .order('scheduled_at', { ascending: true })
-    .limit(options.pinIds?.length ? Math.min(options.pinIds.length, 50) : 25);
-
-  if (options.pinIds && options.pinIds.length > 0) {
-    // Explicit request: allow re-publishing failed pins too.
-    query = query.in('id', options.pinIds).in('status', ['scheduled', 'failed', 'draft']);
-  } else if (options.scope === 'all') {
-    query = query.eq('status', 'scheduled');
-  } else {
-    query = query.eq('status', 'scheduled').lte('scheduled_at', now);
-  }
-
-  const { data: pins, error } = await query;
+  const { data: pins, error } = await loadDuePins(client, options, now);
 
   if (error) throw new Error(`Failed to load scheduled pins: ${error.message}`);
 
   const result: PublishResult = { processed: 0, successful: 0, failed: 0, awaitingAccess: 0, details: [] };
   if (!pins || pins.length === 0) return result;
 
+  const loaded = pins as PinRow[];
   const claimed = await claimPins(
     client,
-    (pins as PinRow[]).map((p) => p.id)
+    loaded.map((p) => p.id)
   );
-  const claimedPins = (pins as PinRow[]).filter((p) => claimed.has(p.id));
+  const skipped = loaded.filter((p) => claimed.has(p.id) && (p.shop_id || !p.user_id));
+  if (skipped.length > 0) {
+    await Promise.all(skipped.map((p) => releasePin(client, p.id)));
+  }
+  const claimedPins = loaded.filter((p) => claimed.has(p.id) && !p.shop_id && p.user_id);
   if (claimedPins.length === 0) return result;
 
   const userIds = Array.from(new Set(claimedPins.map((p) => p.user_id)));

@@ -412,6 +412,7 @@ const de: Dictionary = {
       tutorials: 'Tutorials',
       help: 'Hilfe-Center',
       community: 'Community',
+      guides: 'Ratgeber',
       privacy: 'Datenschutz',
       terms: 'AGB',
       cookies: 'Cookies',

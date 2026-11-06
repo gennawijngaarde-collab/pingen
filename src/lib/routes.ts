@@ -1,6 +1,7 @@
 /** Source unique des chemins de l’app — à utiliser à la place des strings magiques. */
 export const ROUTES = {
   home: '/',
+  guides: '/en',
   login: '/login',
   signup: '/signup',
   selectPlan: '/onboarding/select-plan',

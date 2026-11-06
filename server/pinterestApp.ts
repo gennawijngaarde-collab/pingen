@@ -26,6 +26,9 @@ export function allowedPinterestRedirectUris(): string[] {
       'https://www.pingenx.io/dashboard/settings',
       'https://pingenx.io/dashboard/settings',
       ...(process.env.VERCEL_ENV !== 'production' ? ['http://localhost:5173/dashboard/settings'] : []),
+      `${canonicalAppUrl()}/api/shopify/pinterest/callback`,
+      'https://www.pingenx.io/api/shopify/pinterest/callback',
+      'https://pingenx.io/api/shopify/pinterest/callback',
     ])
   );
 }

@@ -1,5 +1,6 @@
 import { isConfiguredKey, type ApiRequest, type ApiResponse } from '../server/http.js';
 import { PINTEREST_SCOPES, pinterestAppId, pinterestAppSecret, pinterestRedirectUri } from '../server/pinterestApp.js';
+import { shopifyApiKey, shopifyConfigured } from '../server/shopify.js';
 
 /**
  * Public, non-sensitive runtime configuration for the browser
@@ -31,6 +32,10 @@ export default function handler(_req: ApiRequest, res: ApiResponse) {
       hasSecret: isConfiguredKey(secret, 4),
       redirectUri: pinterestRedirectUri(),
       scopes: PINTEREST_SCOPES,
+    },
+    shopify: {
+      configured: shopifyConfigured(),
+      apiKey: shopifyConfigured() ? shopifyApiKey() : '',
     },
   });
 }

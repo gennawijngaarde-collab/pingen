@@ -19,6 +19,7 @@ import {
 import { looksLikeJwt, verifyGitHubOidcToken } from '../../server/githubOidc.js';
 import { runMaintenance } from '../../server/maintenance.js';
 import { runServerAutopilot } from '../../server/autopilot.js';
+import { publishDueShopPins } from '../../server/publishShopPins.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -120,8 +121,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         });
         return;
       }
-      const result = await publishDuePins(client, { timeBudgetMs: 40_000 });
-      console.log(`[cron ${automation}] publish result:`, JSON.stringify(result));
+      const result = await publishDuePins(client, { timeBudgetMs: 30_000 });
+      const shop = await publishDueShopPins(client, 15_000).catch((error) => {
+        console.error('[cron] shop publish failed:', error);
+        void reportError(error, { route: 'cron/publish-shop-pins' });
+        return { processed: 0, successful: 0, failed: 0, skipped: 'error' };
+      });
+      console.log(`[cron ${automation}] publish result:`, JSON.stringify({ ...result, shop }));
       // Housekeeping (Stripe webhook provisioning, subscription reconciliation) in the remaining budget.
       const maintenance = await runMaintenance(startedAt + 52_000).catch((error) => {
         console.error('[cron] maintenance failed:', error);
@@ -134,6 +140,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         task,
         caller: automation.split(':')[0],
         ...result,
+        shop,
         maintenance,
         timestamp: new Date().toISOString(),
       });
