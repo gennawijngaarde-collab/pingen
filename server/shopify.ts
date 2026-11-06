@@ -10,7 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { canonicalAppUrl, safeEqual } from './http.js';
 import { createServiceClient } from './publishScheduledPins.js';
 
-export const SHOPIFY_API_VERSION = '2026-01';
+export const SHOPIFY_API_VERSION = '2026-10';
 
 export const SHOP_PLANS = {
   shop_starter: { priceEur: 0, pins: 5, label: 'Starter' },
