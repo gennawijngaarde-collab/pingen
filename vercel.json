@@ -6,6 +6,7 @@
     "api/stripe/webhook.ts": { "maxDuration": 30 }
   },
   "rewrites": [
+    { "source": "/api/shopify/:section/:action", "destination": "/api/shopify/dispatch?section=:section&action=:action" },
     { "source": "/api/ai/status", "destination": "/api/config" },
     { "source": "/api/stripe/status", "destination": "/api/config" },
     { "source": "/api/pinterest/config", "destination": "/api/config" },

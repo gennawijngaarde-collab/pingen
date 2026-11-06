@@ -31,14 +31,26 @@ const routes: Record<string, Handler> = {
   webhooks,
 };
 
+function queryText(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value.filter(Boolean).join('/');
+  return typeof value === 'string' ? value : '';
+}
+
 function routeKey(req: ApiRequest): string {
-  const fromQuery = req.query?.path;
-  if (Array.isArray(fromQuery)) return fromQuery.join('/');
-  if (typeof fromQuery === 'string' && fromQuery) return fromQuery;
+  // Vercel matches only one segment of this catch-all. Nested routes are
+  // rewritten to /api/shopify/dispatch?section=&action= so the OAuth
+  // callback and the other two-segment paths stay on this single function.
+  const section = queryText(req.query?.section);
+  const action = queryText(req.query?.action);
+  if (section && action) return `${section}/${action}`;
+
+  const fromQuery = queryText(req.query?.path);
+  if (fromQuery && fromQuery !== 'dispatch') return fromQuery;
   const pathname = (req.url || '').split('?')[0];
   const marker = '/api/shopify/';
   const index = pathname.indexOf(marker);
-  return index >= 0 ? pathname.slice(index + marker.length).replace(/\/+$/, '') : '';
+  const fromPath = index >= 0 ? pathname.slice(index + marker.length).replace(/\/+$/, '') : '';
+  return fromPath === 'dispatch' ? '' : fromPath;
 }
 
 type RawRequest = ApiRequest & Partial<AsyncIterable<Buffer | string>>;
