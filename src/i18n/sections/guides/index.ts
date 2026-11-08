@@ -315,7 +315,7 @@ export function allGuidePaths(): string[] {
 
 /** Pages déjà publiées sur pingenx.io. Les guides s'ajoutent après, sans les retirer. */
 const EXISTING_SITEMAP_ENTRIES = [
-  { loc: `${COMPANY.siteUrl}/`, lastmod: '2026-10-28', changefreq: 'weekly', priority: '1.0' },
+  { loc: `${COMPANY.siteUrl}/`, lastmod: '2026-11-08', changefreq: 'weekly', priority: '1.0' },
   { loc: `${COMPANY.siteUrl}/signup`, lastmod: '2026-10-10', changefreq: 'monthly', priority: '0.8' },
   { loc: `${COMPANY.siteUrl}/login`, lastmod: '2026-10-08', changefreq: 'yearly', priority: '0.3' },
   { loc: `${COMPANY.siteUrl}/privacy`, lastmod: '2026-10-28', changefreq: 'yearly', priority: '0.3' },
