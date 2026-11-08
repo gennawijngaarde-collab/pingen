@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="genxGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B9EFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="50" cy="50" r="48" fill="url(#genxGradient)"/>
+  
+  <!-- Letter G -->
+  <path d="M 50 25 C 38 25 28 35 28 47 C 28 59 38 69 50 69 C 57 69 63 66 67 61 L 67 51 L 52 51 L 52 57 L 61 57 C 59 60 55 63 50 63 C 41 63 34 56 34 47 C 34 38 41 31 50 31 C 54 31 58 33 61 36 L 65 32 C 61 28 56 25 50 25 Z" 
+        fill="white" 
+        stroke="white" 
+        stroke-width="1.5"/>
+</svg>
