@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 import { PRODUCT } from './facts';
 import type { KeywordResearch, LanguagePack } from './types';
 
