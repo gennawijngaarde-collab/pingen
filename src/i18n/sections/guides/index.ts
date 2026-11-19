@@ -1,14 +1,21 @@
 import { COMPANY } from '../../../lib/company';
 import { enPack } from './en';
+import { frPack } from './fr';
+import { esPack } from './es';
+import { ptPack } from './pt';
+import { nlPack } from './nl';
 import { PUBLISHED_GUIDE_LANGUAGES } from './languages';
 import type { ArticleDraft, HubDraft, LanguagePack } from './types';
 
-const PACKS: readonly LanguagePack[] = [enPack];
+const PACKS: readonly LanguagePack[] = [enPack, frPack, esPack, ptPack, nlPack];
 
 const ARTICLE_CATEGORY = {
   'etsy-pinterest-marketing': 'etsy',
   'shopify-pinterest-marketing': 'shopify',
   'business-pinterest-marketing': 'business',
+  'amazon-affiliates-pinterest-marketing': 'business',
+  'bloggers-pinterest-marketing': 'business',
+  'content-creators-pinterest-marketing': 'business',
 } as const;
 
 const ARTICLE_SLUG: Record<LanguagePack['language'], Record<string, string>> = {
@@ -16,11 +23,30 @@ const ARTICLE_SLUG: Record<LanguagePack['language'], Record<string, string>> = {
     'etsy-pinterest-marketing': 'pinterest-marketing',
     'shopify-pinterest-marketing': 'pinterest-marketing',
     'business-pinterest-marketing': 'pinterest-for-small-business',
+    'amazon-affiliates-pinterest-marketing': 'pinterest-marketing-amazon-affiliates',
+    'bloggers-pinterest-marketing': 'pinterest-marketing-for-bloggers',
+    'content-creators-pinterest-marketing': 'pinterest-marketing-content-creators',
   },
-  fr: {},
-  es: {},
-  pt: {},
-  nl: {},
+  fr: {
+    'amazon-affiliates-pinterest-marketing': 'pinterest-affiliation-amazon',
+    'bloggers-pinterest-marketing': 'pinterest-pour-blogueurs',
+    'content-creators-pinterest-marketing': 'pinterest-createurs-contenu',
+  },
+  es: {
+    'amazon-affiliates-pinterest-marketing': 'marketing-pinterest-afiliados-amazon',
+    'bloggers-pinterest-marketing': 'pinterest-para-bloggers',
+    'content-creators-pinterest-marketing': 'pinterest-creadores-contenido',
+  },
+  pt: {
+    'amazon-affiliates-pinterest-marketing': 'pinterest-afiliados-amazon',
+    'bloggers-pinterest-marketing': 'pinterest-para-blogueiros',
+    'content-creators-pinterest-marketing': 'pinterest-criadores-conteudo',
+  },
+  nl: {
+    'amazon-affiliates-pinterest-marketing': 'pinterest-marketing-amazon-affiliates',
+    'bloggers-pinterest-marketing': 'pinterest-marketing-voor-bloggers',
+    'content-creators-pinterest-marketing': 'pinterest-marketing-content-creators',
+  },
 };
 
 const CATEGORY_SLUG: Record<LanguagePack['language'], Record<HubDraft['category'], string>> = {
